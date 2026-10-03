@@ -432,6 +432,8 @@
   function isMaster(){ return session && session.role === "master"; }
   function emp(id){ return state.employees.find(function(e){ return e.id === id; }); }
   function modalOpen(){ return $("modalRoot").innerHTML !== ""; }
+  /* The notice is stored as one hidden office record (works with every version of the Google script) */
+  var NOTICE_ID = "noticeboard";
 
   /* ---------- Employee designation & roles ----------
      Stored inside the existing "name" field as  Name§Designation§Role1|Role2
@@ -490,7 +492,9 @@
     state.users = (d.users || []).map(function(id){ return { id: id }; });
     state.events = d.events || [];
     state.assignments = d.assignments || [];
-    state.notice = d.notice || "";
+    var nev = null;
+    state.events = state.events.filter(function(x){ if(x.id === NOTICE_ID){ nev = x; return false; } return true; });
+    state.notice = nev ? (nev.note || "") : "";
     if(activeTab !== "dash" && activeTab !== "assign" && activeTab !== "amp" && activeTab !== "home" && activeTab !== "works" && !emp(activeTab)) activeTab = "dash";
   }
 
@@ -768,7 +772,10 @@
       c.textContent = n+" / "+NMAX+" characters"; c.style.color = n > NMAX ? "var(--red)" : "var(--muted)";
     }
     function save(v){
-      state.notice = v; closeModal(); commit([{ t:"notice.set", text:v }]); noticeShown = null; render();
+      state.notice = v; closeModal();
+      commit(v ? [{ t:"ev.put", ev:{ id:NOTICE_ID, scope:"office", date:today(), time:"", title:"NOTICE", cat:"other", note:v, created:1 } }]
+               : [{ t:"ev.del", id:NOTICE_ID }]);
+      noticeShown = null; render();
     }
     function draw(focusIdx){
       openModal('<h3>Notices</h3>'+
