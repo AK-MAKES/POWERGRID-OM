@@ -50,6 +50,17 @@
   .btn.small{padding:6px 11px;font-size:.85rem}
   .error{color:var(--red);font-size:.9rem;min-height:1.3em;margin:0 0 10px}
   .mode-note{margin:14px 0 0;font-size:.8rem;color:var(--muted)}
+  .linkbtn{display:block;margin:14px auto 0;padding:4px 8px;border:0;background:none;color:var(--steel-2);
+    font-size:.9rem;text-decoration:underline}
+  .linkbtn:hover{color:var(--steel)}
+  .okmsg{color:var(--green);font-size:.95rem;margin:0 0 12px}
+  .rqbox{margin:0 0 16px;padding:12px;border:1px solid var(--amber);background:var(--amber-bg);border-radius:4px}
+  .rqbox h4{margin:0 0 8px;font-size:.95rem}
+  .rqitem{padding:10px 0;border-top:1px solid #ecd9a0}
+  .rqitem:first-of-type{border-top:0}
+  .rqitem .row{margin:6px 0 0}
+  .rqitem small{color:var(--muted)}
+  .msgbox{padding:10px 12px;background:#f4f6f8;border:1px solid var(--line);border-radius:4px;font-size:.92rem;margin:0 0 12px;word-break:break-word}
 
   /* ---------- App ---------- */
   header.top{background:var(--steel);color:#fff;border-bottom:4px solid var(--amber)}
@@ -267,6 +278,7 @@
       </div>
       <p class="error" id="loginErr" role="alert"></p>
       <button class="btn wide" id="loginBtn" type="button">Sign in</button>
+      <button class="linkbtn" id="forgotBtn" type="button">Forgot password?</button>
       <p class="mode-note" id="modeNote"></p>
     </div>
   </div>
@@ -308,7 +320,7 @@
 
   /* ---------- State ---------- */
   var KEY = "kozhikode_ss_daily_work_v1";
-  var state = { employees: [], users: [], events: [], assignments: [] };
+  var state = { employees: [], users: [], events: [], assignments: [], resets: [] };
   var assignFilter = "all", assignTo = "", lastBy = "";
   var empView = "work";         // inside an employee tab: "work" or "cal"
   var dashPeriod = "today";     // dashboard range
@@ -469,6 +481,7 @@
     $("roleUser").classList.toggle("active", r==="user");
     $("roleMaster").classList.toggle("active", r==="master");
     $("loginErr").textContent = "";
+    $("forgotBtn").classList.toggle("hidden", r==="master");
     $("loginId").value = ""; $("loginPass").value = "";
     $("loginId").focus();
   }
@@ -486,9 +499,10 @@
     $("whoLabel").innerHTML = esc(id) + '<span class="badge">' + (isMaster() ? "MASTER" : "USER") + "</span>";
     setStatus("ok");
     render();
+    fetchResets();
     if(SYNC){
       clearInterval(pollTimer);
-      pollTimer = setInterval(function(){ if(!document.hidden) pull(); }, POLL_MS);
+      pollTimer = setInterval(function(){ if(!document.hidden){ pull(); fetchResets(); } }, POLL_MS);
     }
   }
 
@@ -517,12 +531,58 @@
   $("loginPass").addEventListener("keydown",function(e){ if(e.key==="Enter") doLogin(); });
   $("loginId").addEventListener("keydown",function(e){ if(e.key==="Enter") $("loginPass").focus(); });
 
+  /* ---------- Forgot password (user side) ---------- */
+  function forgotModal(){
+    openModal('<h3>Forgot password</h3>'+
+      '<p style="margin:0 0 12px;color:var(--muted);font-size:.92rem">Enter your User ID. A request will be sent to the master, who will set a new password and inform you.</p>'+
+      '<div class="field"><label for="fpId">User ID</label><input type="text" id="fpId" autocapitalize="off"></div>'+
+      '<p class="error" id="fpErr"></p><p class="okmsg" id="fpOk"></p>'+
+      '<div class="row"><button class="btn ghost" id="fpNo" type="button">Close</button><button class="btn" id="fpSend" type="button">Send request</button></div>');
+    $("fpId").value = $("loginId").value.trim();
+    $("fpId").focus();
+    $("fpNo").onclick = closeModal;
+    function send(){
+      var id = $("fpId").value.trim();
+      $("fpErr").textContent = ""; $("fpOk").textContent = "";
+      if(!id){ $("fpErr").textContent = "Enter your User ID first."; return; }
+      if(!SYNC){ $("fpErr").textContent = "Password requests need the shared server (not available in demo mode)."; return; }
+      var btn = $("fpSend"); btn.disabled = true; btn.textContent = "Sending…";
+      auth = null;
+      api({ action: "resetRequest", userId: id }).then(function(){
+        $("fpOk").textContent = "Request sent. The master will set a new password and inform you.";
+        btn.textContent = "Sent"; $("fpId").disabled = true;
+      }).catch(function(err){
+        $("fpErr").textContent = err.server
+          ? "Could not send the request ("+err.message+"). Please contact the master directly."
+          : "Cannot reach the server. Check your internet connection.";
+        btn.disabled = false; btn.textContent = "Send request";
+      });
+    }
+    $("fpSend").onclick = send;
+    $("fpId").addEventListener("keydown",function(e){ if(e.key==="Enter") send(); });
+  }
+  $("forgotBtn").onclick = forgotModal;
+
+  /* ---------- Password requests (master side) ---------- */
+  function updateResetBadge(){
+    var n = (state.resets||[]).length, b = $("manageUsersBtn");
+    b.innerHTML = "Manage logins" + (n ? ' <span class="badge" title="Password reset requests">'+n+'</span>' : "");
+  }
+  function fetchResets(){
+    if(!SYNC || !auth || !isMaster()) return;
+    api({ action: "resetList" }).then(function(r){
+      state.resets = r.json.requests || [];
+      updateResetBadge();
+    }).catch(function(){});
+  }
+
   function doLogout(msg){
     clearInterval(pollTimer);
     session = null; auth = null; queue = []; flushing = false; pendingRefresh = null;
     try{ sessionStorage.removeItem("kss_auth"); }catch(e){}
     closeModal();
-    if(SYNC){ state = { employees: [], users: [], events: [], assignments: [] }; lastText = ""; }
+    if(SYNC){ state = { employees: [], users: [], events: [], assignments: [], resets: [] }; lastText = ""; }
+    updateResetBadge();
     $("appView").classList.add("hidden");
     $("loginView").classList.remove("hidden");
     setRole("user");
@@ -1224,7 +1284,14 @@
         return '<li><span>'+esc(u.id)+' <small>(password set)</small></span>'+
           '<button class="btn danger small" data-rm="'+i+'" type="button">Remove</button></li>';
       }).join("") || '<li><small>No user logins. Add one below.</small></li>';
-      openModal('<h3>Manage user logins</h3>'+
+      var rq = (state.resets||[]).map(function(r,i){
+        return '<div class="rqitem"><b>'+esc(r.userId)+'</b> <small>requested '+esc(fmtStamp(r.time))+'</small>'+
+          '<div class="row"><input type="text" id="rqPw'+i+'" placeholder="New password">'+
+          '<button class="btn small" data-rqset="'+i+'" type="button">Set</button>'+
+          '<button class="btn ghost small" data-rqdis="'+i+'" type="button">Dismiss</button></div></div>';
+      }).join("");
+      var rqHtml = rq ? '<div class="rqbox"><h4>Password reset requests</h4>'+rq+'</div>' : "";
+      openModal('<h3>Manage user logins</h3>'+rqHtml+
         '<ul class="ulist">'+li+'</ul>'+
         '<div class="row"><div><label for="nuId">New user ID</label><input type="text" id="nuId" autocapitalize="off"></div>'+
         '<div><label for="nuPw">Password</label><input type="text" id="nuPw"></div></div>'+
@@ -1240,6 +1307,23 @@
         state.users.push(SYNC ? { id:id } : { id:id, pass:pw });
         commit([{ t:"user.put", id:id, pass:pw }]); body("");
       };
+      Array.prototype.forEach.call(document.querySelectorAll("[data-rqset]"),function(b){
+        b.onclick = function(){
+          var i = +b.getAttribute("data-rqset"), r = state.resets[i], pw = $("rqPw"+i).value;
+          var u = state.users.find(function(x){ return x.id.toLowerCase() === String(r.userId).toLowerCase(); });
+          if(!u){ body('No user "'+r.userId+'" exists. Dismiss this request or add the user below.'); return; }
+          if(!pw){ body("Type a new password for "+u.id+" first."); return; }
+          commit([{ t:"user.put", id:u.id, pass:pw }]);
+          clearReset(r); state.resets.splice(i,1); updateResetBadge();
+          resetDone(u.id, pw);
+        };
+      });
+      Array.prototype.forEach.call(document.querySelectorAll("[data-rqdis]"),function(b){
+        b.onclick = function(){
+          var i = +b.getAttribute("data-rqdis"), r = state.resets.splice(i,1)[0];
+          clearReset(r); updateResetBadge(); body("");
+        };
+      });
       Array.prototype.forEach.call(document.querySelectorAll("[data-rm]"),function(b){
         b.onclick = function(){
           var u = state.users.splice(+b.getAttribute("data-rm"),1)[0];
@@ -1248,6 +1332,24 @@
       });
     }
     body("");
+  }
+  function clearReset(r){ if(SYNC && r && r.id) api({ action: "resetClear", id: r.id }).catch(function(){}); }
+
+  function resetDone(userId,pw){
+    var msg = "Your KOZHIKODE SS password has been reset.\nUser ID: "+userId+"\nNew password: "+pw;
+    openModal('<h3>Password updated</h3>'+
+      '<p class="okmsg">New password set for '+esc(userId)+'. Now inform the user:</p>'+
+      '<div class="msgbox" id="rdMsg">'+esc(msg).replace(/\n/g,"<br>")+'</div>'+
+      '<div class="row"><button class="btn ghost" id="rdCopy" type="button">Copy message</button>'+
+      '<a class="btn" id="rdWa" target="_blank" rel="noopener" style="text-align:center;text-decoration:none" href="https://wa.me/?text='+encodeURIComponent(msg)+'">WhatsApp</a></div>'+
+      '<div class="row"><button class="btn" id="rdBack" type="button">Back to logins</button></div>');
+    $("rdCopy").onclick = function(){
+      var done = function(){ $("rdCopy").textContent = "Copied"; };
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(msg).then(done,function(){}); }
+      else{ var t = document.createElement("textarea"); t.value = msg; document.body.appendChild(t); t.select();
+            try{ document.execCommand("copy"); done(); }catch(e){} document.body.removeChild(t); }
+    };
+    $("rdBack").onclick = usersModal;
   }
   $("manageUsersBtn").onclick = usersModal;
 
