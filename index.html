@@ -259,7 +259,7 @@
   .notice-view{flex:1;min-width:0;overflow:hidden;padding:10px 0;
     -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
     mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%)}
-  .notice-track{display:inline-block;white-space:nowrap;padding-left:100%;animation:nscroll var(--dur,25s) linear infinite;will-change:transform}
+  .notice-track{display:inline-block;white-space:nowrap;padding-left:100%;animation:nscroll var(--dur,60s) linear infinite;will-change:transform}
   .notice-view:hover .notice-track{animation-play-state:paused}
   .notice-text{display:inline-block;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:1.08rem;
     letter-spacing:.7px;color:#f7dd8c;animation:nflash 1.9s ease-in-out infinite}
@@ -510,12 +510,15 @@
     state.contracts = d.contracts || [];
     state.amcUsers = d.amcUsers || [];
     state.amcWorks = d.amcWorks || [];
+    state.amcStaff = d.amcStaff || [];
+    state.amcTransfers = d.amcTransfers || [];
+    state.amcEmployees = d.amcEmployees || [];
     var nev = null;
     state.events = state.events.filter(function(x){ if(x.id === NOTICE_ID){ nev = x; return false; } return true; });
     state.notice = nev ? (nev.note || "") : "";
     if(isSupport()){
       if(activeTab !== "home") activeTab = "home";
-    } else if(activeTab !== "dash" && activeTab !== "assign" && activeTab !== "amp" && activeTab !== "home" && activeTab !== "works" && activeTab !== "contracts" && !emp(activeTab)) activeTab = "dash";
+    } else if(activeTab !== "dash" && activeTab !== "assign" && activeTab !== "amp" && activeTab !== "amc" && activeTab !== "home" && activeTab !== "works" && activeTab !== "contracts" && !emp(activeTab)) activeTab = "dash";
   }
 
   // Contracts & AMC admin responses include direct contracts/users arrays as well as a snapshot.
@@ -580,6 +583,10 @@
     var n = queue.length, batch = queue.slice(0,n);
     api({ action: "ops", ops: batch }).then(function(r){
       queue.splice(0,n); flushing = false;
+      var lost = batch.filter(function(o){ return o.t==='emp.put' && !((r.json.data||{}).employees||[]).some(function(e){ return String(e.id)===String(o.emp.id) && parseEmp(e.name).name === parseEmp(o.emp.name).name; }); });
+      if(lost.length){
+        try{ alert("The server replied OK but did NOT save the employee correctly.\n\nThe Apps Script deployed on Google is probably an old version. Paste the new Code.gs and use Deploy > Manage deployments > Edit > New version > Deploy."); }catch(e){}
+      }
       if(queue.length){ flush(); return; }
       lastText = r.text; setStatus("ok");
       if(!modalOpen()){ applyData(r.json.data); softRender(); }
@@ -659,9 +666,9 @@
     setStatus("ok");
     render();
     if(SYNC){
-      ampFetch();
+      if(!isSupport()) ampFetch();
       clearInterval(pollTimer);
-      pollTimer = setInterval(function(){ if(!document.hidden){ pull(); if(activeTab === "amp" || activeTab === "home") ampFetch(); } }, POLL_MS);
+      pollTimer = setInterval(function(){ if(!document.hidden){ pull(); if(!isSupport() && (activeTab === "amp" || activeTab === "home")) ampFetch(); } }, POLL_MS);
     }
   }
 
@@ -680,7 +687,10 @@
     api({ action: "login" }).then(function(r){
       try{ sessionStorage.setItem("kss_auth", JSON.stringify(auth)); }catch(e){}
       applyData(r.json.data); lastText = r.text;
-      enterApp(auth.role, auth.id, r.json.user);
+      enterApp(r.json.role || auth.role, auth.id, r.json.user);
+      if(!r.json.ver && auth.role === "master"){
+        setTimeout(function(){ try{ alert("OLD BACKEND DETECTED.\n\nThis page is connected to an old version of the Google Apps Script, so new employees will save with a blank name.\n\nFix: in Apps Script paste the v4 Code.gs, then Deploy > Manage deployments > pencil icon > Version: New version > Deploy. Do NOT use 'New deployment' (that changes the URL)."); }catch(e){} }, 300);
+      }
     }).catch(function(err){
       auth = null;
       $("loginErr").textContent = err.server
@@ -768,7 +778,7 @@
       if(saved){
         auth = saved;
         api({ action: "login" }).then(function(r){
-          applyData(r.json.data); lastText = r.text; enterApp(auth.role, auth.id, r.json.user);
+          applyData(r.json.data); lastText = r.text; enterApp(r.json.role || auth.role, auth.id, r.json.user);
         }).catch(function(){ auth = null; });
       }
     }catch(e){}
@@ -812,7 +822,7 @@
     bar.classList.remove("hidden");
     var track = $("noticeTrack");
     track.style.animation = "none"; void track.offsetWidth;       // restart from the right edge
-    track.style.setProperty("--dur", Math.max(10, Math.round(track.offsetWidth / 85)) + "s");
+    track.style.setProperty("--dur", Math.max(45, Math.round(track.offsetWidth / 35)) + "s");   // ~35 px/s (slow, easy to read)
     track.style.animation = "";
   }
 
@@ -887,6 +897,41 @@
     notice:'<svg viewBox="0 0 24 24"><path d="M4 10v4h3l7 4V6L7 10H4zM17.5 9a4 4 0 010 6"/></svg>'
   };
 
+
+  /* ---------- Support Staff home: name linked to the contract, notice board, office calendar (read-only) ---------- */
+  function renderSupportHome(){
+    var p = $("panel"), t = today(), hr = new Date().getHours();
+    var greet = hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening";
+    var me = session ? session.id : "";
+    var au = (state.amcUsers || []).find(function(u){ return u.id === me; }) || {};
+    var nm = au.displayName || (session && session.displayName) || me;
+    var ct = (state.contracts || []).find(function(c){ return c.id === (au.contractId || (session && session.contractId)); }) || null;
+    var notes = allNoticeItems();
+    var h = '<div class="hero"><h3>'+greet+', '+esc(nm)+'</h3><span class="sub">User ID: '+esc(me)+' &middot; '+esc(dayLabel(t))+'</span></div>';
+    if(ct){
+      h += '<p style="margin:0 0 12px;color:var(--muted);font-size:.92rem"><b>Contract:</b> '+esc(ct.name)+
+           (ct.agency ? ' &middot; '+esc(ct.agency) : '')+(ct.number ? ' &middot; No. '+esc(ct.number) : '')+
+           ((ct.from||ct.to) ? ' &middot; '+esc(fmtDate(ct.from))+' to '+esc(fmtDate(ct.to)) : '')+'</p>';
+    }
+    h += '<div class="nboard"><div class="nh"><h4>&#9670; Notice board</h4></div>'+
+         (notes.length ? '<ul>'+notes.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join("")+'</ul>' : '<div class="none">No notices right now.</div>')+'</div>';
+    var staff = state.amcStaff || [];
+    h += '<h3 class="sec">AMC staff of your contract</h3>';
+    if(!staff.length) h += '<div class="empty">No AMC staff have been added for your contract yet.</div>';
+    else {
+      h += '<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Skill</th><th>Working under</th><th>Status</th><th></th></tr></thead><tbody>'+
+        staff.map(function(s,i){
+          return '<tr class="'+(s.done?'done':'')+'"><td>'+(i+1)+'</td><td><b>'+esc(s.name)+'</b></td><td>'+esc(s.skill)+'</td><td>'+esc(s.workingUnderName)+'</td>'+
+            amcStatusCell(s,false)+'<td class="act" style="width:auto"><button class="btn ghost small" data-xfer="'+esc(s.id)+'" type="button">Transfer</button></td></tr>';
+        }).join("")+'</tbody></table></div>';
+    }
+    h += amcHistoryHTML();
+    h += '<h3 class="sec" id="officeCal">Office calendar</h3><p style="margin:-4px 0 12px;color:var(--muted);font-size:.9rem">Office events set by Master. Click a date to see details.</p>'+calHTML("office");
+    p.innerHTML = h;
+    bindAmcRows(p);
+    bindCal("office", p);
+  }
+
   function renderHome(){
     if(isSupport()){ renderSupportHome(); return; }
     var p = $("panel"), t = today(), me = session ? session.id : "", hr = new Date().getHours();
@@ -908,11 +953,13 @@
            (isMaster() ? '<button class="btn ghost small" data-go="notices" type="button">'+(notes.length?'Edit notices':'Add notice')+'</button>' : '')+'</div>'+
            (notes.length ? '<ul>'+notes.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join("")+'</ul>' : '<div class="none">No notices right now.</div>')+'</div>';
     }
+    var amcAll = state.amcStaff || [], amcPend = amcAll.filter(function(x){ return !x.done; }).length;
     var cards = [
       { go:"dash",   ic:"dash",   cls:"",      t:"Dashboard",    s: tw ? td+" of "+tw+" works done today ("+pctOf(td,tw)+"%)" : "Progress, trends and office calendar" },
       { go:"works",  ic:"works",  cls:"green", t:"Daily Works",  s: (tw-td)+" pending today across "+state.employees.length+" employees" },
       { go:"assign", ic:"assign", cls:"amber", t:"Assignments",  s: aOpen+" open"+(aOver ? ", "+aOver+" overdue" : "") },
       { go:"amp",    ic:"amp",    cls:"",      t:"AMP",          s: mAmp.length ? mPend+" open this month, "+sa.pct+"% ODR_CLSD" : "No plans due this month" },
+      { go:"amc",    ic:"users",  cls:"green", t:"AMC",          s: amcAll.length ? amcAll.length+" AMC staff, "+amcPend+" pending" : "AMC staff and activities" },
       { go:"cal",    ic:"cal",    cls:"grey",  t:"Office Calendar", s: evN+" office event"+(evN===1?"":"s")+" this month" }
     ];
     if(isMaster()){
@@ -938,6 +985,136 @@
         if(go === "cal"){ var el = $("officeCal"); if(el && el.scrollIntoView) el.scrollIntoView({ behavior:"smooth" }); }
       };
     });
+  }
+
+
+  /* ---------- AMC staff: table of AMC people who get work ---------- */
+  var AMC_SKILLS = ["HIGHLY SKILLED","SKILLED","SEMI-SKILLED","UN-SKILLED"];
+  var amcFilter = "all";
+  function contractName(id){ var c = (state.contracts||[]).find(function(x){ return x.id === id; }); return c ? c.name : "—"; }
+
+  function amcCall(body){
+    if(!SYNC){ try{ alert("AMC staff needs the Google Sheet connection (Web App URL)."); }catch(e){} return; }
+    version++; setStatus("saving");
+    api(body).then(function(r){
+      lastText = ""; applyData(r.json.data); setStatus("ok");
+      if(!modalOpen()) softRender();
+    }).catch(function(err){
+      if(err && err.server && err.message === "auth"){ onSyncError(err); return; }
+      setStatus(err && err.server ? "error" : "offline", err && err.server ? err.message : "");
+      try{ alert(err && err.server ? "Not saved: "+err.message : "Could not reach the server. Please try again."); }catch(e){}
+    });
+  }
+
+  function amcStatusCell(s, canTick){
+    return '<td style="white-space:nowrap">'+
+      (canTick ? '<input type="checkbox" data-adone="'+esc(s.id)+'" '+(s.done?'checked':'')+' aria-label="Mark complete"> ' : '')+
+      '<b>'+(s.done?'Done':'Pending')+'</b>'+
+      (s.done && s.doneAt ? '<span class="doneat">Completed '+fmtStamp(s.doneAt)+'</span>' : '')+
+      (s.done && s.comment ? '<span class="cmt">Comment: '+esc(s.comment)+'</span>' : '')+'</td>';
+  }
+  function amcHistoryHTML(){
+    var t = (state.amcTransfers||[]).slice(0,15);
+    if(!t.length) return "";
+    return '<h3 class="sec">Recent transfers</h3><div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>AMC staff</th><th>From</th><th>To</th><th>By (AMC login)</th></tr></thead><tbody>'+
+      t.map(function(x){ return '<tr><td>'+esc(fmtDate(x.date))+'</td><td>'+esc(x.staffName)+'</td><td>'+esc(x.fromName)+'</td><td>'+esc(x.toName)+'</td><td>'+esc(x.by)+'</td></tr>'; }).join("")+
+      '</tbody></table></div>';
+  }
+  function amcStaffById(id){ return (state.amcStaff||[]).find(function(x){ return x.id === id; }); }
+
+  function renderAmc(){
+    var p = $("panel"), master = isMaster();
+    var list = (state.amcStaff||[]).filter(function(s){ return amcFilter === "all" || s.contractId === amcFilter; });
+    var pend = list.filter(function(s){ return !s.done; }).length;
+    var h = '<div class="panel-head"><h3>AMC activities</h3><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+      '<span style="color:var(--muted)">'+list.length+' AMC staff &middot; '+pend+' pending</span>'+
+      (master ? '<button class="btn small" id="amcAdd" type="button">+ Add AMC staff</button>' : '')+'</div></div>';
+    if((state.contracts||[]).length > 1){
+      h += '<div class="filters"><select id="amcFilter" aria-label="Filter by contract"><option value="all">All contracts</option>'+
+        state.contracts.map(function(c){ return '<option value="'+esc(c.id)+'"'+(amcFilter===c.id?' selected':'')+'>'+esc(c.name)+'</option>'; }).join("")+'</select></div>';
+    }
+    if(!list.length){
+      h += '<div class="empty">No AMC staff yet.'+(master ? ' Use “+ Add AMC staff” above.' : '')+'</div>';
+    } else {
+      h += '<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Skill</th><th>Contract</th><th>Working under</th><th>Status</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
+      list.forEach(function(s,i){
+        h += '<tr class="'+(s.done?'done':'')+'"><td>'+(i+1)+'</td><td><b>'+esc(s.name)+'</b></td><td>'+esc(s.skill)+'</td><td>'+esc(contractName(s.contractId))+'</td>'+
+          '<td>'+esc(s.workingUnderName)+'</td>'+amcStatusCell(s, true)+
+          (master ? '<td class="act" style="width:auto"><button class="btn ghost small" data-aedit="'+esc(s.id)+'" type="button">Edit</button> <button class="btn danger small" data-adel="'+esc(s.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
+      });
+      h += '</tbody></table></div><p style="color:var(--muted);font-size:.85rem;margin-top:8px">“Working under” can be changed only by the AMC login (transfer).</p>';
+    }
+    h += amcHistoryHTML();
+    p.innerHTML = h;
+    var ad = $("amcAdd"); if(ad) ad.onclick = function(){ amcFormModal({}); };
+    var af = $("amcFilter"); if(af) af.onchange = function(){ amcFilter = af.value; renderPanel(); };
+    bindAmcRows(p);
+  }
+  function bindAmcRows(p){
+    Array.prototype.forEach.call(p.querySelectorAll("[data-adone]"),function(c){
+      c.onchange = function(){
+        var s = amcStaffById(c.getAttribute("data-adone")); if(!s) return;
+        if(c.checked){ c.checked = false; amcCompleteModal(s); }
+        else amcCall({ action:"amcStaffStatus", id:s.id, done:false });
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-aedit]"),function(b){
+      b.onclick = function(){ var s = amcStaffById(b.getAttribute("data-aedit")); if(s) amcFormModal(s); };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-adel]"),function(b){
+      b.onclick = function(){
+        var s = amcStaffById(b.getAttribute("data-adel")); if(!s) return;
+        confirmModal("Delete AMC staff “"+s.name+"”?", function(){ amcCall({ action:"amcStaffDel", id:s.id }); });
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-xfer]"),function(b){
+      b.onclick = function(){ var s = amcStaffById(b.getAttribute("data-xfer")); if(s) amcTransferStaffModal(s); };
+    });
+  }
+  function amcCompleteModal(s){
+    openModal('<h3>Mark work as complete</h3><p style="margin-top:0"><b>'+esc(s.name)+'</b> &middot; working under '+esc(s.workingUnderName)+'</p>'+
+      '<div class="field"><label for="acText">Comment (optional)</label><textarea id="acText" maxlength="300" placeholder="e.g. Cleaning of control room completed"></textarea></div>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Mark complete</button></div>');
+    $("acText").focus(); $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){ var c = $("acText").value.trim(); closeModal(); amcCall({ action:"amcStaffStatus", id:s.id, done:true, comment:c }); };
+  }
+  function amcFormModal(cur){
+    var isNew = !cur.id, cons = state.contracts||[];
+    if(!cons.length){ openModal('<h3>Add AMC staff</h3><p>Add a contract first (Home &rarr; Contracts &amp; AMC).</p><div class="row"><button class="btn" id="mNo" type="button">OK</button></div>'); $("mNo").onclick = closeModal; return; }
+    if(isNew && !state.employees.length){ openModal('<h3>Add AMC staff</h3><p>Add a POWERGRID employee first.</p><div class="row"><button class="btn" id="mNo" type="button">OK</button></div>'); $("mNo").onclick = closeModal; return; }
+    openModal('<h3>'+(isNew?'Add AMC staff':'Edit AMC staff')+'</h3>'+
+      '<div class="field"><label for="amName">Name</label><input type="text" id="amName" maxlength="100" value="'+esc(cur.name||"")+'"></div>'+
+      '<div class="field"><label for="amSkill">Skill</label><select id="amSkill"><option value="">Select skill</option>'+
+        AMC_SKILLS.map(function(k){ return '<option value="'+k+'"'+(cur.skill===k?' selected':'')+'>'+k+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="amCon">Contract</label><select id="amCon"><option value="">Select contract</option>'+
+        cons.map(function(c){ return '<option value="'+esc(c.id)+'"'+(cur.contractId===c.id?' selected':'')+'>'+esc(c.name)+'</option>'; }).join("")+'</select></div>'+
+      (isNew ? '<div class="field"><label for="amUnder">Working under</label><select id="amUnder"><option value="">Select employee</option>'+
+        state.employees.map(function(e){ return '<option value="'+esc(e.id)+'">'+esc(e.name)+(e.desig?' ('+esc(e.desig)+')':'')+'</option>'; }).join("")+'</select></div>'
+             : '<p style="color:var(--muted)">Working under: <b>'+esc(cur.workingUnderName||"")+'</b><br><small>Only the AMC login can transfer this.</small></p>')+
+      '<p class="error" id="amErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+    $("amName").focus(); $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var name = $("amName").value.replace(/\s+/g," ").trim(), skill = $("amSkill").value, con = $("amCon").value, under = isNew ? $("amUnder").value : "";
+      if(!name){ $("amErr").textContent = "Enter the name."; return; }
+      if(!skill){ $("amErr").textContent = "Select the skill."; return; }
+      if(!con){ $("amErr").textContent = "Select the contract."; return; }
+      if(isNew && !under){ $("amErr").textContent = "Select who this person works under."; return; }
+      closeModal();
+      amcCall({ action:"amcStaffPut", staff:{ id: cur.id || uid(), name:name, skill:skill, contractId:con, workingUnder:under } });
+    };
+  }
+  function amcTransferStaffModal(s){
+    var opts = (state.amcEmployees||[]).filter(function(e){ return e.id !== s.workingUnder; });
+    openModal('<h3>Transfer AMC staff</h3><p style="margin-top:0"><b>'+esc(s.name)+'</b> currently works under <b>'+esc(s.workingUnderName)+'</b>.</p>'+
+      '<div class="field"><label for="axTo">Transfer to</label><select id="axTo"><option value="">Select employee</option>'+
+        opts.map(function(e){ return '<option value="'+esc(e.id)+'">'+esc(e.name)+'</option>'; }).join("")+'</select></div>'+
+      '<p class="error" id="axErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Transfer</button></div>');
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var to = $("axTo").value; if(!to){ $("axErr").textContent = "Select an employee."; return; }
+      closeModal(); amcCall({ action:"amcStaffTransfer", id:s.id, employeeId:to });
+    };
   }
 
   function renderWorks(){
@@ -974,7 +1151,8 @@
       html += '<button type="button" class="tab'+(activeTab==="dash"?" active":"")+'" data-tab="dash">Dashboard</button>'+
               '<button type="button" class="tab'+(activeTab==="works"?" active":"")+'" data-tab="works">Daily Works</button>'+
               '<button type="button" class="tab'+(activeTab==="assign"?" active":"")+'" data-tab="assign">Assignments</button>'+
-              '<button type="button" class="tab'+(activeTab==="amp"?" active":"")+'" data-tab="amp">AMP</button>';
+              '<button type="button" class="tab'+(activeTab==="amp"?" active":"")+'" data-tab="amp">AMP</button>'+
+              '<button type="button" class="tab'+(activeTab==="amc"?" active":"")+'" data-tab="amc">AMC</button>';
     }
     $("tabs").innerHTML = html;
     Array.prototype.forEach.call($("tabs").querySelectorAll("[data-tab]"),function(b){
@@ -1636,6 +1814,7 @@
     if(activeTab === "dash"){ renderDashboard(); return; }
     if(activeTab === "assign"){ renderAssignments(); return; }
     if(activeTab === "amp"){ renderAmp(); return; }
+    if(activeTab === "amc"){ renderAmc(); return; }
     if(activeTab === "contracts"){ contractsModal(); activeTab = "home"; return; }
     if(isSupport()){ renderSupportHome(); return; }
     var e = emp(activeTab), p = $("panel");
@@ -1828,7 +2007,10 @@
       var n = { id: uid(), userId: v.userId, name: v.name, desig: v.desig, roles: v.roles, works: [] };
       state.employees.push(n); activeTab = n.id;
       if(!state.users.some(function(u){ return u.id === n.userId; })) state.users.push({id:n.userId,pass:"",role:"user"});
-      commit([{ t:"emp.put", emp:{ id:n.id, userId:n.userId, name:encEmp(n) } }]); render();
+      // The server response is the source of truth. Do not force a second render here;
+      // flush() will apply the saved snapshot after the backend confirms the write.
+      commit([{ t:"emp.put", emp:{ id:n.id, userId:n.userId, name:encEmp(n) } }]);
+      render();   // show the new employee immediately; the server reply then confirms it
     });
   }
   function empFormModal(title, cur, onSave){
