@@ -222,6 +222,71 @@
   .late-t{display:block;font-size:.78rem;font-weight:700;color:var(--red)}
   .atable td{font-size:.93rem}
 
+  /* ---- home screen ---- */
+  .hero{margin-bottom:14px}
+  .hero h3{margin:0;font-size:1.45rem;color:var(--steel)}
+  .hero .sub{color:var(--muted);font-size:.92rem}
+  .nboard{border:1px solid var(--line);border-left:5px solid var(--amber);background:linear-gradient(90deg,#fffaf0,#fff);border-radius:6px;padding:12px 16px;margin-bottom:6px}
+  .nboard .nh{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}
+  .nboard h4{margin:0;font-size:.82rem;letter-spacing:2px;text-transform:uppercase;color:#6b4800}
+  .nboard ul{list-style:none;margin:0;padding:0}
+  .nboard li{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:1.02rem;padding:5px 0 5px 20px;position:relative;border-top:1px dashed #ecd9a0}
+  .nboard li:first-child{border-top:0}
+  .nboard li::before{content:"\25C6";position:absolute;left:0;top:7px;color:var(--amber);font-size:.7em;font-style:normal}
+  .nboard .none{color:var(--muted);font-size:.92rem}
+  .hgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:14px 0 6px}
+  .hcard{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left;padding:18px;border:1px solid var(--line);
+    border-top:4px solid var(--steel);border-radius:8px;background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.06);
+    transition:transform .15s,box-shadow .15s}
+  .hcard:hover{transform:translateY(-3px);box-shadow:0 8px 18px rgba(31,58,82,.16)}
+  .hcard .ic{width:46px;height:46px;border-radius:11px;background:var(--steel);color:#fff;display:grid;place-items:center;font-weight:700;font-size:1.15rem}
+  .hcard .ic svg{width:25px;height:25px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .hcard b{font-size:1.12rem;color:var(--steel)}
+  .hcard small{color:var(--muted);font-size:.86rem;line-height:1.35}
+  .hcard.amber{border-top-color:var(--amber)} .hcard.amber .ic{background:var(--amber);color:#2a2000}
+  .hcard.green{border-top-color:var(--green)} .hcard.green .ic{background:var(--green)}
+  .hcard.grey{border-top-color:#6b7b89} .hcard.grey .ic{background:#6b7b89}
+
+  /* ---- notice ticker ---- */
+  .notice{display:flex;align-items:stretch;background:linear-gradient(90deg,#0c1d2c 0%,#1f3a52 50%,#0c1d2c 100%);
+    border-bottom:2px solid var(--amber);box-shadow:0 2px 8px rgba(0,0,0,.18)}
+  .notice-tag{flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:0 16px 0 14px;background:var(--amber);color:#2a2000;
+    font-weight:800;letter-spacing:2.5px;font-size:.74rem;position:relative;z-index:1;
+    clip-path:polygon(0 0,100% 0,calc(100% - 10px) 50%,100% 100%,0 100%)}
+  .notice-view{flex:1;min-width:0;overflow:hidden;padding:10px 0;
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
+    mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%)}
+  .notice-track{display:inline-block;white-space:nowrap;padding-left:100%;animation:nscroll var(--dur,25s) linear infinite;will-change:transform}
+  .notice-view:hover .notice-track{animation-play-state:paused}
+  .notice-text{display:inline-block;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:1.08rem;
+    letter-spacing:.7px;color:#f7dd8c;animation:nflash 1.9s ease-in-out infinite}
+  .notice-text::before,.ni::after{content:"\25C6";color:var(--amber);font-style:normal;font-size:.7em;margin:0 16px;vertical-align:middle}
+  @keyframes nscroll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+  @keyframes nflash{0%,100%{opacity:1;text-shadow:0 0 10px rgba(224,161,0,.75)}50%{opacity:.5;text-shadow:0 0 0 rgba(224,161,0,0)}}
+  @media(prefers-reduced-motion:reduce){
+    .notice-track{animation:none;padding:0 14px;white-space:normal;display:block}
+    .notice-text{animation:none}
+  }
+
+  /* ---- AMP ---- */
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-bottom:16px}
+  .pcard{border:1px solid var(--line);border-top:4px solid var(--steel);border-radius:6px;padding:10px 12px;background:#fff}
+  .pcard h5{margin:0 0 4px;font-size:.85rem;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .pcard .pv{display:flex;align-items:baseline;gap:8px}
+  .pcard .pv b{font-size:1.7rem;line-height:1.1}
+  .pcard .pv span{font-size:.82rem;color:var(--muted)}
+  .pcard .progress{margin:6px 0 0}
+  .pcard input[type=date]{width:auto;padding:3px 6px;font-size:.85rem}
+  .atable select.stsel{width:auto;padding:4px 8px}
+
+  .desig{display:block;font-size:.72rem;font-weight:500;color:var(--muted);line-height:1.2;margin-top:1px}
+  .hcard .desig{color:#6b4800}
+  .roletxt{display:block;font-size:.72rem;color:var(--steel-2);line-height:1.3}
+  .chkgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin:4px 0 10px;padding:10px;border:1px solid var(--line);border-radius:4px;background:#f5f7f9}
+  .chkitem{display:flex;align-items:center;gap:7px;margin:0;font-weight:400;font-size:.88rem;cursor:pointer}
+  .chkitem input{width:17px;height:17px;flex:0 0 auto}
+  @media(max-width:480px){.chkgrid{grid-template-columns:1fr}}
+
   /* Modal */
   .overlay{position:fixed;inset:0;background:rgba(10,20,30,.55);display:grid;place-items:center;padding:16px;z-index:50}
   .modal{background:#fff;border-radius:6px;width:100%;max-width:480px;max-height:90vh;overflow:auto;padding:22px}
@@ -229,7 +294,8 @@
   .modal .row{display:flex;gap:10px;margin-bottom:10px}
   .modal .row>*{flex:1}
   .ulist{margin:14px 0;padding:0;list-style:none;border:1px solid var(--line);border-radius:4px}
-  .ulist li{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)}
+  .ulist li{display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)}
+  code{background:#f1f5f2;padding:1px 6px;border-radius:3px;font-size:.92em}
   .ulist li:last-child{border-bottom:0}
   .ulist small{color:var(--muted)}
 
@@ -278,7 +344,7 @@
       </div>
       <p class="error" id="loginErr" role="alert"></p>
       <button class="btn wide" id="loginBtn" type="button">Sign in</button>
-      <button class="linkbtn" id="forgotBtn" type="button">Forgot password?</button>
+      <button class="linkbtn" id="forgotBtn" type="button">Forgot / change password?</button>
       <p class="mode-note" id="modeNote"></p>
     </div>
   </div>
@@ -291,10 +357,12 @@
       <h2>KOZHIKODE SS – Daily Work Manager</h2>
       <span class="sync" id="syncPill" role="button" tabindex="0" title="Click to refresh now"></span>
       <span class="who" id="whoLabel"></span>
+      <button class="btn small hidden" id="noticeBtn" type="button">Set notice</button>
       <button class="btn small hidden" id="manageUsersBtn" type="button">Manage logins</button>
       <button class="btn small" id="logoutBtn" type="button">Log out</button>
     </div>
   </header>
+  <div class="notice hidden" id="noticeBar" role="marquee" aria-label="Notice from Manager"><span class="notice-tag">&#9733; NOTICE</span><div class="notice-view"><div class="notice-track" id="noticeTrack"><span class="notice-text" id="noticeText"></span></div></div></div>
   <main>
     <div class="tabs" id="tabs"></div>
     <div class="panel" id="panel"></div>
@@ -320,7 +388,7 @@
 
   /* ---------- State ---------- */
   var KEY = "kozhikode_ss_daily_work_v1";
-  var state = { employees: [], users: [], events: [], assignments: [], resets: [] };
+  var state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "" };
   var assignFilter = "all", assignTo = "", lastBy = "";
   var empView = "work";         // inside an employee tab: "work" or "cal"
   var dashPeriod = "today";     // dashboard range
@@ -328,6 +396,10 @@
   var session = null;           // { role, id }
   var auth = null;              // { role, id, pass } (sync mode)
   var activeTab = null;
+  var ampBusy = 0, ampChain = Promise.resolve(), ampText = "";
+  var ampMonth = null, ampUpTo = "", ampFilter = "all";
+  var noticeShown = null;       // last banner text drawn (avoids restarting the animation)
+  var userPass = null;          // master only: { userId: password }
   var filter = "all";
   var loginRole = "user";
   var viewDate = today();
@@ -361,14 +433,32 @@
   function emp(id){ return state.employees.find(function(e){ return e.id === id; }); }
   function modalOpen(){ return $("modalRoot").innerHTML !== ""; }
 
+  /* ---------- Employee designation & roles ----------
+     Stored inside the existing "name" field as  Name§Designation§Role1|Role2
+     so the Google Apps Script backend needs no change. */
+  var DESIGS = ["Apprentice/Intern","Technician","Junior Engineer","Engineer","Assistant Manager","Deputy Manager","Manager","Chief Manager","DGM","Sr. DGM","GM","Sr. GM","CGM"];
+  var ROLES = ["HR","SAFETY","IT","GUESTHOUSE","STORE","SS O&M","TLM","COURT CASES","ESG","HINDI","C&M","INCHARGE","MRT","AUXILIARY SYSTEMS","COLONY MAINTENANCE","OTHER (SPECIFY)"];
+  var ESEP = "\u00A7";
+  function parseEmp(raw){
+    var p = String(raw == null ? "" : raw).split(ESEP);
+    return { name: (p[0]||"").trim(), desig: (p[1]||"").trim(),
+             roles: (p[2]||"").split("|").map(function(x){ return x.trim(); }).filter(Boolean) };
+  }
+  function encEmp(e){
+    if(!e.desig && !(e.roles && e.roles.length)) return e.name;
+    return [e.name, e.desig||"", (e.roles||[]).join("|")].join(ESEP);
+  }
+  function desigHTML(e){ return e.desig ? '<span class="desig">'+esc(e.desig)+'</span>' : ""; }
+  function rolesHTML(e){ return (e.roles && e.roles.length) ? '<span class="roletxt">'+esc(e.roles.join(", "))+'</span>' : ""; }
+
   /* ---------- Local storage (local mode only) ---------- */
   function defaults(){
     var emps = [];
     for(var i=1;i<=11;i++) emps.push({ id: uid()+i, name: "Employee "+i, works: [] });
-    return { employees: emps, users: [ { id: "User", pass: "Power@400" } ], events: [], assignments: [] };
+    return { employees: emps, users: [ { id: "User", pass: "Power@400" } ], events: [], assignments: [], amp: [], notice: "" };
   }
   function loadLocal(){
-    try{ var raw = localStorage.getItem(KEY); if(raw){ var st = JSON.parse(raw); st.events = st.events || []; st.assignments = st.assignments || []; return st; } }catch(e){}
+    try{ var raw = localStorage.getItem(KEY); if(raw){ var st = JSON.parse(raw); st.events = st.events || []; st.assignments = st.assignments || []; st.amp = st.amp || []; st.notice = st.notice || ""; return st; } }catch(e){}
     return defaults();
   }
   function saveLocal(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
@@ -389,7 +479,7 @@
   function applyData(d){
     var map = {};
     state.employees = d.employees.map(function(e){
-      var o = { id: e.id, name: e.name, works: [] }; map[e.id] = o; return o;
+      var pe = parseEmp(e.name); var o = { id: e.id, name: pe.name || e.name, desig: pe.desig, roles: pe.roles, works: [] }; map[e.id] = o; return o;
     });
     d.works.forEach(function(w){
       if(map[w.empId]) map[w.empId].works.push({
@@ -400,7 +490,8 @@
     state.users = (d.users || []).map(function(id){ return { id: id }; });
     state.events = d.events || [];
     state.assignments = d.assignments || [];
-    if(activeTab !== "dash" && activeTab !== "assign" && !emp(activeTab)) activeTab = "dash";
+    state.notice = d.notice || "";
+    if(activeTab !== "dash" && activeTab !== "assign" && activeTab !== "amp" && activeTab !== "home" && activeTab !== "works" && !emp(activeTab)) activeTab = "dash";
   }
 
   function setStatus(kind,msg){
@@ -411,7 +502,7 @@
     el.className = "sync "+kind; el.textContent = text;
   }
 
-  var KEEP = ["wText","aWork","aRem","aBy","aTo","aDate","aPri"];
+  var KEEP = ["exFrom","exTo","exStat","wText","aWork","aRem","aBy","aTo","aDate","aPri","mpPlan","mpDesc","mpDue","mpComp","mpStat"];
   function softRender(){
     var saved = {}, ae = document.activeElement, focusId = ae && ae.id, pos = 0;
     KEEP.forEach(function(id){ var n = $(id); if(n) saved[id] = n.value; });
@@ -464,8 +555,39 @@
       flushing = false;
       if(err.server && err.message !== "auth"){      // rejected by server: drop and resync
         queue.splice(0,n); setStatus("error", err.message); setTimeout(function(){ pull(true); }, 300);
+        try{ alert("The server did not accept the last change, so it was not saved.\n\nReason: "+err.message); }catch(e){}
       } else if(err.server){ onSyncError(err); }
       else { setStatus("offline"); setTimeout(flush, 5000); }
+    });
+  }
+
+  /* AMP plans use their own actions (ampList / ampPut / ampDel) */
+  function ampFetch(){
+    if(!SYNC || !auth || ampBusy) return;
+    api({ action: "ampList" }).then(function(r){
+      if(ampBusy || r.text === ampText) return;
+      ampText = r.text; state.amp = r.json.amp || [];
+      if(modalOpen()) return;
+      if(activeTab === "amp" || activeTab === "home") softRender(); else renderTabs();
+    }).catch(function(err){ if(err && err.server && err.message === "auth") onSyncError(err); });
+  }
+  function ampSend(body){
+    version++;
+    if(!SYNC){ saveLocal(); return; }
+    ampBusy++; setStatus("saving");
+    var failed = false;
+    ampChain = ampChain.then(function(){ return api(body); }).then(function(r){
+      if(ampBusy === 1){ state.amp = r.json.amp || state.amp; ampText = r.text; }
+      setStatus("ok");
+    }).catch(function(err){
+      failed = true; ampText = "";
+      if(err && err.server && err.message === "auth"){ onSyncError(err); return; }
+      setStatus(err && err.server ? "error" : "offline", err && err.server ? "AMP not saved: "+err.message : "");
+    }).then(function(){
+      ampBusy--;
+      if(ampBusy) return;
+      if(failed) ampFetch();
+      else if(!modalOpen() && activeTab === "amp") softRender();
     });
   }
 
@@ -491,18 +613,19 @@
 
   function enterApp(role,id){
     session = { role: role, id: id };
-    activeTab = "dash"; empView = "work";
+    activeTab = "home"; empView = "work";
     filter = "all"; viewDate = today();
     $("loginView").classList.add("hidden");
     $("appView").classList.remove("hidden");
     $("manageUsersBtn").classList.toggle("hidden", !isMaster());
+    $("noticeBtn").classList.toggle("hidden", !isMaster());
     $("whoLabel").innerHTML = esc(id) + '<span class="badge">' + (isMaster() ? "MASTER" : "USER") + "</span>";
     setStatus("ok");
     render();
-    fetchResets();
     if(SYNC){
+      ampFetch();
       clearInterval(pollTimer);
-      pollTimer = setInterval(function(){ if(!document.hidden){ pull(); fetchResets(); } }, POLL_MS);
+      pollTimer = setInterval(function(){ if(!document.hidden){ pull(); if(activeTab === "amp" || activeTab === "home") ampFetch(); } }, POLL_MS);
     }
   }
 
@@ -531,59 +654,64 @@
   $("loginPass").addEventListener("keydown",function(e){ if(e.key==="Enter") doLogin(); });
   $("loginId").addEventListener("keydown",function(e){ if(e.key==="Enter") $("loginPass").focus(); });
 
-  /* ---------- Forgot password (user side) ---------- */
+  /* ---------- Change password (user side – takes effect immediately, no master needed) ---------- */
   function forgotModal(){
-    openModal('<h3>Forgot password</h3>'+
-      '<p style="margin:0 0 12px;color:var(--muted);font-size:.92rem">Enter your User ID. A request will be sent to the master, who will set a new password and inform you.</p>'+
+    openModal('<h3>Change password</h3>'+
+      '<p style="margin:0 0 12px;color:var(--muted);font-size:.92rem">Enter your User ID, your old password and a new password. The change takes effect immediately. If you do not remember your old password, ask the master to set a new one.</p>'+
       '<div class="field"><label for="fpId">User ID</label><input type="text" id="fpId" autocapitalize="off"></div>'+
+      '<div class="field"><label for="fpOld">Old password</label><input type="password" id="fpOld" autocomplete="current-password"></div>'+
+      '<div class="field"><label for="fpNew">New password</label><input type="password" id="fpNew" autocomplete="new-password"></div>'+
+      '<div class="field"><label for="fpNew2">Confirm new password</label><input type="password" id="fpNew2" autocomplete="new-password"></div>'+
       '<p class="error" id="fpErr"></p><p class="okmsg" id="fpOk"></p>'+
-      '<div class="row"><button class="btn ghost" id="fpNo" type="button">Close</button><button class="btn" id="fpSend" type="button">Send request</button></div>');
+      '<div class="row"><button class="btn ghost" id="fpNo" type="button">Close</button><button class="btn" id="fpSend" type="button">Change password</button></div>');
     $("fpId").value = $("loginId").value.trim();
-    $("fpId").focus();
+    $(id0()).focus();
+    function id0(){ return $("fpId").value ? "fpOld" : "fpId"; }
     $("fpNo").onclick = closeModal;
+    var btn = $("fpSend");
+    function success(id){
+      $("fpOk").textContent = "Password changed. You can sign in with the new password now.";
+      ["fpId","fpOld","fpNew","fpNew2"].forEach(function(x){ $(x).disabled = true; });
+      btn.textContent = "Changed"; btn.disabled = true;
+      $("loginId").value = id; $("loginPass").value = "";
+    }
     function send(){
-      var id = $("fpId").value.trim();
+      var id = $("fpId").value.trim(), oldP = $("fpOld").value, nw = $("fpNew").value, nw2 = $("fpNew2").value;
       $("fpErr").textContent = ""; $("fpOk").textContent = "";
-      if(!id){ $("fpErr").textContent = "Enter your User ID first."; return; }
-      if(!SYNC){ $("fpErr").textContent = "Password requests need the shared server (not available in demo mode)."; return; }
-      var btn = $("fpSend"); btn.disabled = true; btn.textContent = "Sending…";
+      if(!id || !oldP || !nw){ $("fpErr").textContent = "Fill in User ID, old password and new password."; return; }
+      if(nw.length < 4){ $("fpErr").textContent = "New password must be at least 4 characters."; return; }
+      if(nw !== nw2){ $("fpErr").textContent = "New password and confirmation do not match."; return; }
+      if(nw === oldP){ $("fpErr").textContent = "New password must be different from the old one."; return; }
+      if(!SYNC){
+        var u = state.users.find(function(x){ return x.id === id && x.pass === oldP; });
+        if(!u){ $("fpErr").textContent = "Wrong User ID or old password."; return; }
+        u.pass = nw; saveLocal(); success(id); return;
+      }
+      btn.disabled = true; btn.textContent = "Changing…";
       auth = null;
-      api({ action: "resetRequest", userId: id }).then(function(){
-        $("fpOk").textContent = "Request sent. The master will set a new password and inform you.";
-        btn.textContent = "Sent"; $("fpId").disabled = true;
+      api({ action: "changePassword", userId: id, oldPass: oldP, newPass: nw }).then(function(){
+        success(id);
       }).catch(function(err){
         $("fpErr").textContent = err.server
-          ? "Could not send the request ("+err.message+"). Please contact the master directly."
+          ? (err.message === "auth" ? "Wrong User ID or old password." : "Could not change the password ("+err.message+").")
           : "Cannot reach the server. Check your internet connection.";
-        btn.disabled = false; btn.textContent = "Send request";
+        btn.disabled = false; btn.textContent = "Change password";
       });
     }
-    $("fpSend").onclick = send;
-    $("fpId").addEventListener("keydown",function(e){ if(e.key==="Enter") send(); });
+    btn.onclick = send;
+    $("fpNew2").addEventListener("keydown",function(e){ if(e.key==="Enter") send(); });
   }
   $("forgotBtn").onclick = forgotModal;
-
-  /* ---------- Password requests (master side) ---------- */
-  function updateResetBadge(){
-    var n = (state.resets||[]).length, b = $("manageUsersBtn");
-    b.innerHTML = "Manage logins" + (n ? ' <span class="badge" title="Password reset requests">'+n+'</span>' : "");
-  }
-  function fetchResets(){
-    if(!SYNC || !auth || !isMaster()) return;
-    api({ action: "resetList" }).then(function(r){
-      state.resets = r.json.requests || [];
-      updateResetBadge();
-    }).catch(function(){});
-  }
 
   function doLogout(msg){
     clearInterval(pollTimer);
     session = null; auth = null; queue = []; flushing = false; pendingRefresh = null;
     try{ sessionStorage.removeItem("kss_auth"); }catch(e){}
     closeModal();
-    if(SYNC){ state = { employees: [], users: [], events: [], assignments: [], resets: [] }; lastText = ""; }
-    updateResetBadge();
+    ampBusy = 0; ampText = ""; ampChain = Promise.resolve();
+    noticeShown = null; if(SYNC){ state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "" }; lastText = ""; }
     $("appView").classList.add("hidden");
+    noticeShown = null;
     $("loginView").classList.remove("hidden");
     setRole("user");
     if(msg) $("loginErr").textContent = msg;
@@ -608,24 +736,167 @@
     }catch(e){}
   }
 
+  /* ---------- Notices (Master sets one or more; shown in the ticker and on Home) ---------- */
+  var NSEP = " \u00A6 ", NMAX = 300;      // notices are stored in one text value, separated by " ¦ "
+  function noticeList(){ return String(state.notice || "").split("\u00A6").map(function(x){ return x.trim(); }).filter(Boolean); }
+
+  function renderNotice(){
+    var txt = String(state.notice || "").trim();
+    if(txt === noticeShown) return;
+    noticeShown = txt;
+    var bar = $("noticeBar"); if(!bar) return;
+    var list = noticeList();
+    if(!list.length){ bar.classList.add("hidden"); return; }
+    $("noticeText").innerHTML = list.map(function(n){ return '<span class="ni">'+esc(n)+'</span>'; }).join("");
+    bar.classList.remove("hidden");
+    var track = $("noticeTrack");
+    track.style.animation = "none"; void track.offsetWidth;       // restart from the right edge
+    track.style.setProperty("--dur", Math.max(10, Math.round(track.offsetWidth / 85)) + "s");
+    track.style.animation = "";
+  }
+
+  function noticeModal(){
+    var items = noticeList(); if(!items.length) items = [""];
+    function clean(arr){ return arr.map(function(x){ return x.replace(/\s+/g," ").trim(); }).filter(Boolean); }
+    function collect(){
+      var out = [];
+      Array.prototype.forEach.call(document.querySelectorAll("[data-nt]"),function(i){ out.push(i.value.replace(/\u00A6/g,"|")); });
+      return out;
+    }
+    function count(){
+      var n = clean(collect()).join(NSEP).length, c = $("ntCount");
+      c.textContent = n+" / "+NMAX+" characters"; c.style.color = n > NMAX ? "var(--red)" : "var(--muted)";
+    }
+    function save(v){
+      state.notice = v; closeModal(); commit([{ t:"notice.set", text:v }]); noticeShown = null; render();
+    }
+    function draw(focusIdx){
+      openModal('<h3>Notices</h3>'+
+        '<p style="margin:0 0 10px;color:var(--muted);font-size:.92rem">These scroll across the top for everyone and are listed on the Home screen. Add as many as fit in the limit below.</p>'+
+        items.map(function(v,i){
+          return '<div class="row" style="align-items:center;margin-bottom:8px"><input type="text" data-nt="'+i+'" value="'+esc(v)+'" maxlength="300" placeholder="Notice '+(i+1)+'">'+
+                 '<button class="btn danger small" style="flex:0 0 auto" data-ntdel="'+i+'" type="button" aria-label="Remove this notice">&#10005;</button></div>';
+        }).join("")+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 10px">'+
+          '<button class="btn ghost small" id="ntAdd" type="button">+ Add another notice</button>'+
+          '<span id="ntCount" style="font-size:.85rem"></span></div>'+
+        '<p class="error" id="ntErr"></p>'+
+        '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button>'+
+        '<button class="btn danger" id="ntClear" type="button">Remove all</button>'+
+        '<button class="btn" id="mOk" type="button">Save</button></div>');
+      $("mNo").onclick = closeModal;
+      Array.prototype.forEach.call(document.querySelectorAll("[data-nt]"),function(i){ i.oninput = count; });
+      Array.prototype.forEach.call(document.querySelectorAll("[data-ntdel]"),function(b){
+        b.onclick = function(){ items = collect(); items.splice(+b.getAttribute("data-ntdel"),1); if(!items.length) items = [""]; draw(); };
+      });
+      $("ntAdd").onclick = function(){ items = collect(); items.push(""); draw(items.length-1); };
+      $("ntClear").onclick = function(){ save(""); };
+      $("mOk").onclick = function(){
+        var v = clean(collect()).join(NSEP);
+        if(v.length > NMAX){ $("ntErr").textContent = "Too long by "+(v.length-NMAX)+" characters. Shorten or remove a notice."; return; }
+        save(v);
+      };
+      count();
+      var f = document.querySelector('[data-nt="'+(focusIdx == null ? 0 : focusIdx)+'"]'); if(f) f.focus();
+    }
+    draw();
+  }
+  $("noticeBtn").onclick = noticeModal;
+
+  /* ---------- Home screen ---------- */
+  var ICON = {
+    dash:  '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+    works: '<svg viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M3 6l1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/></svg>',
+    assign:'<svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg>',
+    amp:   '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>',
+    cal:   '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    users: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M17 6.5a3 3 0 010 5.5M19.5 20c-.4-2-1.4-3.4-2.8-4.3"/></svg>',
+    notice:'<svg viewBox="0 0 24 24"><path d="M4 10v4h3l7 4V6L7 10H4zM17.5 9a4 4 0 010 6"/></svg>'
+  };
+
+  function renderHome(){
+    var p = $("panel"), t = today(), me = session ? session.id : "", hr = new Date().getHours();
+    var greet = hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening";
+    var tw = 0, td = 0;
+    state.employees.forEach(function(e){ e.works.forEach(function(w){ if(w.date === t){ tw++; if(w.done) td++; } }); });
+    var aOpen = state.assignments.filter(function(a){ return !a.done; }).length, aOver = state.assignments.filter(asOverdue).length;
+    var d = new Date(), mk = d.getFullYear()+"-"+pad2(d.getMonth()+1);
+    var mAmp = state.amp.filter(function(x){ return (x.due||"").slice(0,7) === mk; });
+    ampMigrate();
+    var sa = ampStat(mAmp), mPend = mAmp.filter(function(x){ return x.status !== "odr_clsd"; }).length;
+    var evN = state.events.filter(function(ev){ return ev.scope === "office" && (ev.date||"").slice(0,7) === mk; }).length;
+    var notes = noticeList();
+
+    var h = '<div class="hero"><h3>'+greet+', '+esc(me)+'</h3><span class="sub">'+esc(dayLabel(t))+'</span></div>';
+    if(notes.length || isMaster()){
+      h += '<div class="nboard"><div class="nh"><h4>&#9670; Notice board</h4>'+
+           (isMaster() ? '<button class="btn ghost small" data-go="notices" type="button">'+(notes.length?'Edit notices':'Add notice')+'</button>' : '')+'</div>'+
+           (notes.length ? '<ul>'+notes.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join("")+'</ul>' : '<div class="none">No notices right now.</div>')+'</div>';
+    }
+    var cards = [
+      { go:"dash",   ic:"dash",   cls:"",      t:"Dashboard",    s: tw ? td+" of "+tw+" works done today ("+pctOf(td,tw)+"%)" : "Progress, trends and office calendar" },
+      { go:"works",  ic:"works",  cls:"green", t:"Daily Works",  s: (tw-td)+" pending today across "+state.employees.length+" employees" },
+      { go:"assign", ic:"assign", cls:"amber", t:"Assignments",  s: aOpen+" open"+(aOver ? ", "+aOver+" overdue" : "") },
+      { go:"amp",    ic:"amp",    cls:"",      t:"AMP",          s: mAmp.length ? mPend+" open this month, "+sa.pct+"% ODR_CLSD" : "No plans due this month" },
+      { go:"cal",    ic:"cal",    cls:"grey",  t:"Office Calendar", s: evN+" office event"+(evN===1?"":"s")+" this month" }
+    ];
+    if(isMaster()){
+      cards.push({ go:"users",   ic:"users",  cls:"grey",  t:"Manage logins", s: state.users.length+" user login"+(state.users.length===1?"":"s") });
+      cards.push({ go:"notices", ic:"notice", cls:"amber", t:"Notices",       s: notes.length ? notes.length+" active" : "None set" });
+    }
+    h += '<div class="hgrid">'+cards.map(function(c){
+      return '<button type="button" class="hcard '+c.cls+'" data-go="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
+    }).join("")+'</div>';
+    p.innerHTML = h;
+
+    Array.prototype.forEach.call(p.querySelectorAll("[data-go]"),function(b){
+      b.onclick = function(){
+        var go = b.getAttribute("data-go");
+        if(go === "users"){ usersModal(); return; }
+        if(go === "notices"){ noticeModal(); return; }
+        if(go === "assign"){ assignTo = ""; assignFilter = "all"; }
+        activeTab = (go === "cal") ? "dash" : go;
+        render();
+        if(go === "amp") ampFetch();
+        if(go === "cal"){ var el = $("officeCal"); if(el && el.scrollIntoView) el.scrollIntoView({ behavior:"smooth" }); }
+      };
+    });
+  }
+
+  function renderWorks(){
+    var p = $("panel"), t = today();
+    var h = '<div class="panel-head"><h3>Daily works</h3><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="color:var(--muted)">'+esc(dayLabel(t))+'</span>'+
+            (isMaster() ? '<button class="btn small" id="addEmpBtn" type="button">+ Add employee</button>' : '')+'</div></div>';
+    if(!state.employees.length){
+      h += '<div class="empty">No employees yet.'+(isMaster()?' Use “+ Add employee” above.':'')+'</div>';
+    } else {
+      h += '<p style="margin:-6px 0 0;color:var(--muted);font-size:.9rem">Choose an employee to open their daily worklist.</p><div class="hgrid">'+
+        state.employees.map(function(e){
+          var tot = 0, done = 0, over = 0;
+          e.works.forEach(function(w){
+            if(w.date === t){ tot++; if(w.done) done++; }
+            else if(!w.done && w.date < t) over++;
+          });
+          return '<button type="button" class="hcard'+(over?' amber':' green')+'" data-emp="'+esc(e.id)+'"><span class="ic">'+esc((e.name||"?").trim().charAt(0).toUpperCase())+'</span>'+
+            '<b>'+esc(e.name)+'</b>'+desigHTML(e)+rolesHTML(e)+'<small>Today: '+(tot ? (tot-done)+' pending of '+tot : 'no work entered')+(over ? ' &middot; '+over+' pending from earlier dates' : '')+'</small></button>';
+        }).join("")+'</div>';
+    }
+    p.innerHTML = h;
+    var ae = $("addEmpBtn"); if(ae) ae.onclick = addEmployeeModal;
+    Array.prototype.forEach.call(p.querySelectorAll("[data-emp]"),function(b){
+      b.onclick = function(){ activeTab = b.getAttribute("data-emp"); empView = "work"; viewDate = today(); filter = "all"; render(); };
+    });
+  }
+
   /* ---------- Render ---------- */
-  function render(){ renderTabs(); renderPanel(); }
+  function render(){ renderNotice(); renderTabs(); renderPanel(); }
 
   function renderTabs(){
-    var html = '<button type="button" class="tab'+(activeTab==="dash"?" active":"")+'" data-tab="dash">Dashboard</button>';
-    var pa = state.assignments.filter(function(a){ return !a.done; }).length;
-    html += '<button type="button" class="tab'+(activeTab==="assign"?" active":"")+'" data-tab="assign">Assignments<span class="cnt'+(pa===0?" zero":"")+'" title="Pending assignments">'+pa+'</span></button>';
-    html += state.employees.map(function(e){
-      var pending = e.works.filter(function(w){ return !w.done && w.date===viewDate; }).length;
-      return '<button type="button" class="tab'+(e.id===activeTab?" active":"")+'" data-tab="'+esc(e.id)+'">'+
-        esc(e.name)+'<span class="cnt'+(pending===0?" zero":"")+'" title="Pending works on selected date">'+pending+'</span></button>';
-    }).join("");
-    if(isMaster()) html += '<button type="button" class="tab add" id="addEmpBtn">+ Add employee</button>';
+    var html = '<button type="button" class="tab'+(activeTab==="home"?" active":"")+'" data-tab="home">Home</button>';
     $("tabs").innerHTML = html;
     Array.prototype.forEach.call($("tabs").querySelectorAll("[data-tab]"),function(b){
-      b.onclick = function(){ activeTab = b.getAttribute("data-tab"); filter = "all"; empView = "work"; render(); };
+      b.onclick = function(){ activeTab = b.getAttribute("data-tab"); filter = "all"; empView = "work"; render(); if(activeTab === "amp" || activeTab === "home") ampFetch(); };
     });
-    var ab = $("addEmpBtn"); if(ab) ab.onclick = addEmployeeModal;
   }
 
   /* ---------- Calendar (shared by office + employee calendars) ---------- */
@@ -805,19 +1076,6 @@
     h += '<div style="display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:4px"><span>Overall completion</span><b>'+pct+'%</b></div>';
     h += '<div class="progress" aria-hidden="true"><i style="width:'+pct+'%"></i></div>';
 
-    if(!rows.length){
-      h += '<div class="empty">No employees yet.</div>';
-    } else {
-      h += '<div class="tscroll"><table><thead><tr><th>Employee</th><th>Total</th><th>Done</th><th>Pending</th><th>Overdue</th><th>Progress</th></tr></thead><tbody>';
-      rows.forEach(function(x){
-        var pc = pctOf(x.done,x.total);
-        h += '<tr class="link" data-goto="'+esc(x.e.id)+'" tabindex="0"><td><b>'+esc(x.e.name)+'</b></td><td>'+x.total+'</td><td>'+x.done+'</td><td>'+x.pending+'</td>'+
-             '<td'+(x.overdue?' style="color:var(--red);font-weight:700"':'')+'>'+x.overdue+'</td>'+
-             '<td style="white-space:nowrap"><span class="pbar"><i style="width:'+pc+'%"></i></span>'+(x.total?pc+'%':'–')+'</td></tr>';
-      });
-      h += '</tbody></table></div>';
-    }
-
     /* last 7 days trend */
     var days = [], i, all = [];
     state.employees.forEach(function(e){ all = all.concat(e.works); });
@@ -834,7 +1092,7 @@
     }).join("")+'</div><div class="legend"><span><i class="lg-done"></i>Completed</span><span><i class="lg-all"></i>Total works</span></div>';
 
     /* office calendar */
-    h += '<h3 class="sec">Office calendar</h3>'+
+    h += '<h3 class="sec" id="officeCal">Office calendar</h3>'+
          '<p style="margin:-4px 0 12px;color:var(--muted);font-size:.9rem">'+
          (isMaster() ? 'Click a date to add or change office events.' : 'Office events set by Master. Click a date to see details.')+'</p>';
     h += calHTML("office");
@@ -842,11 +1100,6 @@
 
     Array.prototype.forEach.call(p.querySelectorAll("[data-period]"),function(b){
       b.onclick = function(){ dashPeriod = b.getAttribute("data-period"); renderPanel(); };
-    });
-    Array.prototype.forEach.call(p.querySelectorAll("[data-goto]"),function(tr){
-      function go(){ activeTab = tr.getAttribute("data-goto"); empView = "work"; filter = "all"; render(); }
-      tr.onclick = go;
-      tr.addEventListener("keydown",function(e){ if(e.key==="Enter") go(); });
     });
     bindCal("office", p);
   }
@@ -858,7 +1111,7 @@
     var o = '<option value="">'+esc(placeholder)+'</option>', found = false;
     state.employees.forEach(function(e){
       if(e.id === sel) found = true;
-      o += '<option value="'+esc(e.id)+'"'+(e.id===sel?' selected':'')+'>'+esc(e.name)+'</option>';
+      o += '<option value="'+esc(e.id)+'"'+(e.id===sel?' selected':'')+'>'+esc(e.name+(e.desig?" \u2013 "+e.desig:""))+'</option>';
     });
     if(sel && !found) o += '<option value="'+esc(sel)+'" selected>(removed employee)</option>';
     return o;
@@ -894,7 +1147,8 @@
       '<div class="field"><label for="aDate">Target date</label><input type="date" id="aDate" value="'+today()+'"></div>'+
       '<div class="field"><label for="aPri">Priority</label><select id="aPri">'+priOptions("normal")+'</select></div>'+
       '<div class="field span2"><label for="aRem">Remarks (optional)</label><input type="text" id="aRem" maxlength="300"></div>'+
-      '</div><p class="error" id="aErr"></p><button class="btn" id="aAdd" type="button">Assign work</button></div>';
+      '</div><p class="error" id="aErr"></p><p class="okmsg" id="aOk"></p><button class="btn" id="aAdd" type="button">Assign work</button> '+
+      '<button class="btn ghost" id="aCopy" type="button">Copy summary</button></div>';
 
     h += '<div class="filters">'+[["all","All"],["pending","Pending"],["overdue","Overdue"],["done","Done"]].map(function(f){
       return '<button type="button" data-af="'+f[0]+'" class="'+(assignFilter===f[0]?"active":"")+'">'+f[1]+'</button>';
@@ -932,7 +1186,8 @@
             '<input type="checkbox" data-adone="'+esc(a.id)+'" '+(a.done?'checked':'')+' aria-label="Mark assignment done"> '+
             (a.done?'Done'+(a.doneAt?' '+fmtDate(toISO(new Date(a.doneAt))):''):'Pending')+'</label></td>'+
           '<td data-label="Remarks">'+(a.remarks?esc(a.remarks):'–')+'</td>'+
-          '<td class="act"><button class="btn ghost small" data-aedit="'+esc(a.id)+'" type="button">Edit</button>'+
+          '<td class="act"><button class="btn ghost small" data-ashare="'+esc(a.id)+'" type="button">Share</button> '+
+            '<button class="btn ghost small" data-aedit="'+esc(a.id)+'" type="button">Edit</button>'+
             (isMaster()?' <button class="btn danger small" data-adel="'+esc(a.id)+'" type="button">Delete</button>':'')+'</td></tr>';
       });
       h += '</tbody></table>';
@@ -951,6 +1206,19 @@
       commit([aPut(a)]); render();
     };
     $("aWork").addEventListener("keydown",function(e){ if(e.key==="Enter") $("aAdd").click(); });
+    $("aCopy").onclick = function(){
+      var to = $("aTo").value, text = $("aWork").value.trim(), err = $("aErr");
+      $("aOk").textContent = "";
+      if(!to){ err.textContent = "Select who the work is assigned to."; return; }
+      if(!text){ err.textContent = "Enter the work to be assigned."; $("aWork").focus(); return; }
+      err.textContent = "";
+      var msg = summaryText({ by: $("aBy").value, to: to, text: text, target: $("aDate").value,
+                              priority: $("aPri").value, remarks: $("aRem").value.trim() });
+      copyText(msg, function(){ $("aOk").textContent = "Summary copied. Paste it into WhatsApp or any other app."; });
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-ashare]"),function(b){
+      b.onclick = function(){ shareModal(summaryText(findA(b.getAttribute("data-ashare")))); };
+    });
     Array.prototype.forEach.call(p.querySelectorAll("[data-af]"),function(b){
       b.onclick = function(){ assignFilter = b.getAttribute("data-af"); renderPanel(); };
     });
@@ -997,16 +1265,266 @@
     };
   }
 
+  /* ---------- Share / copy helpers ---------- */
+  function summaryText(o){
+    var pr = PRI[o.priority] ? o.priority : "normal";
+    var L = ["*KOZHIKODE SS – Work Assignment*", "To: "+empName(o.to)];
+    if(o.by) L.push("Assigned by: "+empName(o.by));
+    L.push("Work: "+o.text, "Target date: "+(o.target ? fmtDate(o.target) : "Not set"), "Priority: "+PRI[pr]);
+    if(o.remarks) L.push("Remarks: "+o.remarks);
+    return L.join("\n");
+  }
+  function copyText(msg, cb){
+    function legacy(){
+      var t = document.createElement("textarea"); t.value = msg; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      try{ document.execCommand("copy"); cb(); }catch(e){}
+      document.body.removeChild(t);
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(msg).then(cb, legacy); }
+    else legacy();
+  }
+  function shareModal(msg){
+    openModal('<h3>Share assignment</h3>'+
+      '<p style="margin-top:0;color:var(--muted);font-size:.92rem">Copy this summary and send it on WhatsApp or any other app.</p>'+
+      '<div class="msgbox">'+esc(msg).replace(/\n/g,"<br>")+'</div>'+
+      '<div class="row"><button class="btn ghost" id="shCopy" type="button">Copy summary</button>'+
+      '<a class="btn" target="_blank" rel="noopener" style="text-align:center;text-decoration:none" href="https://wa.me/?text='+encodeURIComponent(msg)+'">WhatsApp</a></div>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Close</button></div>');
+    $("mNo").onclick = closeModal;
+    $("shCopy").onclick = function(){ copyText(msg, function(){ $("shCopy").textContent = "Copied"; }); };
+  }
+
+  /* ---------- AMP monitoring ---------- */
+  var AMPST = { pending:"PENDING", planned:"PLANNED", completed:"COMPLETED", odr_clsd:"ODR_CLSD" };
+  function ampMigrate(){ state.amp.forEach(function(a){ if(a.status === "closed") a.status = "odr_clsd"; }); }
+  function getAmpMonth(){ if(!ampMonth){ var d = new Date(); ampMonth = { y: d.getFullYear(), m: d.getMonth() }; } return ampMonth; }
+  function ampStat(list){
+    var d = list.filter(function(x){ return x.status === "odr_clsd"; }).length;   // only ODR_CLSD counts as final completion
+    return { total: list.length, done: d, pct: pctOf(d, list.length) };
+  }
+  function ampObj(a){ return { id:a.id, plan:a.plan, desc:a.desc||"", due:a.due, comp:a.comp||"", status:a.status, created:a.created }; }
+  function ampSave(a){ ampSend({ action:"ampPut", amp: ampObj(a) }); }
+  function ampFix(a){
+    if(a.status === "closed") a.status = "odr_clsd";
+    if(!AMPST[a.status]) a.status = "pending";
+    if((a.status === "pending" || a.status === "planned") && a.comp) a.status = "completed";
+    if((a.status === "completed" || a.status === "odr_clsd") && !a.comp) a.comp = today();
+    return a;
+  }
+  function ampOverdue(a){ return (a.status === "pending" || a.status === "planned") && a.due && a.due < today(); }
+  function ampStatusOpts(sel){
+    return Object.keys(AMPST).map(function(k){ return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+AMPST[k]+'</option>'; }).join("");
+  }
+  function bindAmpSync(sId, cId){
+    $(sId).onchange = function(){
+      var c = $(cId);
+      if(this.value === "pending" || this.value === "planned") c.value = "";
+      else if(!c.value) c.value = today();
+    };
+  }
+  function pcard(title, st){
+    return '<div class="pcard"><h5>'+title+'</h5><div class="pv"><b>'+st.pct+'%</b><span>'+st.done+' of '+st.total+' ODR_CLSD</span></div>'+
+           '<div class="progress" aria-hidden="true"><i style="width:'+st.pct+'%"></i></div></div>';
+  }
+
+  function renderAmp(){
+    var p = $("panel"), c = getAmpMonth(), t = today(), td = new Date(), mk = c.y+"-"+pad2(c.m+1);
+    ampMigrate();
+    if(!ampUpTo) ampUpTo = t;
+    var all = state.amp;
+    var yearL = all.filter(function(x){ return (x.due||"").slice(0,4) === String(c.y); });
+    var monL  = all.filter(function(x){ return (x.due||"").slice(0,7) === mk; });
+    var upL   = all.filter(function(x){ return x.due && x.due <= ampUpTo; });
+    var cnt = { pending:0, planned:0, completed:0, odr_clsd:0 };
+    monL.forEach(function(x){ if(cnt[x.status] != null) cnt[x.status]++; });
+
+    var h = '<div class="panel-head"><h3>AMP monitoring</h3><div class="stats"><span>This month <b>'+monL.length+'</b></span>'+
+            '<span>Pending <b>'+cnt.pending+'</b></span><span>Planned <b>'+cnt.planned+'</b></span><span>Completed <b>'+cnt.completed+'</b></span><span>ODR_CLSD <b>'+cnt.odr_clsd+'</b></span></div></div>';
+
+    h += '<div class="pgrid">'+
+      pcard("Whole year "+c.y, ampStat(yearL))+
+      pcard(MONTHS[c.m]+" "+c.y+((c.y===td.getFullYear() && c.m===td.getMonth()) ? " (current month)" : ""), ampStat(monL))+
+      pcard('Up to date <input type="date" id="ampUp" value="'+esc(ampUpTo)+'" aria-label="Progress up to date">', ampStat(upL))+
+      '</div>';
+    h += '<p style="margin:-6px 0 14px;color:var(--muted);font-size:.82rem">Progress = plans marked ODR_CLSD (final completion) out of the plans due in that period. “Up to date” counts every plan due on or before the chosen date.</p>';
+    var exFrom = mk+"-01", exTo = toISO(new Date(c.y, c.m+1, 0));
+    h += '<div class="assign-form"><h4>Export AMP plans to PDF</h4><div class="agrid">'+
+      '<div class="field"><label for="exFrom">Due from</label><input type="date" id="exFrom" value="'+exFrom+'"></div>'+
+      '<div class="field"><label for="exTo">Due to</label><input type="date" id="exTo" value="'+exTo+'"></div>'+
+      '<div class="field"><label for="exStat">Status</label><select id="exStat"><option value="all">All statuses</option>'+ampStatusOpts("")+'</select></div>'+
+      '</div><p style="margin:0 0 10px;color:var(--muted);font-size:.82rem">For a single date, choose the same date in both boxes. A print window opens: choose “Save as PDF” as the printer.</p>'+
+      '<p class="error" id="exErr"></p><button class="btn" id="exBtn" type="button">Export PDF</button></div>';
+
+    var defDue = (c.y===td.getFullYear() && c.m===td.getMonth()) ? t : mk+"-01";
+    h += !isMaster() ? '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add new AMP plans. You can update the status of existing plans using the Status column.</p>' : '<div class="assign-form"><h4>Add AMP plan</h4><div class="agrid">'+
+      '<div class="field"><label for="mpPlan">Maintenance plan no.</label><input type="number" id="mpPlan" min="1" step="1" inputmode="numeric" placeholder="e.g. 12"></div>'+
+      '<div class="field"><label for="mpDue">Due date</label><input type="date" id="mpDue" value="'+defDue+'"></div>'+
+      '<div class="field"><label for="mpComp">Completion date</label><input type="date" id="mpComp"></div>'+
+      '<div class="field"><label for="mpStat">Status</label><select id="mpStat">'+ampStatusOpts("pending")+'</select></div>'+
+      '<div class="field span2"><label for="mpDesc">Description</label><input type="text" id="mpDesc" maxlength="500" placeholder="Scope of work, remarks"></div>'+
+      '</div><p class="error" id="mpErr"></p><button class="btn" id="mpAdd" type="button">Add plan</button></div>';
+
+    h += '<div class="calbar"><button class="btn ghost small" data-anav="-1" type="button" aria-label="Previous month">‹</button>'+
+         '<strong class="caltitle">'+MONTHS[c.m]+' '+c.y+'</strong>'+
+         '<button class="btn ghost small" data-anav="1" type="button" aria-label="Next month">›</button>'+
+         '<button class="btn small" data-anav="0" type="button">This month</button></div>';
+
+    h += '<div class="filters">'+[["all","All"],["pending","Pending"],["planned","Planned"],["completed","Completed"],["odr_clsd","ODR_CLSD"]].map(function(f){
+      return '<button type="button" data-amf="'+f[0]+'" class="'+(ampFilter===f[0]?"active":"")+'">'+f[1]+'</button>';
+    }).join("")+'</div>';
+
+    var list = monL.filter(function(x){ return ampFilter==="all" || x.status===ampFilter; })
+      .sort(function(a,b){ return a.due.localeCompare(b.due) || (parseInt(a.plan,10)||0)-(parseInt(b.plan,10)||0) || (a.created||0)-(b.created||0); });
+
+    if(!list.length){
+      h += '<div class="empty">'+(monL.length ? "No plans match this filter." : "No AMP plans due in "+MONTHS[c.m]+" "+c.y+". Add one above.")+'</div>';
+    } else {
+      h += '<table class="atable"><thead><tr><th>#</th><th>Maintenance plan no.</th><th>Description</th><th>Due date</th><th>Completion date</th><th>Status</th><th></th></tr></thead><tbody>';
+      list.forEach(function(a,i){
+        var late = ampOverdue(a);
+        h += '<tr class="'+((a.status==="completed"||a.status==="odr_clsd")?"done":"")+(late?" late":"")+'">'+
+          '<td data-label="#">'+(i+1)+'</td>'+
+          '<td data-label="Plan no."><b>'+esc(a.plan)+'</b></td>'+
+          '<td data-label="Description">'+(a.desc?esc(a.desc):'–')+'</td>'+
+          '<td data-label="Due date">'+fmtDate(a.due)+(late?'<span class="late-t">Overdue</span>':'')+'</td>'+
+          '<td data-label="Completion date">'+(a.comp?fmtDate(a.comp):'–')+'</td>'+
+          '<td data-label="Status"><select class="stsel" data-astat="'+esc(a.id)+'" aria-label="Status">'+ampStatusOpts(a.status)+'</select></td>'+
+          '<td class="act">'+(isMaster()?'<button class="btn ghost small" data-amedit="'+esc(a.id)+'" type="button">Edit</button> <button class="btn danger small" data-amdel="'+esc(a.id)+'" type="button">Delete</button>':'')+'</td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+    p.innerHTML = h;
+
+    function findAmp(id){ return state.amp.find(function(x){ return x.id===id; }); }
+    if(isMaster()){
+    bindAmpSync("mpStat","mpComp");
+    $("mpAdd").onclick = function(){
+      var plan = $("mpPlan").value.trim(), due = $("mpDue").value, err = $("mpErr");
+      if(!/^\d+$/.test(plan) || +plan < 1){ err.textContent = "Enter the maintenance plan number (digits only, e.g. 12)."; $("mpPlan").focus(); return; }
+      if(!due){ err.textContent = "Select the due date."; return; }
+      var a = ampFix({ id: uid(), plan: plan, desc: $("mpDesc").value.trim(), due: due, comp: $("mpComp").value || "",
+                       status: $("mpStat").value, created: Date.now() });
+      state.amp.push(a); ampSave(a);
+      var d = parseISO(due); ampMonth = { y: d.getFullYear(), m: d.getMonth() };
+      render();
+    };
+    $("mpPlan").addEventListener("keydown",function(e){ if(e.key==="Enter") $("mpAdd").click(); });
+    }
+    $("ampUp").onchange = function(){ ampUpTo = this.value || today(); renderPanel(); };
+    $("exBtn").onclick = function(){
+      var fr = $("exFrom").value, to = $("exTo").value, err = $("exErr");
+      err.textContent = "";
+      if(!fr || !to){ err.textContent = "Select both dates."; return; }
+      if(fr > to){ err.textContent = "“Due from” must not be after “Due to”."; return; }
+      if(!ampExport(fr, to, $("exStat").value)) err.textContent = "No AMP plans match that date range and status.";
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-anav]"),function(b){
+      b.onclick = function(){
+        var n = +b.getAttribute("data-anav"), m = getAmpMonth();
+        if(n === 0){ var d = new Date(); m.y = d.getFullYear(); m.m = d.getMonth(); }
+        else { m.m += n; if(m.m<0){ m.m = 11; m.y--; } if(m.m>11){ m.m = 0; m.y++; } }
+        renderPanel();
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-amf]"),function(b){
+      b.onclick = function(){ ampFilter = b.getAttribute("data-amf"); renderPanel(); };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-astat]"),function(s){
+      s.onchange = function(){
+        var a = findAmp(s.getAttribute("data-astat")); if(!a) return;
+        a.status = s.value; if(a.status === "pending" || a.status === "planned") a.comp = "";
+        ampFix(a); ampSave(a); render();
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-amedit]"),function(b){
+      b.onclick = function(){ var a = findAmp(b.getAttribute("data-amedit")); if(a) ampModal(a); };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-amdel]"),function(b){
+      b.onclick = function(){
+        var id = b.getAttribute("data-amdel"), a = findAmp(id);
+        confirmModal("Delete AMP plan no. "+(a?a.plan:"")+"?", function(){
+          state.amp = state.amp.filter(function(x){ return x.id!==id; });
+          ampSend({ action:"ampDel", id:id }); render();
+        });
+      };
+    });
+  }
+
+  function ampExport(from, to, stat){
+    ampMigrate();
+    var list = state.amp.filter(function(x){
+      return x.due && x.due >= from && x.due <= to && (stat === "all" || x.status === stat);
+    }).sort(function(a,b){ return a.due.localeCompare(b.due) || (parseInt(a.plan,10)||0)-(parseInt(b.plan,10)||0) || (a.created||0)-(b.created||0); });
+    if(!list.length) return false;
+    var st = ampStat(list), cnt = { pending:0, planned:0, completed:0, odr_clsd:0 };
+    list.forEach(function(x){ if(cnt[x.status] != null) cnt[x.status]++; });
+    var logo = (document.querySelector(".login-logo") || {}).src || "";
+    var period = from === to ? fmtDate(from) : fmtDate(from)+" to "+fmtDate(to);
+    var rows = list.map(function(a,i){
+      var late = ampOverdue(a);
+      return '<tr><td>'+(i+1)+'</td><td><b>'+esc(a.plan)+'</b></td><td>'+(a.desc ? esc(a.desc) : "–")+'</td><td>'+fmtDate(a.due)+(late?' <span class="od">(overdue)</span>':'')+
+             '</td><td>'+(a.comp ? fmtDate(a.comp) : "–")+'</td><td class="s-'+esc(a.status)+'">'+esc(AMPST[a.status] || a.status)+'</td></tr>';
+    }).join("");
+    var title = "AMP_Plans_"+fmtDate(from)+(from===to ? "" : "_to_"+fmtDate(to));
+    var doc = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'+
+      '@page{size:A4;margin:14mm}'+
+      'body{font-family:"Segoe UI",Arial,sans-serif;color:#16212b;font-size:11pt;margin:0}'+
+      '.hd{display:flex;align-items:center;gap:14px;border-bottom:3px solid #e0a100;padding-bottom:8px;margin-bottom:10px}'+
+      '.hd img{height:46px;width:auto}.hd h1{margin:0;font-size:15pt;color:#1f3a52}.hd p{margin:2px 0 0;color:#5d6b78;font-size:10pt}'+
+      '.sum{margin:0 0 10px;font-size:10pt}.sum b{color:#1f3a52}'+
+      'table{width:100%;border-collapse:collapse;font-size:10pt}'+
+      'th{background:#1f3a52;color:#fff;text-align:left;padding:6px 7px;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+      'td{padding:6px 7px;border-bottom:1px solid #c9d3dc;vertical-align:top}'+
+      'tr{page-break-inside:avoid}thead{display:table-header-group}'+
+      '.od{color:#c0392b;font-weight:700;font-size:9pt}.s-odr_clsd{font-weight:700;color:#14602f}.s-pending{color:#8a2318}'+
+      '.ft{margin-top:12px;color:#5d6b78;font-size:9pt}'+
+      '</style></head><body>'+
+      '<div class="hd">'+(logo ? '<img src="'+esc(logo)+'" alt="">' : '')+'<div><h1>KOZHIKODE SS – AMP Plans</h1><p>Due date: '+esc(period)+
+        (stat !== "all" ? ' &nbsp;|&nbsp; Status: '+esc(AMPST[stat]) : '')+'</p></div></div>'+
+      '<p class="sum"><b>'+st.total+'</b> plans &nbsp;|&nbsp; PENDING <b>'+cnt.pending+'</b> &nbsp;|&nbsp; PLANNED <b>'+cnt.planned+
+        '</b> &nbsp;|&nbsp; COMPLETED <b>'+cnt.completed+'</b> &nbsp;|&nbsp; ODR_CLSD <b>'+cnt.odr_clsd+'</b> &nbsp;|&nbsp; Final completion (ODR_CLSD): <b>'+st.pct+'%</b></p>'+
+      '<table><thead><tr><th>#</th><th>Plan no.</th><th>Description</th><th>Due date</th><th>Completion date</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<p class="ft">Generated on '+esc(fmtStamp(Date.now()))+(session ? ' by '+esc(session.id) : '')+'</p>'+
+      '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script></body></html>';
+    var w = window.open("", "_blank");
+    if(!w){ alert("The PDF window was blocked. Please allow pop-ups for this page and try again."); return true; }
+    w.document.open(); w.document.write(doc); w.document.close();
+    return true;
+  }
+
+  function ampModal(a){
+    openModal('<h3>Edit AMP plan</h3>'+
+      '<div class="field"><label for="eaPlan">Maintenance plan no.</label><input type="number" id="eaPlan" min="1" step="1" inputmode="numeric" value="'+esc(/^\d+$/.test(a.plan)?a.plan:"")+'"></div>'+
+      '<div class="field"><label for="eaDesc">Description</label><textarea id="eaDesc" maxlength="500">'+esc(a.desc||"")+'</textarea></div>'+
+      '<div class="row"><div><label for="eaDue">Due date</label><input type="date" id="eaDue" value="'+esc(a.due||"")+'"></div>'+
+      '<div><label for="eaComp">Completion date</label><input type="date" id="eaComp" value="'+esc(a.comp||"")+'"></div></div>'+
+      '<div class="field"><label for="eaStat">Status</label><select id="eaStat">'+ampStatusOpts(a.status)+'</select></div>'+
+      '<p class="error" id="eaErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
+    bindAmpSync("eaStat","eaComp");
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var plan = $("eaPlan").value.trim(), due = $("eaDue").value;
+      if(!/^\d+$/.test(plan) || +plan < 1){ $("eaErr").textContent = "Enter the maintenance plan number (digits only)."; return; }
+      if(!due){ $("eaErr").textContent = "Select the due date."; return; }
+      a.plan = plan; a.desc = $("eaDesc").value.trim(); a.due = due; a.comp = $("eaComp").value || ""; a.status = $("eaStat").value;
+      ampFix(a); closeModal(); ampSave(a); render();
+    };
+  }
+
   /* ---------- Employee panel ---------- */
   function bindHead(e, done){
     var p = $("panel");
+    var bw = $("backWorks"); if(bw) bw.onclick = function(){ activeTab = "works"; render(); };
     Array.prototype.forEach.call(p.querySelectorAll("[data-view]"),function(b){
       b.onclick = function(){ empView = b.getAttribute("data-view"); render(); };
     });
     if(!isMaster()) return;
     $("renameEmp").onclick = function(){
-      promptModal("Rename employee","Employee name",e.name,function(v){
-        e.name = v; commit([{ t:"emp.put", emp:{ id:e.id, name:v } }]); render();
+      empFormModal("Edit employee", e, function(v){
+        e.name = v.name; e.desig = v.desig; e.roles = v.roles;
+        commit([{ t:"emp.put", emp:{ id:e.id, name:encEmp(e) } }]); render();
       });
     };
     var cd = $("clearDone");
@@ -1029,8 +1547,11 @@
   }
 
   function renderPanel(){
+    if(activeTab === "home"){ renderHome(); return; }
+    if(activeTab === "works"){ renderWorks(); return; }
     if(activeTab === "dash"){ renderDashboard(); return; }
     if(activeTab === "assign"){ renderAssignments(); return; }
+    if(activeTab === "amp"){ renderAmp(); return; }
     var e = emp(activeTab), p = $("panel");
     if(!e){ p.innerHTML = '<div class="empty">No employee selected.</div>'; return; }
 
@@ -1039,15 +1560,15 @@
     var pct = total ? Math.round(done/total*100) : 0;
     var work = empView === "work";
 
-    var h = '';
-    h += '<div class="panel-head"><h3>'+esc(e.name)+'</h3>';
+    var h = '<div style="margin-bottom:10px"><button class="btn ghost small" id="backWorks" type="button">&lsaquo; All employees</button></div>';
+    h += '<div class="panel-head"><div><h3 style="display:inline">'+esc(e.name)+'</h3>'+(e.desig?'<span class="desig" style="display:inline-block;margin-left:8px">'+esc(e.desig)+'</span>':'')+rolesHTML(e)+'</div>';
     if(work) h += '<div class="stats"><span>Total <b>'+total+'</b></span><span>Done <b>'+done+'</b></span><span>Pending <b>'+(total-done)+'</b></span></div>';
     h += '</div>';
     h += '<div class="viewsw"><button type="button" data-view="work" class="'+(work?"active":"")+'">Worklist</button>'+
          '<button type="button" data-view="cal" class="'+(!work?"active":"")+'">Calendar</button></div>';
     if(isMaster()){
       h += '<div class="mbar">'+
-           '<button class="btn ghost small" id="renameEmp" type="button">Rename employee</button>'+
+           '<button class="btn ghost small" id="renameEmp" type="button">Edit employee</button>'+
            (work?'<button class="btn ghost small" id="clearDone" type="button">Clear completed (this date)</button>':'')+
            '<button class="btn danger small" id="delEmp" type="button">Delete employee</button></div>';
     }
@@ -1217,11 +1738,50 @@
     inp.addEventListener("keydown",function(e){ if(e.key==="Enter") ok(); });
   }
   function addEmployeeModal(){
-    promptModal("Add employee","Employee name","",function(v){
-      var n = { id: uid(), name: v, works: [] };
+    empFormModal("Add employee", {}, function(v){
+      var n = { id: uid(), name: v.name, desig: v.desig, roles: v.roles, works: [] };
       state.employees.push(n); activeTab = n.id;
-      commit([{ t:"emp.put", emp:{ id:n.id, name:v } }]); render();
+      commit([{ t:"emp.put", emp:{ id:n.id, name:encEmp(n) } }]); render();
     });
+  }
+  function empFormModal(title, cur, onSave){
+    var sel = (cur.roles||[]).slice(), other = "";
+    sel.forEach(function(r){ if(r.indexOf("Other: ")===0) other = r.slice(7); });
+    function has(r){ return r === "OTHER (SPECIFY)" ? !!other : sel.indexOf(r) >= 0; }
+    openModal('<h3>'+esc(title)+'</h3>'+
+      '<div class="field"><label for="efName">Employee name</label><input type="text" id="efName" maxlength="60" value="'+esc(cur.name||"")+'"></div>'+
+      '<div class="field"><label for="efDes">Designation</label><select id="efDes"><option value="">Select designation</option>'+
+        DESIGS.map(function(d){ return '<option value="'+esc(d)+'"'+(d===cur.desig?' selected':'')+'>'+esc(d)+'</option>'; }).join("")+'</select></div>'+
+      '<label>Roles (select one or more)</label><div class="chkgrid">'+
+        ROLES.map(function(r){ return '<label class="chkitem"><input type="checkbox" data-role="'+esc(r)+'"'+(has(r)?' checked':'')+'> '+esc(r)+'</label>'; }).join("")+'</div>'+
+      '<div class="field'+(other?'':' hidden')+'" id="efOtherWrap"><label for="efOther">Other role (specify)</label><input type="text" id="efOther" maxlength="40" value="'+esc(other)+'"></div>'+
+      '<p class="error" id="efErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+    $("efName").focus();
+    $("mNo").onclick = closeModal;
+    function otherBox(){ return document.querySelector('[data-role="OTHER (SPECIFY)"]'); }
+    otherBox().onchange = function(){
+      $("efOtherWrap").classList.toggle("hidden", !this.checked);
+      if(this.checked) $("efOther").focus();
+    };
+    function clean(x){ return x.replace(/[\u00A7|]/g," ").replace(/\s+/g," ").trim(); }
+    $("mOk").onclick = function(){
+      var name = clean($("efName").value);
+      if(!name){ $("efErr").textContent = "Enter the employee name."; $("efName").focus(); return; }
+      var roles = [];
+      Array.prototype.forEach.call(document.querySelectorAll("[data-role]"),function(c){
+        var r = c.getAttribute("data-role");
+        if(c.checked && r !== "OTHER (SPECIFY)") roles.push(r);
+      });
+      if(otherBox().checked){
+        var o = clean($("efOther").value);
+        if(!o){ $("efErr").textContent = "Specify the other role."; $("efOther").focus(); return; }
+        roles.push("Other: "+o);
+      }
+      var rec = { name: name, desig: $("efDes").value, roles: roles };
+      if(encEmp(rec).length > 300){ $("efErr").textContent = "Too many roles selected for the space available. Untick a few."; return; }
+      closeModal(); onSave(rec);
+    };
   }
   function editWorkModal(e,w){
     openModal('<h3>Edit work</h3>'+
@@ -1277,25 +1837,33 @@
     };
   }
 
-  /* ---------- Manage login users (master) ---------- */
+  /* ---------- Manage login users (master sees and sets passwords) ---------- */
   function usersModal(){
-    function body(msg){
+    openModal('<h3>Manage user logins</h3><p style="color:var(--muted)">Loading…</p>');
+    function loadPw(done){
+      if(!SYNC){ userPass = {}; state.users.forEach(function(u){ userPass[u.id] = u.pass; }); done(""); return; }
+      api({ action: "userList" }).then(function(r){
+        userPass = {}; (r.json.users || []).forEach(function(u){ userPass[u.id] = u.pass; }); done("");
+      }).catch(function(err){
+        userPass = null;
+        done(err.server ? "Could not load passwords ("+err.message+")." : "Cannot reach the server.");
+      });
+    }
+    function pwOf(id){ return userPass && userPass[id] != null ? userPass[id] : null; }
+    function body(msg, ok){
       var li = state.users.map(function(u,i){
-        return '<li><span>'+esc(u.id)+' <small>(password set)</small></span>'+
-          '<button class="btn danger small" data-rm="'+i+'" type="button">Remove</button></li>';
+        var pw = pwOf(u.id);
+        return '<li><div style="flex:1 1 100%"><b>'+esc(u.id)+'</b> &nbsp; Password: '+
+            (pw === null ? '<small>(not available)</small>' : pw === '' ? '<small>(not recorded – set a new password to see it here)</small>' : '<code>'+esc(pw)+'</code>')+'</div>'+
+          '<div class="row" style="flex:1 1 100%;margin:0"><input type="text" id="upw'+i+'" placeholder="New password">'+
+          '<button class="btn small" style="flex:0 0 auto" data-pwset="'+i+'" type="button">Set password</button>'+
+          '<button class="btn danger small" style="flex:0 0 auto" data-rm="'+i+'" type="button">Remove</button></div></li>';
       }).join("") || '<li><small>No user logins. Add one below.</small></li>';
-      var rq = (state.resets||[]).map(function(r,i){
-        return '<div class="rqitem"><b>'+esc(r.userId)+'</b> <small>requested '+esc(fmtStamp(r.time))+'</small>'+
-          '<div class="row"><input type="text" id="rqPw'+i+'" placeholder="New password">'+
-          '<button class="btn small" data-rqset="'+i+'" type="button">Set</button>'+
-          '<button class="btn ghost small" data-rqdis="'+i+'" type="button">Dismiss</button></div></div>';
-      }).join("");
-      var rqHtml = rq ? '<div class="rqbox"><h4>Password reset requests</h4>'+rq+'</div>' : "";
-      openModal('<h3>Manage user logins</h3>'+rqHtml+
+      openModal('<h3>Manage user logins</h3>'+
         '<ul class="ulist">'+li+'</ul>'+
         '<div class="row"><div><label for="nuId">New user ID</label><input type="text" id="nuId" autocapitalize="off"></div>'+
         '<div><label for="nuPw">Password</label><input type="text" id="nuPw"></div></div>'+
-        '<p class="error" id="nuErr">'+esc(msg||"")+'</p>'+
+        '<p class="'+(ok?'okmsg':'error')+'" id="nuErr">'+esc(msg||"")+'</p>'+
         '<div class="row"><button class="btn ghost" id="mNo" type="button">Close</button><button class="btn" id="nuAdd" type="button">Add user</button></div>');
       $("mNo").onclick = closeModal;
       $("nuAdd").onclick = function(){
@@ -1305,51 +1873,27 @@
           body("That user ID is already taken."); return;
         }
         state.users.push(SYNC ? { id:id } : { id:id, pass:pw });
-        commit([{ t:"user.put", id:id, pass:pw }]); body("");
+        userPass = userPass || {}; userPass[id] = pw;
+        commit([{ t:"user.put", id:id, pass:pw }]); body("User added.", true);
       };
-      Array.prototype.forEach.call(document.querySelectorAll("[data-rqset]"),function(b){
+      Array.prototype.forEach.call(document.querySelectorAll("[data-pwset]"),function(b){
         b.onclick = function(){
-          var i = +b.getAttribute("data-rqset"), r = state.resets[i], pw = $("rqPw"+i).value;
-          var u = state.users.find(function(x){ return x.id.toLowerCase() === String(r.userId).toLowerCase(); });
-          if(!u){ body('No user "'+r.userId+'" exists. Dismiss this request or add the user below.'); return; }
+          var i = +b.getAttribute("data-pwset"), u = state.users[i], pw = $("upw"+i).value;
           if(!pw){ body("Type a new password for "+u.id+" first."); return; }
-          commit([{ t:"user.put", id:u.id, pass:pw }]);
-          clearReset(r); state.resets.splice(i,1); updateResetBadge();
-          resetDone(u.id, pw);
-        };
-      });
-      Array.prototype.forEach.call(document.querySelectorAll("[data-rqdis]"),function(b){
-        b.onclick = function(){
-          var i = +b.getAttribute("data-rqdis"), r = state.resets.splice(i,1)[0];
-          clearReset(r); updateResetBadge(); body("");
+          if(!SYNC) u.pass = pw;
+          userPass = userPass || {}; userPass[u.id] = pw;
+          commit([{ t:"user.put", id:u.id, pass:pw }]); body("Password updated for "+u.id+".", true);
         };
       });
       Array.prototype.forEach.call(document.querySelectorAll("[data-rm]"),function(b){
         b.onclick = function(){
           var u = state.users.splice(+b.getAttribute("data-rm"),1)[0];
+          if(userPass) delete userPass[u.id];
           commit([{ t:"user.del", id:u.id }]); body("");
         };
       });
     }
-    body("");
-  }
-  function clearReset(r){ if(SYNC && r && r.id) api({ action: "resetClear", id: r.id }).catch(function(){}); }
-
-  function resetDone(userId,pw){
-    var msg = "Your KOZHIKODE SS password has been reset.\nUser ID: "+userId+"\nNew password: "+pw;
-    openModal('<h3>Password updated</h3>'+
-      '<p class="okmsg">New password set for '+esc(userId)+'. Now inform the user:</p>'+
-      '<div class="msgbox" id="rdMsg">'+esc(msg).replace(/\n/g,"<br>")+'</div>'+
-      '<div class="row"><button class="btn ghost" id="rdCopy" type="button">Copy message</button>'+
-      '<a class="btn" id="rdWa" target="_blank" rel="noopener" style="text-align:center;text-decoration:none" href="https://wa.me/?text='+encodeURIComponent(msg)+'">WhatsApp</a></div>'+
-      '<div class="row"><button class="btn" id="rdBack" type="button">Back to logins</button></div>');
-    $("rdCopy").onclick = function(){
-      var done = function(){ $("rdCopy").textContent = "Copied"; };
-      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(msg).then(done,function(){}); }
-      else{ var t = document.createElement("textarea"); t.value = msg; document.body.appendChild(t); t.select();
-            try{ document.execCommand("copy"); done(); }catch(e){} document.body.removeChild(t); }
-    };
-    $("rdBack").onclick = usersModal;
+    loadPw(function(m){ body(m); });
   }
   $("manageUsersBtn").onclick = usersModal;
 
