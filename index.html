@@ -30,10 +30,12 @@
   .login-head{text-align:center}
   .login-head h1{margin:0;font-size:1.3rem;letter-spacing:.5px;color:var(--steel);line-height:1.3}
   .login-head p{margin:4px 0 0;color:var(--muted);font-size:.95rem}
-  .role-switch{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}
-  .role-switch button{padding:13px;border:0;background:#f4f6f8;color:var(--muted);font-weight:600;
-    border-bottom:3px solid transparent}
-  .role-switch button.active{background:#fff;color:var(--steel);border-bottom-color:var(--steel)}
+  .role-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 18px 16px;border-bottom:1px solid var(--line);background:#f7f9fb}
+  .role-switch button{padding:13px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--muted);font-weight:600;
+    border-bottom:3px solid transparent;transition:background .15s,border-color .15s,color .15s,transform .15s}
+  .role-switch button:hover{background:#f0f4f7;color:var(--steel)}
+  .role-switch button.active{background:#fff;color:var(--steel);border-color:var(--steel);border-bottom-color:var(--amber);box-shadow:0 3px 8px rgba(31,58,82,.08)}
+  .role-switch button:last-child{grid-column:1 / -1;justify-self:center;width:50%}
   .login-body{padding:22px 28px 28px}
   label{display:block;font-size:.9rem;font-weight:600;margin:0 0 5px}
   input[type=text],input[type=password],input[type=date]{width:100%;padding:10px 12px;border:1px solid #b9c3cc;
@@ -213,6 +215,9 @@
   /* ---- assignments ---- */
   .assign-form{border:1px solid var(--line);background:#f5f7f9;border-radius:6px;padding:14px;margin-bottom:16px}
   .assign-form h4{margin:0 0 10px}
+  .exbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:-6px 0 14px}
+  .exbar label{margin:0;font-weight:600;font-size:.9rem}
+  .exbar select{width:auto;min-width:220px;max-width:100%}
   .agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:6px}
   .agrid .field{margin:0}
   .agrid .span2{grid-column:1/-1}
@@ -324,6 +329,11 @@
     .atable td::before{content:attr(data-label);font-weight:600;color:var(--muted);text-align:left;flex:0 0 38%}
     .atable td.act{justify-content:flex-end}
     .atable td.act::before{content:none}
+  }
+  @media(max-width:480px){
+    .role-switch{gap:8px;padding:12px 14px 14px}
+    .role-switch button{padding:12px 8px;font-size:.9rem}
+    .role-switch button:last-child{width:68%}
   }
   @media(prefers-reduced-motion:reduce){*{transition:none !important}}
 </style>
@@ -519,11 +529,12 @@
     state.amcTransfers = d.amcTransfers || [];
     state.amcEmployees = d.amcEmployees || [];
     state.amcDaily = d.amcDaily || [];
+    state.amcAssignees = d.amcAssignees || [];
     var nev = null;
     state.events = state.events.filter(function(x){ if(x.id === NOTICE_ID){ nev = x; return false; } return true; });
     state.notice = nev ? (nev.note || "") : "";
     if(isSupport()){
-      if(activeTab !== "home") activeTab = "home";
+      if(activeTab !== "home" && activeTab !== "assign") activeTab = "home";
     } else if(activeTab !== "dash" && activeTab !== "assign" && activeTab !== "amp" && activeTab !== "maint" && activeTab !== "follow" && activeTab !== "proc" && activeTab !== "amc" && activeTab !== "home" && activeTab !== "works" && activeTab !== "contracts" && !emp(activeTab)) activeTab = "dash";
   }
 
@@ -608,7 +619,7 @@
 
   /* AMP plans use their own actions (ampList / ampPut / ampDel) */
   function ampFetch(){
-    if(!SYNC || !auth || ampBusy) return;
+    if(!SYNC || !auth || ampBusy || isSupport()) return;
     api({ action: "ampList" }).then(function(r){
       if(ampBusy || r.text === ampText) return;
       ampText = r.text; state.amp = r.json.amp || []; state.sched = r.json.sched || state.sched || []; state.fu = r.json.fu || state.fu || []; state.pr = r.json.pr || state.pr || [];
@@ -923,7 +934,9 @@
     h += '<div class="nboard"><div class="nh"><h4>&#9670; Notice board</h4></div>'+
          (notes.length ? '<ul>'+notes.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join("")+'</ul>' : '<div class="none">No notices right now.</div>')+'</div>';
     var staff = state.amcStaff || [];
-    h += '<div class="hgrid"><button type="button" class="hcard green" id="goWork"><span class="ic">'+ICON.works+'</span><b>Update works of AMC staff</b><small>Attendance, work details and status of '+staff.length+' AMC staff</small></button></div>';
+    h += '<div class="hgrid"><button type="button" class="hcard green" id="goWork"><span class="ic">'+ICON.works+'</span><b>Update works of AMC staff</b><small>Attendance, work details and status of '+staff.length+' AMC staff</small></button>'+
+      (function(){ var sa = supAssignList(), so = sa.filter(function(a){ return !a.done; }).length, sl = sa.filter(asOverdue).length;
+        return '<button type="button" class="hcard'+(sl?' amber':' green')+'" id="goAssign"><span class="ic">'+ICON.assign+'</span><b>Assignments</b><small>'+so+' open'+(sl?', '+sl+' overdue':'')+' of '+sa.length+' assigned to AMC</small></button>'; })()+'</div>';
     h += '<div class="assign-form" style="margin-top:14px"><h4>Export muster roll (PDF)</h4><div class="agrid">'+
       '<div class="field"><label for="mrFrom">From date</label><input type="date" id="mrFrom" value="'+t.slice(0,8)+'01" max="'+t+'"></div>'+
       '<div class="field"><label for="mrTo">To date</label><input type="date" id="mrTo" value="'+t+'" max="'+t+'"></div></div>'+
@@ -942,6 +955,7 @@
     h += '<h3 class="sec" id="officeCal">Office calendar</h3><p style="margin:-4px 0 12px;color:var(--muted);font-size:.9rem">Office events set by Master. Click a date to see details.</p>'+calHTML("office");
     p.innerHTML = h;
     $("goWork").onclick = function(){ supView = "work"; renderPanel(); };
+    $("goAssign").onclick = function(){ activeTab = "assign"; assignFilter = "pending"; assignTo = ""; render(); };
     $("mrBtn").onclick = function(){
       var fr = $("mrFrom").value, to = $("mrTo").value, er = $("mrErr");
       if(!fr || !to){ er.textContent = "Select both dates."; return; }
@@ -1173,7 +1187,9 @@
 
   function renderTabs(){
     var html = '<button type="button" class="tab active" data-tab="home">Home</button>';
-    if(!isSupport()){
+    if(isSupport()){
+      html += '<button type="button" class="tab'+(activeTab==="assign"?" active":"")+'" data-tab="assign">Assignments</button>';
+    } else {
       html += '<button type="button" class="tab'+(activeTab==="dash"?" active":"")+'" data-tab="dash">Dashboard</button>'+
               '<button type="button" class="tab'+(activeTab==="works"?" active":"")+'" data-tab="works">Daily Works</button>'+
               '<button type="button" class="tab'+(activeTab==="assign"?" active":"")+'" data-tab="assign">Assignments</button>'+
@@ -1396,14 +1412,51 @@
 
   /* ---------- Work assignments ---------- */
   var PRI = { normal:"Normal", high:"High", urgent:"Urgent" };
-  function empName(id){ var e = emp(id); return e ? e.name : "(removed employee)"; }
+  /* Work can be assigned to an employee, an AMC (contract) user, or an AMC labour.
+     AMC users use "amc:<login id>"; AMC labour use "amcstaff:<staff id>". */
+  var AMC_PFX = "amc:";
+  var AMC_STAFF_PFX = "amcstaff:";
+  function isAmcId(id){
+    id = String(id||"");
+    return id.indexOf(AMC_PFX) === 0 || id.indexOf(AMC_STAFF_PFX) === 0;
+  }
+  function amcAssignees(){
+    var l = (state.amcAssignees || []).slice();
+    if(!l.length && (state.amcUsers||[]).length) l = state.amcUsers.map(function(u){ return { id: AMC_PFX+u.id, name: u.displayName||u.id, contractId: u.contractId||"" }; });
+    var seen = {};
+    l.forEach(function(x){ seen[x.id] = true; });
+    (state.amcStaff || []).forEach(function(s){
+      var id = AMC_STAFF_PFX + s.id;
+      if(!seen[id]) l.push({ id:id, name:s.name||s.id, contractId:s.contractId||"" });
+    });
+    return l;
+  }
+  function empName(id, fb){
+    if(isAmcId(id)){
+      var m = amcAssignees().find(function(x){ return x.id === id; });
+      return m ? m.name+" (AMC)" : (fb ? fb+" (AMC)" : "(removed AMC user)");
+    }
+    var e = emp(id); if(e) return e.name;
+    var ae = (state.amcEmployees||[]).find(function(x){ return x.id === id; });   // Support Staff only receive employee names
+    return ae ? ae.name : "(removed employee)";
+  }
+  function toOptions(sel, placeholder){
+    var o = empOptions(sel, placeholder), l = amcAssignees(), found = false;
+    if(l.length){
+      o += '<optgroup label="AMC / Contract users">';
+      l.forEach(function(x){ if(x.id === sel) found = true; o += '<option value="'+esc(x.id)+'"'+(x.id===sel?' selected':'')+'>'+esc(x.name+" (AMC)")+'</option>'; });
+      o += '</optgroup>';
+    }
+    if(isAmcId(sel) && !found) o += '<option value="'+esc(sel)+'" selected>(removed AMC user)</option>';
+    return o;
+  }
   function empOptions(sel, placeholder){
     var o = '<option value="">'+esc(placeholder)+'</option>', found = false;
     state.employees.forEach(function(e){
       if(e.id === sel) found = true;
       o += '<option value="'+esc(e.id)+'"'+(e.id===sel?' selected':'')+'>'+esc(e.name+(e.desig?" \u2013 "+e.desig:""))+'</option>';
     });
-    if(sel && !found) o += '<option value="'+esc(sel)+'" selected>(removed employee)</option>';
+    if(sel && !found && !isAmcId(sel)) o += '<option value="'+esc(sel)+'" selected>(removed employee)</option>';
     return o;
   }
   function priOptions(sel){
@@ -1417,6 +1470,7 @@
   }
 
   function renderAssignments(){
+    if(isSupport()){ renderSupportAssignments(); return; }
     var p = $("panel"), all = state.assignments;
     var pend = all.filter(function(a){ return !a.done; }).length;
     var over = all.filter(asOverdue).length;
@@ -1432,7 +1486,7 @@
 
     h += '<div class="assign-form"><h4>Assign new work</h4><div class="agrid">'+
       '<div class="field"><label for="aBy">Assigned by</label><select id="aBy">'+empOptions(lastBy,"Select employee")+'</select></div>'+
-      '<div class="field"><label for="aTo">Work assigned to</label><select id="aTo">'+empOptions("","Select employee")+'</select></div>'+
+      '<div class="field"><label for="aTo">Work assigned to</label><select id="aTo">'+toOptions("","Select employee / AMC user")+'</select></div>'+
       '<div class="field span2"><label for="aWork">Work assigned</label><input type="text" id="aWork" maxlength="300" placeholder="Describe the work to be done"></div>'+
       '<div class="field"><label for="aDate">Target date</label><input type="date" id="aDate" value="'+today()+'"></div>'+
       '<div class="field"><label for="aPri">Priority</label><select id="aPri">'+priOptions("normal")+'</select></div>'+
@@ -1443,7 +1497,7 @@
     h += '<div class="filters">'+[["all","All"],["pending","Pending"],["overdue","Overdue"],["done","Done"]].map(function(f){
       return '<button type="button" data-af="'+f[0]+'" class="'+(assignFilter===f[0]?"active":"")+'">'+f[1]+'</button>';
     }).join("")+
-      '<select id="aFilterTo" style="width:auto;margin-left:auto" aria-label="Filter by employee">'+empOptions(assignTo,"All employees")+'</select></div>';
+      '<select id="aFilterTo" style="width:auto;margin-left:auto" aria-label="Filter by employee">'+toOptions(assignTo,"All employees / AMC users")+'</select></div>';
 
     var list = all.filter(function(a){
       if(assignTo && a.to !== assignTo) return false;
@@ -1467,7 +1521,7 @@
         h += '<tr class="'+(a.done?"done":"")+(late?" late":"")+'">'+
           '<td data-label="#">'+(i+1)+'</td>'+
           '<td data-label="Assigned by">'+esc(empName(a.by))+'</td>'+
-          '<td data-label="Assigned to"><b>'+esc(empName(a.to))+'</b></td>'+
+          '<td data-label="Assigned to"><b>'+esc(empName(a.to, a.toName))+'</b></td>'+
           '<td data-label="Work assigned"><span class="wt">'+esc(a.text)+'</span></td>'+
           '<td data-label="Assigned on">'+fmtDate(asCreatedDate(a))+'</td>'+
           '<td data-label="Target date">'+(a.target?fmtDate(a.target):'–')+(late?'<span class="late-t">Overdue</span>':'')+'</td>'+
@@ -1475,8 +1529,8 @@
           '<td data-label="Status"><label style="display:inline-flex;align-items:center;gap:6px;margin:0;font-weight:400">'+
             '<input type="checkbox" data-adone="'+esc(a.id)+'" '+(a.done?'checked':'')+' aria-label="Mark assignment done"> '+
             (a.done?'Done'+(a.doneAt?' '+fmtDate(toISO(new Date(a.doneAt))):''):'Pending')+'</label></td>'+
-          '<td data-label="Remarks">'+(a.remarks?esc(a.remarks):'–')+'</td>'+
-          '<td class="act">'+(a.done?'':'<button class="btn ghost small" data-adaily="'+esc(a.id)+'" type="button">Add to daily list</button> ')+'<button class="btn ghost small" data-ashare="'+esc(a.id)+'" type="button">Share</button> '+
+          '<td data-label="Remarks">'+(a.remarks?esc(a.remarks):'–')+(a.amcRemarks?'<span class="cmt">AMC remarks: '+esc(a.amcRemarks)+'</span>':'')+'</td>'+
+          '<td class="act">'+((a.done||isAmcId(a.to))?'':'<button class="btn ghost small" data-adaily="'+esc(a.id)+'" type="button">Add to daily list</button> ')+'<button class="btn ghost small" data-ashare="'+esc(a.id)+'" type="button">Share</button> '+
             '<button class="btn ghost small" data-aedit="'+esc(a.id)+'" type="button">Edit</button>'+
             (isMaster()?' <button class="btn danger small" data-adel="'+esc(a.id)+'" type="button">Delete</button>':'')+'</td></tr>';
       });
@@ -1540,7 +1594,7 @@
   function assignModal(a){
     openModal('<h3>Edit assignment</h3>'+
       '<div class="field"><label for="eBy">Assigned by</label><select id="eBy">'+empOptions(a.by,"Select employee")+'</select></div>'+
-      '<div class="field"><label for="eTo">Work assigned to</label><select id="eTo">'+empOptions(a.to,"Select employee")+'</select></div>'+
+      '<div class="field"><label for="eTo">Work assigned to</label><select id="eTo">'+toOptions(a.to,"Select employee / AMC user")+'</select></div>'+
       '<div class="field"><label for="eWork">Work assigned</label><input type="text" id="eWork" maxlength="300" value="'+esc(a.text)+'"></div>'+
       '<div class="row"><div><label for="eTarget">Target date</label><input type="date" id="eTarget" value="'+esc(a.target||"")+'"></div>'+
       '<div><label for="ePri">Priority</label><select id="ePri">'+priOptions(PRI[a.priority]?a.priority:"normal")+'</select></div></div>'+
@@ -1550,8 +1604,9 @@
     $("mNo").onclick = closeModal;
     $("mOk").onclick = function(){
       var by = $("eBy").value, to = $("eTo").value, text = $("eWork").value.trim();
-      if(!by || !to){ $("eErr").textContent = "Select both employees."; return; }
+      if(!by || !to){ $("eErr").textContent = "Select who assigns and who the work is assigned to."; return; }
       if(!text){ $("eErr").textContent = "Work description cannot be empty."; return; }
+      if(a.to !== to) a.amcRemarks = "";
       a.by = by; a.to = to; a.text = text; a.target = $("eTarget").value || "";
       a.priority = $("ePri").value; a.remarks = $("eRem").value.trim();
       closeModal(); commit([aPut(a)]); render();
@@ -2157,6 +2212,152 @@
     };
   }
 
+  /* ---------- PDF exports of daily work lists (print window -> Save as PDF) ---------- */
+  var amcExSel = "all";
+  function printDoc(title, css, body){
+    var doc = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'+css+'</style></head><body>'+body+
+      '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script></body></html>';
+    var w = window.open("", "_blank");
+    if(!w){ alert("The PDF window was blocked. Please allow pop-ups for this page and try again."); return; }
+    w.document.open(); w.document.write(doc); w.document.close();
+  }
+  function listCss(landscape){
+    return '@page{size:A4 '+(landscape?'landscape':'portrait')+';margin:10mm}body{font-family:"Segoe UI",Arial,sans-serif;color:#16212b;font-size:10pt;margin:0}'+
+      '.hd{display:flex;align-items:center;gap:14px;border-bottom:3px solid #e0a100;padding-bottom:6px;margin-bottom:8px}.hd img{height:42px;width:auto}'+
+      '.hd h1{margin:0;font-size:14pt;color:#1f3a52}.hd p{margin:2px 0 0;color:#5d6b78;font-size:9.5pt}'+
+      '.sm{margin:0 0 8px;font-size:9.5pt}.sm b{color:#1f3a52}'+
+      'table{width:100%;border-collapse:collapse}th,td{border:1px solid #8795a1;padding:5px 6px;vertical-align:top;text-align:center}'+
+      'th{background:#1f3a52;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}td.l{text-align:left}small{color:#5d6b78}'+
+      'tr{page-break-inside:avoid}thead{display:table-header-group}.nu{color:#8795a1}.ab{color:#c0392b;font-weight:700}.ok{color:#1b7a3e;font-weight:600}'+
+      '.ft{margin-top:8px;font-size:8.5pt;color:#5d6b78}.sg{display:flex;justify-content:space-between;margin-top:34px;font-size:10pt}'+
+      '.sg div{border-top:1px solid #16212b;padding-top:4px;min-width:200px;text-align:center}';
+  }
+  function docHead(title, sub){
+    var logo = (document.querySelector(".login-logo") || {}).src || "";
+    return '<div class="hd">'+(logo ? '<img src="'+esc(logo)+'" alt="">' : '')+'<div><h1>'+title+'</h1><p>'+sub+'</p></div></div>';
+  }
+  function docFoot(){ return '<p class="ft">Generated on '+esc(fmtStamp(Date.now()))+(session ? ' by '+esc(session.id) : '')+'</p>'; }
+
+  /* Daily work list of ONE employee for the selected date */
+  function workExport(e, d){
+    var list = e.works.filter(function(w){ return w.date === d; }).sort(function(a,b){ return a.created-b.created; });
+    if(!list.length){ alert("No work has been entered for "+fmtDate(d)+"."); return; }
+    var done = list.filter(function(w){ return w.done; }).length;
+    var rows = list.map(function(w,i){
+      return '<tr><td>'+(i+1)+'</td><td class="l">'+esc(w.text)+(w.movedFrom ? '<br><small>Transferred from '+esc(fmtDate(w.movedFrom))+'</small>' : '')+'</td>'+
+        '<td class="'+(w.done?'ok':'')+'">'+(w.done?'Done':'Pending')+'</td><td>'+(w.done && w.doneAt ? esc(fmtStamp(w.doneAt)) : '–')+'</td>'+
+        '<td class="l">'+(w.done && w.comment ? esc(w.comment) : '')+'</td></tr>';
+    }).join("");
+    var body = docHead('KOZHIKODE SS &ndash; Daily Work List', esc(e.name)+(e.desig ? ' ('+esc(e.desig)+')' : '')+' &nbsp;|&nbsp; Date: '+esc(dayLabel(d)))+
+      '<p class="sm">Total works: <b>'+list.length+'</b> &nbsp;|&nbsp; Completed: <b>'+done+'</b> &nbsp;|&nbsp; Pending: <b>'+(list.length-done)+'</b></p>'+
+      '<table><thead><tr><th style="width:5%">#</th><th>Work details</th><th style="width:11%">Status</th><th style="width:17%">Completed on</th><th style="width:26%">Comment</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<div class="sg"><div>Employee</div><div>Verified by</div></div>'+docFoot();
+    printDoc("Daily_Work_List_"+e.name.replace(/[^A-Za-z0-9]+/g,"_")+"_"+fmtDate(d), listCss(false), body);
+  }
+
+  /* Daily work list of AMC / contract employees for the selected date: one person or all */
+  function amcDailyExport(d, sid){
+    var staff = (state.amcStaff||[]).filter(function(s){
+      return (sid && sid !== "all") ? s.id === sid : (amcFilter === "all" || s.contractId === amcFilter);
+    });
+    var recs = {}; (state.amcDaily||[]).forEach(function(x){ if(x.date === d) recs[x.staffId] = x; });
+    if(!staff.length){ alert("No AMC staff to export."); return; }
+    if(!staff.some(function(s){ return recs[s.id]; })){ alert("No daily work has been updated for "+fmtDate(d)+" (only the last 90 days are available)."); return; }
+    var cids = {}; staff.forEach(function(s){ cids[s.contractId] = 1; });
+    var multi = Object.keys(cids).length > 1;
+    var ct = multi ? null : (state.contracts||[]).find(function(c){ return c.id === staff[0].contractId; });
+    var cnt = { P:0, A:0, H:0, NH:0, NU:0 };
+    var rows = staff.map(function(s,i){
+      var x = recs[s.id], att = x ? x.attendance : "";
+      if(att === "P") cnt.P++; else if(att === "A") cnt.A++; else if(att === "FHL" || att === "SHL") cnt.H++; else if(att === "NH") cnt.NH++; else cnt.NU++;
+      var w = x && attWork(att);
+      return '<tr><td>'+(i+1)+'</td><td class="l"><b>'+esc(s.name)+'</b></td><td class="l">'+esc(s.skill)+'</td>'+(multi ? '<td class="l">'+esc(contractName(s.contractId))+'</td>' : '')+
+        '<td class="'+(att==="A"?'ab':(x?'':'nu'))+'">'+(x ? esc(ATT[att]||att) : 'Not updated')+'</td>'+
+        '<td class="l">'+(x && x.work ? esc(x.work) : '–')+'</td>'+
+        '<td>'+(w ? esc(x.status||"OPEN")+(x.statusRemark ? '<br><small>Remarks: '+esc(x.statusRemark)+'</small>' : '') : '–')+'</td>'+
+        '<td class="l">'+esc((x && x.workingUnderName) || s.workingUnderName || "")+'</td></tr>';
+    }).join("");
+    var one = staff.length === 1;
+    var sub = 'Date: '+esc(dayLabel(d))+(ct ? ' &nbsp;|&nbsp; Contract: '+esc(ct.name)+(ct.agency ? ' ('+esc(ct.agency)+')' : '')+(ct.number ? ' &nbsp;|&nbsp; No. '+esc(ct.number) : '') : '');
+    var body = docHead('KOZHIKODE SS &ndash; Daily Work List of '+(one ? 'AMC Staff: '+esc(staff[0].name) : 'Contract Employees'), sub)+
+      '<p class="sm">AMC staff: <b>'+staff.length+'</b> &nbsp;|&nbsp; Present: <b>'+cnt.P+'</b> &nbsp;|&nbsp; Absent: <b>'+cnt.A+'</b> &nbsp;|&nbsp; Half-day leave: <b>'+cnt.H+'</b> &nbsp;|&nbsp; National holiday: <b>'+cnt.NH+'</b> &nbsp;|&nbsp; Not updated: <b>'+cnt.NU+'</b></p>'+
+      '<table><thead><tr><th style="width:4%">#</th><th>Name</th><th>Skill</th>'+(multi ? '<th>Contract</th>' : '')+'<th>Attendance</th><th style="width:26%">Work details</th><th>Status of work</th><th>Working under</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<div class="sg"><div>Prepared by (AMC)</div><div>Verified by (POWERGRID)</div></div>'+docFoot();
+    printDoc("Daily_Work_List_AMC_"+(one ? staff[0].name.replace(/[^A-Za-z0-9]+/g,"_")+"_" : "All_")+fmtDate(d), listCss(true), body);
+  }
+
+  /* ---------- Assignments for Support Staff (only work given to AMC users) ---------- */
+  function supAssignList(){ return (state.assignments||[]).filter(function(a){ return isAmcId(a.to); }); }
+  function supAssignSave(a, done, remarks){
+    if(!SYNC){ a.done = done; a.doneAt = done ? (a.doneAt || Date.now()) : null; a.amcRemarks = remarks; version++; saveLocal(); render(); return; }
+    amcCall({ action:"amcAssignStatus", id:a.id, done:done, remarks:remarks });
+  }
+  function supAssignModal(a, markDone){
+    openModal('<h3>'+(markDone?'Mark work as done':'AMC remarks')+'</h3><p style="margin-top:0">'+esc(a.text)+'</p>'+
+      '<div class="field"><label for="saRem">Remarks (optional)</label><input type="text" id="saRem" maxlength="300" value="'+esc(a.amcRemarks||"")+'" placeholder="e.g. Work completed, tested OK"></div>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">'+(markDone?'Mark done':'Save remarks')+'</button></div>');
+    $("saRem").focus(); $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){ var r = $("saRem").value.trim(); closeModal(); supAssignSave(a, markDone ? true : !!a.done, r); };
+  }
+  function renderSupportAssignments(){
+    var p = $("panel"), all = supAssignList(), ppl = amcAssignees();
+    var pend = all.filter(function(a){ return !a.done; }).length, over = all.filter(asOverdue).length;
+    var h = '<div class="panel-head"><h3>Assignments for AMC staff</h3><div class="stats"><span>Total <b>'+all.length+'</b></span>'+
+            '<span>Pending <b>'+pend+'</b></span><span>Done <b>'+(all.length-pend)+'</b></span><span>Overdue <b'+(over?' style="color:var(--red)"':'')+'>'+over+'</b></span></div></div>'+
+      '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">Only work assigned to AMC (contract) users is shown here. Tick a task when it is completed; use Remarks to add your note.</p>';
+    h += '<div class="filters">'+[["all","All"],["pending","Pending"],["overdue","Overdue"],["done","Done"]].map(function(f){
+      return '<button type="button" data-af="'+f[0]+'" class="'+(assignFilter===f[0]?"active":"")+'">'+f[1]+'</button>';
+    }).join("")+(ppl.length > 1 ? '<select id="aFilterTo" style="width:auto;margin-left:auto" aria-label="Filter by AMC user"><option value="">All AMC users</option>'+
+      ppl.map(function(x){ return '<option value="'+esc(x.id)+'"'+(assignTo===x.id?' selected':'')+'>'+esc(x.name)+'</option>'; }).join("")+'</select>' : '')+'</div>';
+    var list = all.filter(function(a){
+      if(assignTo && a.to !== assignTo) return false;
+      if(assignFilter === "pending") return !a.done;
+      if(assignFilter === "done") return a.done;
+      if(assignFilter === "overdue") return asOverdue(a);
+      return true;
+    }).sort(function(a,b){
+      if(a.done !== b.done) return a.done ? 1 : -1;
+      if(!a.done){ return (a.target||"9999").localeCompare(b.target||"9999") || a.created-b.created; }
+      return (b.doneAt||0)-(a.doneAt||0);
+    });
+    if(!list.length){
+      h += '<div class="empty">'+(all.length ? "No assignments match this filter." : "No work has been assigned to AMC staff yet.")+'</div>';
+    } else {
+      h += '<table class="atable"><thead><tr><th>#</th><th>Assigned by</th><th>Assigned to</th><th>Work assigned</th><th>Assigned on</th><th>Target date</th><th>Priority</th><th>Status</th><th>Remarks</th><th></th></tr></thead><tbody>';
+      list.forEach(function(a,i){
+        var late = asOverdue(a), pr = PRI[a.priority] ? a.priority : "normal";
+        h += '<tr class="'+(a.done?"done":"")+(late?" late":"")+'">'+
+          '<td data-label="#">'+(i+1)+'</td>'+
+          '<td data-label="Assigned by">'+esc(empName(a.by))+'</td>'+
+          '<td data-label="Assigned to"><b>'+esc(empName(a.to, a.toName))+'</b></td>'+
+          '<td data-label="Work assigned"><span class="wt">'+esc(a.text)+'</span></td>'+
+          '<td data-label="Assigned on">'+fmtDate(asCreatedDate(a))+'</td>'+
+          '<td data-label="Target date">'+(a.target?fmtDate(a.target):'–')+(late?'<span class="late-t">Overdue</span>':'')+'</td>'+
+          '<td data-label="Priority"><span class="pri p-'+pr+'">'+PRI[pr]+'</span></td>'+
+          '<td data-label="Status"><label style="display:inline-flex;align-items:center;gap:6px;margin:0;font-weight:400">'+
+            '<input type="checkbox" data-sdone="'+esc(a.id)+'" '+(a.done?'checked':'')+' aria-label="Mark assignment done"> '+
+            (a.done?'Done'+(a.doneAt?' '+fmtDate(toISO(new Date(a.doneAt))):''):'Pending')+'</label></td>'+
+          '<td data-label="Remarks">'+(a.remarks?esc(a.remarks):'–')+(a.amcRemarks?'<span class="cmt">AMC remarks: '+esc(a.amcRemarks)+'</span>':'')+'</td>'+
+          '<td class="act"><button class="btn ghost small" data-srem="'+esc(a.id)+'" type="button">Remarks</button></td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+    p.innerHTML = h;
+    function findA(id){ return (state.assignments||[]).find(function(x){ return x.id === id; }); }
+    Array.prototype.forEach.call(p.querySelectorAll("[data-af]"),function(b){ b.onclick = function(){ assignFilter = b.getAttribute("data-af"); renderPanel(); }; });
+    var ft = $("aFilterTo"); if(ft) ft.onchange = function(){ assignTo = this.value; renderPanel(); };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-sdone]"),function(c){
+      c.onchange = function(){
+        var a = findA(c.getAttribute("data-sdone")); if(!a) return;
+        if(c.checked){ c.checked = false; supAssignModal(a, true); }
+        else supAssignSave(a, false, a.amcRemarks || "");
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-srem]"),function(b){
+      b.onclick = function(){ var a = findA(b.getAttribute("data-srem")); if(a) supAssignModal(a, false); };
+    });
+  }
+
   /* ---------- Muster roll PDF (AMC login) ---------- */
   function musterExport(from, to){
     var staff = state.amcStaff || [], daily = state.amcDaily || [];
@@ -2210,6 +2411,12 @@
     var staff = (state.amcStaff||[]).filter(function(s){ return edit || amcFilter === "all" || s.contractId === amcFilter; });
     var h = '<div class="datebar"><input type="date" id="adDt" value="'+amcDate+'" max="'+today()+'" aria-label="Date"><span class="dlabel">'+esc(dayLabel(amcDate))+'</span></div>';
     if(!staff.length) return h+'<div class="empty">No AMC staff.</div>';
+    if(!staff.some(function(s){ return s.id === amcExSel; })) amcExSel = "all";
+    h += '<div class="exbar"><label for="adExSel">Export daily work list (PDF)</label><select id="adExSel" aria-label="Select contract employee">'+
+      '<option value="all"'+(amcExSel==="all"?' selected':'')+'>All contract employees ('+staff.length+')</option>'+
+      staff.map(function(s){ return '<option value="'+esc(s.id)+'"'+(amcExSel===s.id?' selected':'')+'>'+esc(s.name)+'</option>'; }).join("")+'</select>'+
+      '<button class="btn small" id="adExport" type="button">Export PDF</button>'+
+      '<small style="flex-basis:100%;color:var(--muted)">Exports the saved update of '+esc(fmtDate(amcDate))+(edit?' (press Save updates first for any new entries)':'')+'.</small></div>';
     h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Name</th><th>Attendance</th><th>Work details</th><th>Status of work</th><th>Working under</th></tr></thead><tbody>';
     staff.forEach(function(s,i){
       var v = dVal(s), w = attWork(v.att);
@@ -2231,6 +2438,9 @@
   function bindDaily(p, edit){
     var dt = $("adDt");
     if(dt) dt.onchange = function(){ if(!this.value) return; amcDate = this.value > today() ? today() : this.value; renderPanel(); };
+    var exSel = $("adExSel"), exBtn = $("adExport");
+    if(exSel) exSel.onchange = function(){ amcExSel = exSel.value; };
+    if(exBtn) exBtn.onclick = function(){ amcExSel = exSel.value; amcDailyExport(amcDate, amcExSel); };
     if(!edit) return;
     Array.prototype.forEach.call(p.querySelectorAll("[data-srow]"),function(tr){
       var sid = tr.getAttribute("data-srow");
@@ -2540,6 +2750,7 @@
          '<input type="date" id="dPick" value="'+viewDate+'" aria-label="Select date">'+
          '<button class="btn ghost small" id="dNext" type="button" aria-label="Next day">Next ›</button>'+
          '<button class="btn small" id="dToday" type="button"'+(viewDate===today()?' disabled':'')+'>Today</button>'+
+         '<button class="btn ghost small" id="dExport" type="button" title="Export the worklist of this date as PDF">Export PDF</button>'+
          '<span class="dlabel">'+esc(dayLabel(viewDate))+'</span></div>';
 
     if(!overdue.length){
@@ -2598,6 +2809,7 @@
     $("dNext").onclick = function(){ goDate(addDays(viewDate,1)); };
     $("dToday").onclick = function(){ goDate(today()); };
     $("dPick").onchange = function(){ goDate(this.value); };
+    $("dExport").onclick = function(){ workExport(e, viewDate); };
     Array.prototype.forEach.call(p.querySelectorAll("[data-jump]"),function(b){
       b.onclick = function(){ goDate(b.getAttribute("data-jump")); };
     });
