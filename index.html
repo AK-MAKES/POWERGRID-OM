@@ -82,6 +82,17 @@
   .sync.ok::before{background:#4cd98a}
   .sync.saving::before{background:var(--amber)}
   .sync.offline::before,.sync.error::before{background:#ff6b5b}
+  .sess{font-size:.8rem;padding:3px 11px;border-radius:99px;background:rgba(255,255,255,.14);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .sess.warn{background:var(--amber);color:#2a2000;font-weight:600}
+  .remtog{display:flex;align-items:center;gap:6px;width:100%;max-width:340px;text-align:left;background:#f5f7f9;border:1px solid var(--line);border-radius:4px;padding:4px 8px;font-size:.84rem;color:var(--ink);cursor:pointer;margin:0 0 6px}
+  .remtog .car{display:inline-block;color:var(--muted);transition:transform .15s}
+  .remtog.open .car{transform:rotate(90deg)}
+  .remtog .pv{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+  .rtree{margin:0 0 8px 8px;padding-left:14px;border-left:2px solid var(--line)}
+  .rtree .rn{position:relative;margin:0 0 8px;padding:6px 8px;background:#f5f7f9;border-radius:4px}
+  .rtree .rn::before{content:"";position:absolute;left:-14px;top:15px;width:14px;border-top:2px solid var(--line)}
+  .rtree .rn::after{content:"";position:absolute;left:-19px;top:11px;width:8px;height:8px;border-radius:50%;background:var(--steel)}
+  .wcur{font-weight:700;color:#0a7a3c}.wup{font-weight:700;color:#a86500}.wold{color:var(--muted)}
 
   main{max-width:1100px;margin:0 auto;padding:16px}
   .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
@@ -376,6 +387,7 @@
       <img class="top-logo" id="topLogo" alt="POWERGRID logo"><span class="top-title">KOZHIKODE SS</span>
       <span class="sync" id="syncPill" role="button" tabindex="0" title="Click to refresh now"></span>
       <span class="who" id="whoLabel"></span>
+      <span class="sess" id="sessLabel" title="Time left in this login session. It resets whenever you use the app; 30 minutes of inactivity logs you out."></span>
       <button class="btn small hidden" id="noticeBtn" type="button">Set notice</button>
       <button class="btn small hidden" id="manageUsersBtn" type="button">Manage logins</button>
       <button class="btn small" id="logoutBtn" type="button">Log out</button>
@@ -530,6 +542,7 @@
     state.amcEmployees = d.amcEmployees || [];
     state.amcDaily = d.amcDaily || [];
     state.amcAssignees = d.amcAssignees || [];
+    state.minWage = d.minWage || [];
     var nev = null;
     state.events = state.events.filter(function(x){ if(x.id === NOTICE_ID){ nev = x; return false; } return true; });
     state.notice = nev ? (nev.note || "") : "";
@@ -653,6 +666,40 @@
              doneAt: w.doneAt || null, movedFrom: w.movedFrom || "", comment: w.comment || "", created: w.created } };
   }
 
+  /* ---------- Login session: 30 minutes, renewed by activity, shown in the header ---------- */
+  var SESSION_MIN = 30, SESSION_MS = SESSION_MIN * 60000, sessExp = 0, sessTick = null, sessLastBump = 0;
+  function sessSave(){
+    try{ if(auth) sessionStorage.setItem("kss_auth", JSON.stringify({ role: auth.role, id: auth.id, pass: auth.pass, exp: sessExp })); }catch(e){}
+  }
+  function sessPaint(){
+    var el = $("sessLabel");
+    if(!session){ if(el){ el.textContent = ""; el.classList.remove("warn"); } return; }
+    var left = sessExp - Date.now();
+    if(left <= 0){
+      if(SYNC && (flushing || queue.length)){ sessExp = Date.now() + 60000; left = 60000; }   // never drop unsaved changes
+      else { doLogout("Your session expired after "+SESSION_MIN+" minutes of inactivity. Please sign in again."); return; }
+    }
+    var sec = Math.ceil(left/1000), m = Math.floor(sec/60), r = sec % 60;
+    if(el){ el.textContent = "Session "+m+":"+String(r).padStart(2,"0"); el.classList.toggle("warn", left < 5*60000); }
+  }
+  function sessBump(){
+    if(!session) return;
+    var n = Date.now();
+    if(n > sessExp){ sessPaint(); return; }
+    if(n - sessLastBump < 5000) return;
+    sessLastBump = n; sessExp = n + SESSION_MS;
+    if(SYNC) sessSave();
+    sessPaint();
+  }
+  function sessStart(){
+    sessLastBump = Date.now(); sessExp = sessLastBump + SESSION_MS;
+    if(SYNC) sessSave();
+    clearInterval(sessTick); sessTick = setInterval(sessPaint, 1000); sessPaint();
+  }
+  ["click","keydown","touchstart","mousemove","scroll"].forEach(function(ev){
+    document.addEventListener(ev, sessBump, { passive: true, capture: true });
+  });
+
   /* ---------- Login ---------- */
   function setRole(r){
     loginRole = r;
@@ -673,7 +720,7 @@
     profile = profile || {};
     var linked = state.employees.find(function(e){ return e.userId === id; });
     session = { role: role, id: id, displayName: profile.displayName || (linked ? linked.name : id), employeeId: profile.employeeId || (linked ? linked.id : ''), contractId: profile.contractId || '' };
-    activeTab = "home"; empView = "work";
+    activeTab = "home"; empView = "work"; supView = "home"; amcSub = "staff";
     filter = "all"; viewDate = today();
     $("loginView").classList.add("hidden");
     $("appView").classList.remove("hidden");
@@ -681,6 +728,7 @@
     $("noticeBtn").classList.toggle("hidden", !isMaster());
     $("whoLabel").innerHTML = esc(id) + '<span class="badge">' + (isMaster() ? "MASTER" : isSupport() ? "SUPPORT STAFF" : "USER") + "</span>";
     setStatus("ok");
+    sessStart();
     render();
     if(SYNC){
       if(!isSupport()) ampFetch();
@@ -769,7 +817,8 @@
   $("forgotBtn").onclick = forgotModal;
 
   function doLogout(msg){
-    clearInterval(pollTimer);
+    clearInterval(pollTimer); clearInterval(sessTick); sessExp = 0;
+    var sl = $("sessLabel"); if(sl){ sl.textContent = ""; sl.classList.remove("warn"); }
     session = null; auth = null; queue = []; flushing = false; pendingRefresh = null;
     try{ sessionStorage.removeItem("kss_auth"); }catch(e){}
     closeModal();
@@ -786,14 +835,18 @@
     doLogout();
   };
   $("syncPill").onclick = function(){ pull(true); };
-  document.addEventListener("visibilitychange",function(){ if(!document.hidden) pull(); });
+  document.addEventListener("visibilitychange",function(){ if(!document.hidden){ sessPaint(); pull(); } });
 
   /* restore session after page refresh (sync mode) */
   if(SYNC){
     try{
       var saved = JSON.parse(sessionStorage.getItem("kss_auth") || "null");
+      if(saved && saved.exp && saved.exp < Date.now()){
+        sessionStorage.removeItem("kss_auth"); saved = null;
+        $("loginErr").textContent = "Your session expired after "+SESSION_MIN+" minutes of inactivity. Please sign in again.";
+      }
       if(saved){
-        auth = saved;
+        auth = { role: saved.role, id: saved.id, pass: saved.pass };
         api({ action: "login" }).then(function(r){
           applyData(r.json.data); lastText = r.text; enterApp(r.json.role || auth.role, auth.id, r.json.user);
         }).catch(function(){ auth = null; });
@@ -918,6 +971,7 @@
   /* ---------- Support Staff home: name linked to the contract, notice board, office calendar (read-only) ---------- */
   function renderSupportHome(){
     if(supView === "work"){ renderSupportWork(); return; }
+    if(supView === "wage"){ renderSupportWage(); return; }
     var p = $("panel"), t = today(), hr = new Date().getHours();
     var greet = hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening";
     var me = session ? session.id : "";
@@ -936,7 +990,8 @@
     var staff = state.amcStaff || [];
     h += '<div class="hgrid"><button type="button" class="hcard green" id="goWork"><span class="ic">'+ICON.works+'</span><b>Update works of AMC staff</b><small>Attendance, work details and status of '+staff.length+' AMC staff</small></button>'+
       (function(){ var sa = supAssignList(), so = sa.filter(function(a){ return !a.done; }).length, sl = sa.filter(asOverdue).length;
-        return '<button type="button" class="hcard'+(sl?' amber':' green')+'" id="goAssign"><span class="ic">'+ICON.assign+'</span><b>Assignments</b><small>'+so+' open'+(sl?', '+sl+' overdue':'')+' of '+sa.length+' assigned to AMC</small></button>'; })()+'</div>';
+        return '<button type="button" class="hcard'+(sl?' amber':' green')+'" id="goAssign"><span class="ic">'+ICON.assign+'</span><b>Assignments</b><small>'+so+' open'+(sl?', '+sl+' overdue':'')+' of '+sa.length+' assigned to AMC</small></button>'; })()+
+      '<button type="button" class="hcard green" id="goWage"><span class="ic">'+ICON.dash+'</span><b>Min wage rates</b><small>Current minimum wage rates (view only)</small></button></div>';
     h += '<div class="assign-form" style="margin-top:14px"><h4>Export muster roll (PDF)</h4><div class="agrid">'+
       '<div class="field"><label for="mrFrom">From date</label><input type="date" id="mrFrom" value="'+t.slice(0,8)+'01" max="'+t+'"></div>'+
       '<div class="field"><label for="mrTo">To date</label><input type="date" id="mrTo" value="'+t+'" max="'+t+'"></div></div>'+
@@ -955,6 +1010,7 @@
     h += '<h3 class="sec" id="officeCal">Office calendar</h3><p style="margin:-4px 0 12px;color:var(--muted);font-size:.9rem">Office events set by Master. Click a date to see details.</p>'+calHTML("office");
     p.innerHTML = h;
     $("goWork").onclick = function(){ supView = "work"; renderPanel(); };
+    $("goWage").onclick = function(){ supView = "wage"; renderPanel(); };
     $("goAssign").onclick = function(){ activeTab = "assign"; assignFilter = "pending"; assignTo = ""; render(); };
     $("mrBtn").onclick = function(){
       var fr = $("mrFrom").value, to = $("mrTo").value, er = $("mrErr");
@@ -1062,10 +1118,11 @@
   function amcStaffById(id){ return (state.amcStaff||[]).find(function(x){ return x.id === id; }); }
 
   function renderAmc(){
+    if(amcSub === "wage"){ renderWagePanel(); return; }
     var p = $("panel"), master = isMaster();
     var list = (state.amcStaff||[]).filter(function(s){ return amcFilter === "all" || s.contractId === amcFilter; });
     var pend = list.filter(function(s){ return !s.done; }).length;
-    var h = '<div class="panel-head"><h3>AMC activities</h3><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+    var h = amcSubTabs()+'<div class="panel-head"><h3>AMC activities</h3><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
       '<span style="color:var(--muted)">'+list.length+' AMC staff</span>'+
       (master ? '<button class="btn small" id="amcAdd" type="button">+ Add AMC staff</button>' : '')+'</div></div>';
     if((state.contracts||[]).length > 1){
@@ -1085,11 +1142,93 @@
     }
     h += '<h3 class="sec">Daily work updates</h3>'+amcDailyHTML(false);
     h += amcHistoryHTML();
-    p.innerHTML = h; bindDaily(p, false);
+    p.innerHTML = h; bindAsub(p); bindDaily(p, false);
     var ad = $("amcAdd"); if(ad) ad.onclick = function(){ amcFormModal({}); };
     var af = $("amcFilter"); if(af) af.onchange = function(){ amcFilter = af.value; renderPanel(); };
     bindAmcRows(p);
   }
+  /* ---------- MIN WAGE RATES (only Master edits; everyone can view) ---------- */
+  var amcSub = "staff";
+  function amcSubTabs(){
+    return '<div class="filters" style="margin:0 0 12px"><button type="button" data-asub="staff" class="'+(amcSub==="staff"?"active":"")+'">AMC STAFF</button>'+
+           '<button type="button" data-asub="wage" class="'+(amcSub==="wage"?"active":"")+'">MIN WAGE RATES</button></div>';
+  }
+  function bindAsub(p){
+    Array.prototype.forEach.call(p.querySelectorAll("[data-asub]"),function(b){
+      b.onclick = function(){ amcSub = b.getAttribute("data-asub"); renderPanel(); };
+    });
+  }
+  function fmtRate(v){ var n = parseFloat(v); return isNaN(n) ? esc(v) : "&#8377; "+n.toLocaleString("en-IN",{ maximumFractionDigits: 2 }); }
+  function wageHTML(master){
+    var rows = state.minWage || [], t = today(), cur = {};
+    AMC_SKILLS.forEach(function(k){
+      var best = null;
+      rows.forEach(function(r){ if(r.skill === k && r.effective <= t && (!best || r.effective > best.effective)) best = r; });
+      if(best) cur[k] = best;
+    });
+    var h = '<div class="panel-head"><h3>Minimum wage rates (per day)</h3>'+(master ? '<button class="btn small" id="wgAdd" type="button">+ Add / update rate</button>' : '')+'</div>'+
+      '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">'+(master ? 'Only Master can update these rates. All users can view them.' : 'View only. These rates are updated by Master.')+'</p>';
+    h += '<div style="overflow-x:auto"><table><thead><tr><th>Skill category</th><th>Current rate / day</th><th>Effective from</th><th>Reference</th></tr></thead><tbody>'+
+      AMC_SKILLS.map(function(k){
+        var c = cur[k];
+        return '<tr><td><b>'+esc(k)+'</b></td>'+(c ? '<td><b>'+fmtRate(c.rate)+'</b></td><td>'+esc(fmtDate(c.effective))+'</td><td>'+esc(c.ref||"–")+'</td>'
+                                                 : '<td colspan="3" style="color:var(--muted)">Not set</td>')+'</tr>';
+      }).join("")+'</tbody></table></div>';
+    if(rows.length){
+      var order = {}; AMC_SKILLS.forEach(function(k,i){ order[k] = i; });
+      var list = rows.slice().sort(function(a,b){ return (order[a.skill]-order[b.skill]) || b.effective.localeCompare(a.effective); });
+      h += '<h3 class="sec">Rate history</h3><div style="overflow-x:auto"><table><thead><tr><th>Skill</th><th>Rate / day</th><th>Effective from</th><th>Status</th><th>Reference</th><th>Updated by</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>'+
+        list.map(function(r){
+          var isCur = cur[r.skill] && cur[r.skill].id === r.id;
+          var st = isCur ? '<span class="wcur">CURRENT</span>' : r.effective > t ? '<span class="wup">UPCOMING</span>' : '<span class="wold">Earlier</span>';
+          return '<tr><td>'+esc(r.skill)+'</td><td>'+fmtRate(r.rate)+'</td><td>'+esc(fmtDate(r.effective))+'</td><td>'+st+'</td><td>'+esc(r.ref||"–")+'</td>'+
+            '<td>'+esc(r.updatedBy||"–")+(r.updated?'<span class="moved">'+esc(fmtStamp(r.updated))+'</span>':'')+'</td>'+
+            (master ? '<td class="act" style="width:auto"><button class="btn ghost small" data-wged="'+esc(r.id)+'" type="button">Edit</button> <button class="btn danger small" data-wgdel="'+esc(r.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
+        }).join("")+'</tbody></table></div>';
+    }
+    return h;
+  }
+  function renderWagePanel(){
+    var p = $("panel");
+    p.innerHTML = amcSubTabs()+wageHTML(isMaster());
+    bindAsub(p); bindWage(p);
+  }
+  function bindWage(p){
+    if(!isMaster()) return;
+    var a = $("wgAdd"); if(a) a.onclick = function(){ wageModal({}); };
+    function find(id){ return (state.minWage||[]).find(function(x){ return x.id === id; }); }
+    Array.prototype.forEach.call(p.querySelectorAll("[data-wged]"),function(b){ b.onclick = function(){ var r = find(b.getAttribute("data-wged")); if(r) wageModal(r); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-wgdel]"),function(b){
+      b.onclick = function(){ var r = find(b.getAttribute("data-wgdel")); if(!r) return;
+        confirmModal("Delete the "+r.skill+" rate effective "+fmtDate(r.effective)+"?", function(){ amcCall({ action:"minWageDel", id:r.id }); }); };
+    });
+  }
+  function wageModal(cur){
+    var isNew = !cur.id;
+    openModal('<h3>'+(isNew?'Add / update minimum wage rate':'Edit minimum wage rate')+'</h3>'+
+      '<div class="field"><label for="wgSkill">Skill category</label><select id="wgSkill"><option value="">Select skill</option>'+
+        AMC_SKILLS.map(function(k){ return '<option value="'+k+'"'+(cur.skill===k?' selected':'')+'>'+k+'</option>'; }).join("")+'</select></div>'+
+      '<div class="row"><div><label for="wgRate">Rate per day (&#8377;)</label><input type="number" id="wgRate" min="0" step="any" inputmode="decimal" value="'+esc(cur.rate||"")+'"></div>'+
+      '<div><label for="wgEff">Effective from</label><input type="date" id="wgEff" value="'+esc(cur.effective||today())+'"></div></div>'+
+      '<div class="field"><label for="wgRef">Reference / notification (optional)</label><input type="text" id="wgRef" maxlength="200" placeholder="e.g. Notification no. / date" value="'+esc(cur.ref||"")+'"></div>'+
+      '<p style="margin:0 0 8px;color:var(--muted);font-size:.82rem">To revise a rate, add a new entry with a later effective date. The latest rate that has started becomes CURRENT and older ones stay in the history.</p>'+
+      '<p class="error" id="wgErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var sk = $("wgSkill").value, rt = $("wgRate").value.trim(), ef = $("wgEff").value, rf = $("wgRef").value.trim();
+      if(!sk){ $("wgErr").textContent = "Select the skill category."; return; }
+      if(!(parseFloat(rt) > 0)){ $("wgErr").textContent = "Enter a rate greater than zero."; return; }
+      if(!ef){ $("wgErr").textContent = "Select the effective date."; return; }
+      closeModal();
+      amcCall({ action:"minWagePut", item:{ id: cur.id || uid(), skill:sk, rate:rt, effective:ef, ref:rf } });
+    };
+  }
+  function renderSupportWage(){
+    var p = $("panel");
+    p.innerHTML = '<div style="margin-bottom:10px"><button class="btn ghost small" id="supBack" type="button">&lsaquo; Home</button></div>'+wageHTML(false);
+    $("supBack").onclick = function(){ supView = "home"; renderPanel(); };
+  }
+
   function bindAmcRows(p){
     Array.prototype.forEach.call(p.querySelectorAll("[data-adone]"),function(c){
       c.onchange = function(){
@@ -2481,13 +2620,23 @@
   var PR_ST = { tbi:"TO BE INITIATED", proposed:"PROPOSED", awarded:"AWARDED", procured:"PROCURED" }, prFilter = "all";
   var PR_UNITS = ["Nos","Set","Pair","Mtr","Km","Kg","MT","Ltr","Box","Roll","Pkt","Lot","Job","Month","Year","LS"];
   function stOpts(map, sel){ return Object.keys(map).map(function(k){ return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+map[k]+'</option>'; }).join(""); }
+  var remOpen = {};      // remark lists the user has expanded (kept across refreshes)
   function fuEntriesHTML(f){
     var ents = String(f.remarks||"").split(RSEP).filter(Boolean);
     if(!ents.length) return '<span style="color:var(--muted)">No remarks yet</span>';
-    return ents.map(function(x){
+    var open = !!remOpen[f.id], n = ents.length, last = ents[n-1], li = last.indexOf("\n");
+    var pv = (li < 0 ? last : last.slice(li+1)).replace(/\s+/g," ").trim(); if(pv.length > 40) pv = pv.slice(0,40)+"…";
+    var h = '<button type="button" class="remtog'+(open?' open':'')+'" data-remtog="'+esc(f.id)+'" aria-expanded="'+(open?'true':'false')+'"><span class="car">&#9656;</span><b>'+n+(n===1?' remark':' remarks')+'</b>'+(open ? '' : '<span class="pv">· '+esc(pv)+'</span>')+'</button>';
+    if(open) h += '<div class="rtree">'+ents.map(function(x){
       var i = x.indexOf("\n"), head = i < 0 ? "" : x.slice(0,i), body = i < 0 ? x : x.slice(i+1);
-      return '<div style="margin:0 0 8px;padding:6px 8px;background:#f5f7f9;border-left:3px solid var(--line);border-radius:4px"><small style="color:var(--muted);display:block">'+esc(head)+'</small><span style="white-space:pre-wrap">'+esc(body)+'</span></div>';
-    }).join("");
+      return '<div class="rn"><small style="color:var(--muted);display:block">'+esc(head)+'</small><span style="white-space:pre-wrap">'+esc(body)+'</span></div>';
+    }).join("")+'</div>';
+    return h;
+  }
+  function bindRemTog(p){
+    Array.prototype.forEach.call(p.querySelectorAll("[data-remtog]"),function(b){
+      b.onclick = function(){ var id = b.getAttribute("data-remtog"); remOpen[id] = !remOpen[id]; softRender(); };
+    });
   }
   function fuStamp(text){ return fmtStamp(Date.now())+" · "+(session ? ((session.displayName)||session.id) : "")+"\n"+text.replace(/\u00A6/g,"|"); }
   function fuObj(f, remark){ return { id:f.id, details:f.details, status:f.status, remark: remark||"", created:f.created }; }
@@ -2514,7 +2663,7 @@
       });
       h += '</tbody></table>';
     }
-    p.innerHTML = h;
+    p.innerHTML = h; bindRemTog(p);
     function findF(id){ return state.fu.find(function(x){ return x.id === id; }); }
     $("fuAdd").onclick = function(){
       var t = $("fuText").value.trim(), r = $("fuRem").value.trim();
@@ -2588,7 +2737,7 @@
       });
       h += '</tbody></table>';
     }
-    p.innerHTML = h;
+    p.innerHTML = h; bindRemTog(p);
     function findP(id){ return state.pr.find(function(x){ return x.id === id; }); }
     $("prSt").onchange = function(){ $("prPo").style.display = this.value === "procured" ? "block" : "none"; };
     $("prAdd").onclick = function(){
