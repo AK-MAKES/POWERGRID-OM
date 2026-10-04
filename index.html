@@ -1591,6 +1591,7 @@
   /* ---------- AMP monitoring ---------- */
   var AMPST = { pending:"PENDING", planned:"PLANNED", completed:"COMPLETED", odr_clsd:"ODR_CLSD" };
   function ampMigrate(){ state.amp.forEach(function(a){ if(a.status === "closed") a.status = "odr_clsd"; }); }
+  function fyStartOf(c){ return c.m >= 3 ? c.y : c.y - 1; }
   function getAmpMonth(){ if(!ampMonth){ var d = new Date(); ampMonth = { y: d.getFullYear(), m: d.getMonth() }; } return ampMonth; }
   function ampStat(list){
     var d = list.filter(function(x){ return x.status === "odr_clsd"; }).length;   // only ODR_CLSD counts as final completion
@@ -1626,7 +1627,7 @@
     ampMigrate();
     if(!ampUpTo) ampUpTo = t;
     var all = state.amp;
-    var yearL = all.filter(function(x){ return (x.due||"").slice(0,4) === String(c.y); });
+    var fy0 = fyStartOf(c), yearL = all.filter(function(x){ return (x.due||"") >= fy0+"-04-01" && (x.due||"") <= (fy0+1)+"-03-31"; });
     var monL  = all.filter(function(x){ return (x.due||"").slice(0,7) === mk; });
     var upL   = all.filter(function(x){ return x.due && x.due <= ampUpTo; });
     var cnt = { pending:0, planned:0, completed:0, odr_clsd:0 };
@@ -1636,7 +1637,7 @@
             '<span>Pending <b>'+cnt.pending+'</b></span><span>Planned <b>'+cnt.planned+'</b></span><span>Completed <b>'+cnt.completed+'</b></span><span>ODR_CLSD <b>'+cnt.odr_clsd+'</b></span></div></div>';
 
     h += '<div class="pgrid">'+
-      pcard("Whole year "+c.y, ampStat(yearL))+
+      pcard("Financial year "+fy0+"-"+String(fy0+1).slice(2)+" (Apr–Mar)", ampStat(yearL))+
       pcard(MONTHS[c.m]+" "+c.y+((c.y===td.getFullYear() && c.m===td.getMonth()) ? " (current month)" : ""), ampStat(monL))+
       pcard('Up to date <input type="date" id="ampUp" value="'+esc(ampUpTo)+'" aria-label="Progress up to date">', ampStat(upL))+
       '</div>';
@@ -1650,6 +1651,7 @@
       '<p class="error" id="exErr"></p><button class="btn" id="exBtn" type="button">Export PDF</button></div>';
 
     var defDue = (c.y===td.getFullYear() && c.m===td.getMonth()) ? t : mk+"-01";
+    if(isMaster()) h += ampUploadCard(fyStartOf(c));
     h += !isMaster() ? '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add new AMP plans. You can update the status of existing plans using the Status column.</p>' : '<div class="assign-form"><h4>Add AMP plan</h4><div class="agrid">'+
       '<div class="field"><label for="mpPlan">Maintenance plan no.</label><input type="number" id="mpPlan" min="1" step="1" inputmode="numeric" placeholder="e.g. 12"></div>'+
       '<div class="field"><label for="mpDue">Due date</label><input type="date" id="mpDue" value="'+defDue+'"></div>'+
@@ -1692,6 +1694,7 @@
     function findAmp(id){ return state.amp.find(function(x){ return x.id===id; }); }
     if(isMaster()){
     bindAmpSync("mpStat","mpComp");
+    bindAmpUpload();
     $("mpAdd").onclick = function(){
       var plan = $("mpPlan").value.trim(), due = $("mpDue").value, err = $("mpErr");
       if(!/^\d+$/.test(plan) || +plan < 1){ err.textContent = "Enter the maintenance plan number (digits only, e.g. 12)."; $("mpPlan").focus(); return; }
@@ -1746,6 +1749,152 @@
         });
       };
     });
+  }
+
+
+  /* ---------- AMP: Excel template + whole-year upload (Master) ---------- */
+  var MON3 = ["APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC","JAN","FEB","MAR"];   // financial-year order
+  function fyLabel(y){ return y+"-"+String(y+1).slice(2); }
+  var XLSX_URL = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+  function loadXLSX(cb, fail){
+    if(window.XLSX){ cb(); return; }
+    var s = document.createElement("script");
+    s.src = XLSX_URL; s.onload = function(){ window.XLSX ? cb() : fail(); }; s.onerror = fail;
+    document.head.appendChild(s);
+  }
+  function ampUploadCard(y){
+    return '<div class="assign-form"><h4>Create financial-year (April–March) AMP plan from Excel</h4>'+
+      '<p style="margin:0 0 10px;color:var(--muted);font-size:.85rem">1) Download the sample sheet. 2) Fill one row per maintenance plan: put the <b>day of month</b> (or a full date) under every month it falls due. Months run <b>APR to MAR</b>. 3) Enter the year in which the financial year <b>starts</b> (for FY 2026-27 enter 2026) and upload it. Every due date is created as a pending plan.</p>'+
+      '<div class="agrid"><div class="field"><label for="xlYear">FY starting year (Apr)</label><input type="number" id="xlYear" min="2000" max="2100" step="1" value="'+y+'"></div>'+
+      '<div class="field"><label for="xlFile">Filled Excel file</label><input type="file" id="xlFile" accept=".xlsx,.xls"></div></div>'+
+      '<p class="error" id="xlErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="xlTpl" type="button">Download sample Excel</button> <button class="btn" id="xlGo" type="button">Upload &amp; preview</button></div></div>';
+  }
+  function xlErr(t){ var e = $("xlErr"); if(e) e.textContent = t || ""; }
+  function bindAmpUpload(){
+    if(!$("xlTpl")) return;
+    $("xlTpl").onclick = function(){
+      xlErr("Preparing sample…");
+      loadXLSX(function(){ xlErr(""); downloadAmpTemplate(+$("xlYear").value || new Date().getFullYear()); },
+               function(){ xlErr("Could not load the Excel library. Check your internet connection and try again."); });
+    };
+    $("xlGo").onclick = function(){
+      var f = $("xlFile").files[0], yr = parseInt($("xlYear").value, 10);
+      if(!yr || yr < 2000 || yr > 2100){ xlErr("Enter a valid financial-year start (e.g. 2026 for FY 2026-27)."); return; }
+      if(!f){ xlErr("Choose the filled Excel file first."); return; }
+      xlErr("Reading file…");
+      loadXLSX(function(){
+        var rd = new FileReader();
+        rd.onload = function(){
+          try{ var res = parseAmpWorkbook(rd.result, yr); xlErr(""); ampUploadPreview(res, yr); }
+          catch(e){ xlErr(e && e.message ? e.message : "Could not read that file."); }
+        };
+        rd.onerror = function(){ xlErr("Could not read that file."); };
+        rd.readAsArrayBuffer(f);
+      }, function(){ xlErr("Could not load the Excel library. Check your internet connection and try again."); });
+    };
+  }
+  function downloadAmpTemplate(yr){
+    var X = window.XLSX, head = ["Plan No.","Description"].concat(MON3);
+    var rows = [head,
+      [1,"Example: Monthly inspection of transformer",5,5,5,5,5,5,5,5,5,5,5,5],
+      [2,"Example: Quarterly relay testing",20,"","",20,"","",20,"","",20],
+      [3,"Example: Yearly annual maintenance of bay","","","","","","","","","","",25],
+      [4,"Example: Date can be written in full too","","","","","","","15-10-"+yr,"","","",""]];
+    var ws = X.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{wch:10},{wch:48}].concat(MON3.map(function(){ return {wch:11}; }));
+    var info = [["HOW TO FILL THIS SHEET  (Financial year "+fyLabel(yr)+": April "+yr+" to March "+(yr+1)+")"],[""],
+      ["1. Use the sheet named 'AMP Plan'. Keep the first row (headings) as it is."],
+      ["2. One row per maintenance plan. 'Plan No.' must be a whole number (1, 2, 3 ...)."],
+      ["3. 'Description' is optional (scope of work)."],
+      ["4. Under each month in which the plan falls due, type the DAY of the month (for example 15). Leave the cell empty if the plan is not due that month."],
+      ["5. Months are in financial-year order: APR to DEC fall in "+yr+", JAN to MAR fall in "+(yr+1)+". You may type a full date instead (15-10-"+yr+" or "+yr+"-10-15); use text format for dates."],
+      ["6. If the day is more than the days in that month (31 in February), the last day of the month is used."],
+      ["7. Delete the four example rows (they start with 'Example:'). Rows starting with 'Example' are ignored anyway."],
+      ["8. Save as .xlsx, then in the app enter the same financial-year start, upload the file, check the preview and press Create."],
+      ["9. Plans that already exist (same plan number and due date) are skipped, so uploading twice does not duplicate anything."]];
+    var wi = X.utils.aoa_to_sheet(info); wi["!cols"] = [{wch:130}];
+    var wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, "AMP Plan"); X.utils.book_append_sheet(wb, wi, "Instructions");
+    X.writeFile(wb, "AMP_Plan_Sample_FY"+fyLabel(yr)+".xlsx");
+  }
+  function parseAmpWorkbook(buf, yr){
+    var X = window.XLSX, wb = X.read(buf, { type:"array" });
+    var name = wb.SheetNames.filter(function(n){ return /amp/i.test(n); })[0] || wb.SheetNames[0];
+    var rows = X.utils.sheet_to_json(wb.Sheets[name], { header:1, raw:true, defval:"" });
+    var hi = -1;
+    for(var i = 0; i < Math.min(rows.length, 15); i++){ if(/plan/i.test(String(rows[i][0] || ""))){ hi = i; break; } }
+    if(hi < 0) throw new Error("Heading row not found. Please use the sample sheet (first column heading “Plan No.”).");
+    var mc = [];
+    for(var m = 0; m < 12; m++){
+      mc[m] = 2 + m;
+      rows[hi].forEach(function(c, ci){ if(String(c).trim().slice(0,3).toUpperCase() === MON3[m]) mc[m] = ci; });
+    }
+    var out = { items:[], errors:[], clamped:0, skippedExamples:0, plans:0, perMonth:[0,0,0,0,0,0,0,0,0,0,0,0] };
+    for(var r = hi + 1; r < rows.length; r++){
+      var row = rows[r], pv = row[0], desc = String(row[1] || "").trim();
+      var empty = row.every(function(c){ return String(c).trim() === ""; });
+      if(empty) continue;
+      if(/^example/i.test(desc)){ out.skippedExamples++; continue; }
+      var plan = typeof pv === "number" ? (pv % 1 === 0 ? String(pv) : "") : String(pv).trim();
+      if(!/^\d+$/.test(plan) || +plan < 1){ out.errors.push("Row "+(r+1)+": plan number “"+pv+"” must be a whole number."); continue; }
+      plan = String(+plan);
+      var cnt = 0;
+      for(var m2 = 0; m2 < 12; m2++){
+        var v = row[mc[m2]];
+        if(v === "" || v === null || v === undefined || String(v).trim() === "") continue;
+        var d = xlCellDate(v, yr, m2);
+        if(!d){ out.errors.push("Row "+(r+1)+" ("+MON3[m2]+"): could not understand “"+v+"”."); continue; }
+        if(d.clamped) out.clamped++;
+        out.items.push({ plan:plan, desc:desc.slice(0,500), due:d.iso }); cnt++; out.perMonth[(+d.iso.slice(5,7) - 1 + 9) % 12]++;
+      }
+      if(cnt) out.plans++;
+      else out.errors.push("Row "+(r+1)+": plan "+plan+" has no due dates.");
+    }
+    if(!out.items.length) throw new Error(out.errors.length ? out.errors[0] : "No plans found in the sheet.");
+    return out;
+  }
+  function xlCellDate(v, yr, m){
+    var cm = (m + 3) % 12, cyr = yr + (m >= 9 ? 1 : 0), day, mm = cm, yy = cyr, mt;
+    if(typeof v === "number"){
+      if(v % 1 === 0 && v >= 1 && v <= 31) day = v;
+      else if(v > 31){ var u = new Date(Math.round((v - 25569) * 86400000)); yy = u.getUTCFullYear(); mm = u.getUTCMonth(); day = u.getUTCDate(); }
+      else return null;
+    } else {
+      var t = String(v).trim();
+      if(/^\d{1,2}$/.test(t)) day = +t;
+      else if((mt = t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/))){ day = +mt[1]; mm = +mt[2] - 1; yy = +mt[3]; }
+      else if((mt = t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/))){ yy = +mt[1]; mm = +mt[2] - 1; day = +mt[3]; }
+      else return null;
+    }
+    if(!(day >= 1 && day <= 31) || mm < 0 || mm > 11) return null;
+    var dm = new Date(yy, mm + 1, 0).getDate(), cl = false;
+    if(day > dm){ day = dm; cl = true; }
+    return { iso: yy+"-"+pad2(mm+1)+"-"+pad2(day), clamped: cl };
+  }
+  function ampUploadPreview(res, yr){
+    var have = {}; state.amp.forEach(function(a){ have[a.plan+"|"+a.due] = 1; });
+    var seen = {}, fresh = [], dup = 0;
+    res.items.forEach(function(it){ var k = it.plan+"|"+it.due; if(have[k] || seen[k]){ dup++; return; } seen[k] = 1; fresh.push(it); });
+    var mrow = MON3.map(function(n, i){ return '<td style="padding:3px 6px;text-align:center"><b>'+n+'</b><br>'+res.perMonth[i]+'</td>'; }).join("");
+    var errs = res.errors.slice(0, 8).map(function(e){ return '<li>'+esc(e)+'</li>'; }).join("");
+    openModal('<h3>Preview: AMP plan FY '+fyLabel(yr)+'</h3>'+
+      '<p style="margin-top:0"><b>'+res.plans+'</b> plans, <b>'+res.items.length+'</b> due dates found. <b>'+fresh.length+'</b> will be created'+(dup ? ', '+dup+' already exist and will be skipped' : '')+'.</p>'+
+      '<div style="overflow-x:auto"><table style="font-size:.8rem;border-collapse:collapse"><tr>'+mrow+'</tr></table></div>'+
+      (res.clamped ? '<p style="color:var(--muted);font-size:.85rem">'+res.clamped+' date(s) beyond month-end were moved to the last day of that month.</p>' : '')+
+      (res.skippedExamples ? '<p style="color:var(--muted);font-size:.85rem">'+res.skippedExamples+' example row(s) ignored.</p>' : '')+
+      (errs ? '<p class="error" style="margin-bottom:2px">Rows skipped ('+res.errors.length+'):</p><ul style="margin:0 0 8px 18px;font-size:.85rem">'+errs+(res.errors.length > 8 ? '<li>…and '+(res.errors.length-8)+' more</li>' : '')+'</ul>' : '')+
+      '<div class="row"><button class="btn ghost" id="xlNo" type="button">Cancel</button> '+(fresh.length ? '<button class="btn" id="xlYes" type="button">Create '+fresh.length+' plans</button>' : '')+'</div>');
+    $("xlNo").onclick = closeModal;
+    if($("xlYes")) $("xlYes").onclick = function(){
+      var now = Date.now(), objs = fresh.map(function(it, i){
+        return ampFix({ id: uid()+i, plan: it.plan, desc: it.desc, due: it.due, comp: "", status: "pending", created: now + i });
+      });
+      objs.forEach(function(a){ state.amp.push(a); });
+      for(var i = 0; i < objs.length; i += 300) ampSend({ action:"ampBulk", items: objs.slice(i, i + 300).map(ampObj) });
+      var first = parseISO(objs.map(function(a){ return a.due; }).sort()[0]); ampMonth = { y: first.getFullYear(), m: first.getMonth() };
+      closeModal(); render();
+    };
   }
 
   function ampExport(from, to, stat){
