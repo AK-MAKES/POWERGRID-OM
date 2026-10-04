@@ -222,6 +222,11 @@
   .p-high{background:var(--amber-bg);color:#6b4800}
   .p-urgent{background:#fde8e5;color:#8a2318}
   tr.late{background:#fff7f6}
+  tr.bal-red td{background:#fdeceb}
+  tr.bal-yel td{background:#fff6cc}
+  .bal-b{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:700;font-size:.85rem}
+  .bal-b.r{background:#c0392b;color:#fff}
+  .bal-b.y{background:#f2c200;color:#3d2f00}
   .late-t{display:block;font-size:.78rem;font-weight:700;color:var(--red)}
   .atable td{font-size:.93rem}
 
@@ -392,7 +397,7 @@
 
   /* ---------- State ---------- */
   var KEY = "kozhikode_ss_daily_work_v1";
-  var state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [] };
+  var state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], amcDaily: [], fu: [], pr: [] };
   var assignFilter = "all", assignTo = "", lastBy = "";
   var empView = "work";         // inside an employee tab: "work" or "cal"
   var dashPeriod = "today";     // dashboard range
@@ -443,7 +448,7 @@
   /* ---------- Employee designation & roles ----------
      Stored inside the existing "name" field as  Name§Designation§Role1|Role2
      so the Google Apps Script backend needs no change. */
-  var DESIGS = ["Apprentice/Intern","Technician","Junior Engineer","Engineer","Assistant Manager","Deputy Manager","Manager","Chief Manager","DGM","Sr. DGM","GM","Sr. GM","CGM"];
+  var DESIGS = ["Apprentice/Intern","TT","DT","ET","Technician","Junior Engineer","Engineer","Assistant Manager","Deputy Manager","Manager","Chief Manager","DGM","Sr. DGM","GM","Sr. GM","CGM"];
   var ROLES = ["HR","SAFETY","IT","GUESTHOUSE","STORE","SS O&M","TLM","COURT CASES","ESG","HINDI","C&M","INCHARGE","MRT","AUXILIARY SYSTEMS","COLONY MAINTENANCE","OTHER (SPECIFY)"];
   var ESEP = "\u00A7";
   function parseEmp(raw){
@@ -462,10 +467,10 @@
   function defaults(){
     var emps = [];
     for(var i=1;i<=11;i++) emps.push({ id: uid()+i, name: "Employee "+i, works: [] });
-    return { employees: emps, users: [ { id: "User", pass: "Power@400" } ], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [] };
+    return { employees: emps, users: [ { id: "User", pass: "Power@400" } ], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], fu: [], pr: [] };
   }
   function loadLocal(){
-    try{ var raw = localStorage.getItem(KEY); if(raw){ var st = JSON.parse(raw); st.events = st.events || []; st.assignments = st.assignments || []; st.amp = st.amp || []; st.notice = st.notice || ""; st.contracts = st.contracts || []; st.amcUsers = st.amcUsers || []; st.amcWorks = st.amcWorks || []; return st; } }catch(e){}
+    try{ var raw = localStorage.getItem(KEY); if(raw){ var st = JSON.parse(raw); st.events = st.events || []; st.assignments = st.assignments || []; st.amp = st.amp || []; st.notice = st.notice || ""; st.contracts = st.contracts || []; st.amcUsers = st.amcUsers || []; st.amcWorks = st.amcWorks || []; st.sched = st.sched || []; st.fu = st.fu || []; st.pr = st.pr || []; return st; } }catch(e){}
     return defaults();
   }
   function saveLocal(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
@@ -513,12 +518,13 @@
     state.amcStaff = d.amcStaff || [];
     state.amcTransfers = d.amcTransfers || [];
     state.amcEmployees = d.amcEmployees || [];
+    state.amcDaily = d.amcDaily || [];
     var nev = null;
     state.events = state.events.filter(function(x){ if(x.id === NOTICE_ID){ nev = x; return false; } return true; });
     state.notice = nev ? (nev.note || "") : "";
     if(isSupport()){
       if(activeTab !== "home") activeTab = "home";
-    } else if(activeTab !== "dash" && activeTab !== "assign" && activeTab !== "amp" && activeTab !== "amc" && activeTab !== "home" && activeTab !== "works" && activeTab !== "contracts" && !emp(activeTab)) activeTab = "dash";
+    } else if(activeTab !== "dash" && activeTab !== "assign" && activeTab !== "amp" && activeTab !== "maint" && activeTab !== "follow" && activeTab !== "proc" && activeTab !== "amc" && activeTab !== "home" && activeTab !== "works" && activeTab !== "contracts" && !emp(activeTab)) activeTab = "dash";
   }
 
   // Contracts & AMC admin responses include direct contracts/users arrays as well as a snapshot.
@@ -537,7 +543,7 @@
     el.className = "sync "+kind; el.textContent = text;
   }
 
-  var KEEP = ["exFrom","exTo","exStat","wText","aWork","aRem","aBy","aTo","aDate","aPri","mpPlan","mpDesc","mpDue","mpComp","mpStat"];
+  var KEEP = ["fuText","fuRem","prDesc","prQty","prUnit","prSt","prPoNo","prPoDt","prRem","exFrom","exTo","exStat","wText","aWork","aRem","aBy","aTo","aDate","aPri","mpPlan","mpDesc","mpDue","mpComp","mpStat"];
   function softRender(){
     var saved = {}, ae = document.activeElement, focusId = ae && ae.id, pos = 0;
     KEEP.forEach(function(id){ var n = $(id); if(n) saved[id] = n.value; });
@@ -605,9 +611,9 @@
     if(!SYNC || !auth || ampBusy) return;
     api({ action: "ampList" }).then(function(r){
       if(ampBusy || r.text === ampText) return;
-      ampText = r.text; state.amp = r.json.amp || [];
+      ampText = r.text; state.amp = r.json.amp || []; state.sched = r.json.sched || state.sched || []; state.fu = r.json.fu || state.fu || []; state.pr = r.json.pr || state.pr || [];
       if(modalOpen()) return;
-      if(activeTab === "amp" || activeTab === "home") softRender(); else renderTabs();
+      if(activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home") softRender(); else renderTabs();
     }).catch(function(err){ if(err && err.server && err.message === "auth") onSyncError(err); });
   }
   function ampSend(body){
@@ -616,7 +622,7 @@
     ampBusy++; setStatus("saving");
     var failed = false;
     ampChain = ampChain.then(function(){ return api(body); }).then(function(r){
-      if(ampBusy === 1){ state.amp = r.json.amp || state.amp; ampText = r.text; }
+      if(ampBusy === 1){ state.amp = r.json.amp || state.amp; if(r.json.sched) state.sched = r.json.sched; if(r.json.fu) state.fu = r.json.fu; if(r.json.pr) state.pr = r.json.pr; ampText = r.text; }
       setStatus("ok");
     }).catch(function(err){
       failed = true; ampText = "";
@@ -626,7 +632,7 @@
       ampBusy--;
       if(ampBusy) return;
       if(failed) ampFetch();
-      else if(!modalOpen() && activeTab === "amp") softRender();
+      else if(!modalOpen() && (activeTab === "maint" || activeTab === "follow" || activeTab === "proc")) softRender();
     });
   }
 
@@ -668,7 +674,7 @@
     if(SYNC){
       if(!isSupport()) ampFetch();
       clearInterval(pollTimer);
-      pollTimer = setInterval(function(){ if(!document.hidden){ pull(); if(!isSupport() && (activeTab === "amp" || activeTab === "home")) ampFetch(); } }, POLL_MS);
+      pollTimer = setInterval(function(){ if(!document.hidden){ pull(); if(!isSupport() && (activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home")) ampFetch(); } }, POLL_MS);
     }
   }
 
@@ -900,6 +906,7 @@
 
   /* ---------- Support Staff home: name linked to the contract, notice board, office calendar (read-only) ---------- */
   function renderSupportHome(){
+    if(supView === "work"){ renderSupportWork(); return; }
     var p = $("panel"), t = today(), hr = new Date().getHours();
     var greet = hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening";
     var me = session ? session.id : "";
@@ -916,18 +923,33 @@
     h += '<div class="nboard"><div class="nh"><h4>&#9670; Notice board</h4></div>'+
          (notes.length ? '<ul>'+notes.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join("")+'</ul>' : '<div class="none">No notices right now.</div>')+'</div>';
     var staff = state.amcStaff || [];
+    h += '<div class="hgrid"><button type="button" class="hcard green" id="goWork"><span class="ic">'+ICON.works+'</span><b>Update works of AMC staff</b><small>Attendance, work details and status of '+staff.length+' AMC staff</small></button></div>';
+    h += '<div class="assign-form" style="margin-top:14px"><h4>Export muster roll (PDF)</h4><div class="agrid">'+
+      '<div class="field"><label for="mrFrom">From date</label><input type="date" id="mrFrom" value="'+t.slice(0,8)+'01" max="'+t+'"></div>'+
+      '<div class="field"><label for="mrTo">To date</label><input type="date" id="mrTo" value="'+t+'" max="'+t+'"></div></div>'+
+      '<p style="margin:0 0 10px;color:var(--muted);font-size:.82rem">Up to 31 days per muster roll. A print window opens: choose “Save as PDF” as the printer.</p>'+
+      '<p class="error" id="mrErr"></p><button class="btn" id="mrBtn" type="button">Export muster roll</button></div>';
     h += '<h3 class="sec">AMC staff of your contract</h3>';
     if(!staff.length) h += '<div class="empty">No AMC staff have been added for your contract yet.</div>';
     else {
-      h += '<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Skill</th><th>Working under</th><th>Status</th><th></th></tr></thead><tbody>'+
+      h += '<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Skill</th><th>Working under</th><th></th></tr></thead><tbody>'+
         staff.map(function(s,i){
           return '<tr class="'+(s.done?'done':'')+'"><td>'+(i+1)+'</td><td><b>'+esc(s.name)+'</b></td><td>'+esc(s.skill)+'</td><td>'+esc(s.workingUnderName)+'</td>'+
-            amcStatusCell(s,false)+'<td class="act" style="width:auto"><button class="btn ghost small" data-xfer="'+esc(s.id)+'" type="button">Transfer</button></td></tr>';
+            '<td class="act" style="width:auto"><button class="btn ghost small" data-xfer="'+esc(s.id)+'" type="button">Transfer</button></td></tr>';
         }).join("")+'</tbody></table></div>';
     }
     h += amcHistoryHTML();
     h += '<h3 class="sec" id="officeCal">Office calendar</h3><p style="margin:-4px 0 12px;color:var(--muted);font-size:.9rem">Office events set by Master. Click a date to see details.</p>'+calHTML("office");
     p.innerHTML = h;
+    $("goWork").onclick = function(){ supView = "work"; renderPanel(); };
+    $("mrBtn").onclick = function(){
+      var fr = $("mrFrom").value, to = $("mrTo").value, er = $("mrErr");
+      if(!fr || !to){ er.textContent = "Select both dates."; return; }
+      if(fr > to){ er.textContent = "“From date” must not be after “To date”."; return; }
+      if(daysBetween(fr,to) > 30){ er.textContent = "Select a period of 31 days or less."; return; }
+      if(!(state.amcStaff||[]).length){ er.textContent = "No AMC staff to export."; return; }
+      er.textContent = ""; musterExport(fr, to);
+    };
     bindAmcRows(p);
     bindCal("office", p);
   }
@@ -958,7 +980,9 @@
       { go:"dash",   ic:"dash",   cls:"",      t:"Dashboard",    s: tw ? td+" of "+tw+" works done today ("+pctOf(td,tw)+"%)" : "Progress, trends and office calendar" },
       { go:"works",  ic:"works",  cls:"green", t:"Daily Works",  s: (tw-td)+" pending today across "+state.employees.length+" employees" },
       { go:"assign", ic:"assign", cls:"amber", t:"Assignments",  s: aOpen+" open"+(aOver ? ", "+aOver+" overdue" : "") },
-      { go:"amp",    ic:"amp",    cls:"",      t:"AMP",          s: mAmp.length ? mPend+" open this month, "+sa.pct+"% ODR_CLSD" : "No plans due this month" },
+      { go:"follow", ic:"works",  cls:"amber", t:"Follow-up",    s: (state.fu||[]).filter(function(f){ return f.status !== "closed"; }).length+" open of "+(state.fu||[]).length },
+      { go:"proc",   ic:"assign", cls:"green", t:"Procurement",  s: (state.pr||[]).filter(function(x){ return x.status !== "procured"; }).length+" pending of "+(state.pr||[]).length },
+      { go:"maint",  ic:"amp",    cls:"",      t:"Maintenance Status", s: maintDue().length+" due till today, AMP "+(mAmp.length ? sa.pct+"% ODR_CLSD this month" : "none this month") },
       { go:"amc",    ic:"users",  cls:"green", t:"AMC",          s: amcAll.length ? amcAll.length+" AMC staff, "+amcPend+" pending" : "AMC staff and activities" },
       { go:"cal",    ic:"cal",    cls:"grey",  t:"Office Calendar", s: evN+" office event"+(evN===1?"":"s")+" this month" }
     ];
@@ -980,8 +1004,9 @@
         if(go === "notices"){ noticeModal(); return; }
         if(go === "assign"){ assignTo = ""; assignFilter = "all"; }
         activeTab = (go === "cal") ? "dash" : go;
+        if(go === "maint") maintView = "menu";
         render();
-        if(go === "amp") ampFetch();
+        if(go === "maint" || go === "follow" || go === "proc") ampFetch();
         if(go === "cal"){ var el = $("officeCal"); if(el && el.scrollIntoView) el.scrollIntoView({ behavior:"smooth" }); }
       };
     });
@@ -993,11 +1018,11 @@
   var amcFilter = "all";
   function contractName(id){ var c = (state.contracts||[]).find(function(x){ return x.id === id; }); return c ? c.name : "—"; }
 
-  function amcCall(body){
+  function amcCall(body, onOk){
     if(!SYNC){ try{ alert("AMC staff needs the Google Sheet connection (Web App URL)."); }catch(e){} return; }
     version++; setStatus("saving");
     api(body).then(function(r){
-      lastText = ""; applyData(r.json.data); setStatus("ok");
+      lastText = ""; applyData(r.json.data); setStatus("ok"); if(onOk) onOk();
       if(!modalOpen()) softRender();
     }).catch(function(err){
       if(err && err.server && err.message === "auth"){ onSyncError(err); return; }
@@ -1027,7 +1052,7 @@
     var list = (state.amcStaff||[]).filter(function(s){ return amcFilter === "all" || s.contractId === amcFilter; });
     var pend = list.filter(function(s){ return !s.done; }).length;
     var h = '<div class="panel-head"><h3>AMC activities</h3><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
-      '<span style="color:var(--muted)">'+list.length+' AMC staff &middot; '+pend+' pending</span>'+
+      '<span style="color:var(--muted)">'+list.length+' AMC staff</span>'+
       (master ? '<button class="btn small" id="amcAdd" type="button">+ Add AMC staff</button>' : '')+'</div></div>';
     if((state.contracts||[]).length > 1){
       h += '<div class="filters"><select id="amcFilter" aria-label="Filter by contract"><option value="all">All contracts</option>'+
@@ -1036,16 +1061,17 @@
     if(!list.length){
       h += '<div class="empty">No AMC staff yet.'+(master ? ' Use “+ Add AMC staff” above.' : '')+'</div>';
     } else {
-      h += '<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Skill</th><th>Contract</th><th>Working under</th><th>Status</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
+      h += '<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Skill</th><th>Contract</th><th>Working under</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
       list.forEach(function(s,i){
         h += '<tr class="'+(s.done?'done':'')+'"><td>'+(i+1)+'</td><td><b>'+esc(s.name)+'</b></td><td>'+esc(s.skill)+'</td><td>'+esc(contractName(s.contractId))+'</td>'+
-          '<td>'+esc(s.workingUnderName)+'</td>'+amcStatusCell(s, true)+
+          '<td>'+esc(s.workingUnderName)+'</td>'+
           (master ? '<td class="act" style="width:auto"><button class="btn ghost small" data-aedit="'+esc(s.id)+'" type="button">Edit</button> <button class="btn danger small" data-adel="'+esc(s.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
       });
       h += '</tbody></table></div><p style="color:var(--muted);font-size:.85rem;margin-top:8px">“Working under” can be changed only by the AMC login (transfer).</p>';
     }
+    h += '<h3 class="sec">Daily work updates</h3>'+amcDailyHTML(false);
     h += amcHistoryHTML();
-    p.innerHTML = h;
+    p.innerHTML = h; bindDaily(p, false);
     var ad = $("amcAdd"); if(ad) ad.onclick = function(){ amcFormModal({}); };
     var af = $("amcFilter"); if(af) af.onchange = function(){ amcFilter = af.value; renderPanel(); };
     bindAmcRows(p);
@@ -1151,13 +1177,15 @@
       html += '<button type="button" class="tab'+(activeTab==="dash"?" active":"")+'" data-tab="dash">Dashboard</button>'+
               '<button type="button" class="tab'+(activeTab==="works"?" active":"")+'" data-tab="works">Daily Works</button>'+
               '<button type="button" class="tab'+(activeTab==="assign"?" active":"")+'" data-tab="assign">Assignments</button>'+
-              '<button type="button" class="tab'+(activeTab==="amp"?" active":"")+'" data-tab="amp">AMP</button>'+
+              '<button type="button" class="tab'+(activeTab==="maint"?" active":"")+'" data-tab="maint">Maintenance Status</button>'+
+              '<button type="button" class="tab'+(activeTab==="follow"?" active":"")+'" data-tab="follow">Follow-up</button>'+
+              '<button type="button" class="tab'+(activeTab==="proc"?" active":"")+'" data-tab="proc">Procurement</button>'+
               '<button type="button" class="tab'+(activeTab==="amc"?" active":"")+'" data-tab="amc">AMC</button>';
     }
     $("tabs").innerHTML = html;
     Array.prototype.forEach.call($("tabs").querySelectorAll("[data-tab]"),function(b){
       b.classList.toggle("active", b.getAttribute("data-tab") === activeTab);
-      b.onclick = function(){ activeTab = b.getAttribute("data-tab"); filter = "all"; empView = "work"; render(); if(activeTab === "amp" || activeTab === "home") ampFetch(); };
+      b.onclick = function(){ activeTab = b.getAttribute("data-tab"); filter = "all"; empView = "work"; if(activeTab === "maint") maintView = "menu"; render(); if(activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home") ampFetch(); };
     });
   }
 
@@ -1448,7 +1476,7 @@
             '<input type="checkbox" data-adone="'+esc(a.id)+'" '+(a.done?'checked':'')+' aria-label="Mark assignment done"> '+
             (a.done?'Done'+(a.doneAt?' '+fmtDate(toISO(new Date(a.doneAt))):''):'Pending')+'</label></td>'+
           '<td data-label="Remarks">'+(a.remarks?esc(a.remarks):'–')+'</td>'+
-          '<td class="act"><button class="btn ghost small" data-ashare="'+esc(a.id)+'" type="button">Share</button> '+
+          '<td class="act">'+(a.done?'':'<button class="btn ghost small" data-adaily="'+esc(a.id)+'" type="button">Add to daily list</button> ')+'<button class="btn ghost small" data-ashare="'+esc(a.id)+'" type="button">Share</button> '+
             '<button class="btn ghost small" data-aedit="'+esc(a.id)+'" type="button">Edit</button>'+
             (isMaster()?' <button class="btn danger small" data-adel="'+esc(a.id)+'" type="button">Delete</button>':'')+'</td></tr>';
       });
@@ -1480,6 +1508,9 @@
     };
     Array.prototype.forEach.call(p.querySelectorAll("[data-ashare]"),function(b){
       b.onclick = function(){ shareModal(summaryText(findA(b.getAttribute("data-ashare")))); };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-adaily]"),function(b){
+      b.onclick = function(){ assignToDailyModal(findA(b.getAttribute("data-adaily"))); };
     });
     Array.prototype.forEach.call(p.querySelectorAll("[data-af]"),function(b){
       b.onclick = function(){ assignFilter = b.getAttribute("data-af"); renderPanel(); };
@@ -1565,8 +1596,8 @@
     var d = list.filter(function(x){ return x.status === "odr_clsd"; }).length;   // only ODR_CLSD counts as final completion
     return { total: list.length, done: d, pct: pctOf(d, list.length) };
   }
-  function ampObj(a){ return { id:a.id, plan:a.plan, desc:a.desc||"", due:a.due, comp:a.comp||"", status:a.status, created:a.created }; }
-  function ampSave(a){ ampSend({ action:"ampPut", amp: ampObj(a) }); }
+  function ampObj(a){ return { id:a.id, plan:a.plan, desc:a.desc||"", due:a.due, comp:a.comp||"", status:a.status, created:a.created, remarks:a.remarks||"", from:a.from||"" }; }
+  function ampSave(a, tr){ ampSend({ action:"ampPut", amp: ampObj(a), transfer: !!tr }); }
   function ampFix(a){
     if(a.status === "closed") a.status = "odr_clsd";
     if(!AMPST[a.status]) a.status = "pending";
@@ -1601,7 +1632,7 @@
     var cnt = { pending:0, planned:0, completed:0, odr_clsd:0 };
     monL.forEach(function(x){ if(cnt[x.status] != null) cnt[x.status]++; });
 
-    var h = '<div class="panel-head"><h3>AMP monitoring</h3><div class="stats"><span>This month <b>'+monL.length+'</b></span>'+
+    var h = BACKBTN+'<div class="panel-head"><h3>AMP monitoring</h3><div class="stats"><span>This month <b>'+monL.length+'</b></span>'+
             '<span>Pending <b>'+cnt.pending+'</b></span><span>Planned <b>'+cnt.planned+'</b></span><span>Completed <b>'+cnt.completed+'</b></span><span>ODR_CLSD <b>'+cnt.odr_clsd+'</b></span></div></div>';
 
     h += '<div class="pgrid">'+
@@ -1648,15 +1679,15 @@
         h += '<tr class="'+((a.status==="completed"||a.status==="odr_clsd")?"done":"")+(late?" late":"")+'">'+
           '<td data-label="#">'+(i+1)+'</td>'+
           '<td data-label="Plan no."><b>'+esc(a.plan)+'</b></td>'+
-          '<td data-label="Description">'+(a.desc?esc(a.desc):'–')+'</td>'+
+          '<td data-label="Description">'+(a.desc?esc(a.desc):'–')+(a.from?'<span class="moved">Transferred from '+fmtDate(a.from)+'</span>':'')+(a.remarks?'<span class="cmt">Remarks: '+esc(a.remarks)+'</span>':'')+'</td>'+
           '<td data-label="Due date">'+fmtDate(a.due)+(late?'<span class="late-t">Overdue</span>':'')+'</td>'+
           '<td data-label="Completion date">'+(a.comp?fmtDate(a.comp):'–')+'</td>'+
           '<td data-label="Status"><select class="stsel" data-astat="'+esc(a.id)+'" aria-label="Status">'+ampStatusOpts(a.status)+'</select></td>'+
-          '<td class="act">'+(isMaster()?'<button class="btn ghost small" data-amedit="'+esc(a.id)+'" type="button">Edit</button> <button class="btn danger small" data-amdel="'+esc(a.id)+'" type="button">Delete</button>':'')+'</td></tr>';
+          '<td class="act">'+((a.status==="pending"||a.status==="planned")?'<button class="btn ghost small" data-amtr="'+esc(a.id)+'" type="button">Transfer</button> ':'')+(isMaster()?'<button class="btn ghost small" data-amedit="'+esc(a.id)+'" type="button">Edit</button> <button class="btn danger small" data-amdel="'+esc(a.id)+'" type="button">Delete</button>':'')+'</td></tr>';
       });
       h += '</tbody></table>';
     }
-    p.innerHTML = h;
+    p.innerHTML = h; bindBack();
 
     function findAmp(id){ return state.amp.find(function(x){ return x.id===id; }); }
     if(isMaster()){
@@ -1695,9 +1726,13 @@
     Array.prototype.forEach.call(p.querySelectorAll("[data-astat]"),function(s){
       s.onchange = function(){
         var a = findAmp(s.getAttribute("data-astat")); if(!a) return;
-        a.status = s.value; if(a.status === "pending" || a.status === "planned") a.comp = "";
+        if(s.value === "completed" || s.value === "odr_clsd"){ ampCompDateModal(a, s.value); return; }
+        a.status = s.value; a.comp = "";
         ampFix(a); ampSave(a); render();
       };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-amtr]"),function(b){
+      b.onclick = function(){ var a = findAmp(b.getAttribute("data-amtr")); if(a) ampTransferModal(a); };
     });
     Array.prototype.forEach.call(p.querySelectorAll("[data-amedit]"),function(b){
       b.onclick = function(){ var a = findAmp(b.getAttribute("data-amedit")); if(a) ampModal(a); };
@@ -1775,6 +1810,498 @@
     };
   }
 
+  /* ---------- Maintenance status: AMP, scheduled maintenance, other scheduled activities, summary ---------- */
+  var maintView = "menu", supView = "home", amcDate = today(), amcDraft = {};
+  var FREQ = { 0:"One-time", 1:"Monthly", 3:"3-Monthly", 4:"4-Monthly", 6:"6-Monthly", 12:"Yearly" };
+  var BRANCHES = ROLES.filter(function(r){ return r !== "OTHER (SPECIFY)"; });
+  function addMonths(iso,n){ var d = parseISO(iso), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n);
+    d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate())); return toISO(d); }
+  function daysBetween(a,b){ return Math.round((parseISO(b)-parseISO(a))/86400000); }
+  function schedNext(s){ return s.comp ? (s.freq > 0 ? addMonths(s.comp, s.freq) : "") : (s.due || ""); }
+  function schedState(s){
+    if(s.comp && !(s.freq > 0)) return { next:"", bal:null, txt:"Completed", due:false };
+    var nx = schedNext(s);
+    if(!nx) return { next:"", bal:null, txt:"Not done yet", due:true };
+    var b = daysBetween(today(), nx); return { next:nx, bal:b, due:b <= 0 };
+  }
+  function balHTML(st){
+    if(st.bal === null) return esc(st.txt);
+    if(st.bal === 1) return '<span class="bal-b r">1 day</span>';
+    if(st.bal > 1) return st.bal <= 7 ? '<span class="bal-b y">'+st.bal+' days</span>' : st.bal+' days';
+    if(st.bal === 0) return '<span class="bal-b r">Due today</span>';
+    return '<span class="bal-b r">Overdue by '+(-st.bal)+' day'+(st.bal===-1?'':'s')+'</span>';
+  }
+  function balCls(st){ return (st.bal === null || st.bal <= 1) ? "bal-red" : (st.bal <= 7 ? "bal-yel" : ""); }
+  function maintDue(){
+    var t = today(), out = [];
+    (state.sched||[]).forEach(function(s){
+      var st = schedState(s); if(!st.due) return;
+      out.push({ type: s.kind==="other" ? "Other activity" : "Scheduled maintenance", grp: s.kind==="other" ? (s.branch||"GENERAL") : (FREQ[s.freq]||""),
+                 desc: s.desc, next: st.next, txt: st.bal === null ? st.txt : balHTML(st), bal: st.bal === null ? -99999 : st.bal });
+    });
+    ampMigrate();
+    state.amp.forEach(function(a){
+      if((a.status === "pending" || a.status === "planned") && a.due && a.due <= t){
+        var b = daysBetween(t, a.due);
+        out.push({ type:"AMP", grp:"Plan "+a.plan, desc:a.desc||"–", next:a.due, txt:balHTML({ bal:b }), bal:b });
+      }
+    });
+    return out.sort(function(a,b){ return a.bal - b.bal; });
+  }
+  function schedObj(s){ return { id:s.id, kind:s.kind, branch:s.branch||"", desc:s.desc, freq:+s.freq||0, due:s.due||"", comp:s.comp||"", created:s.created }; }
+  function schedSave(s){ ampSend({ action:"schedPut", item: schedObj(s) }); }
+  function freqOpts(other, sel){
+    return (other ? [0,1,3,4,6,12] : [1,3,4,6]).map(function(k){ return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+FREQ[k]+'</option>'; }).join("");
+  }
+  function bindBack(){ var b = $("mBack"); if(b) b.onclick = function(){ maintView = "menu"; render(); }; }
+  var BACKBTN = '<div style="margin-bottom:10px"><button class="btn ghost small" id="mBack" type="button">&lsaquo; Maintenance status</button></div>';
+
+  function renderMaint(){
+    if(maintView === "amp"){ renderAmp(); return; }
+    if(maintView === "sched" || maintView === "other"){ renderSched(maintView); return; }
+    if(maintView === "summary"){ renderMaintSummary(); return; }
+    ampMigrate();
+    var p = $("panel"), d = new Date(), mk = d.getFullYear()+"-"+pad2(d.getMonth()+1);
+    var mAmp = state.amp.filter(function(x){ return (x.due||"").slice(0,7) === mk; }), sa = ampStat(mAmp);
+    var sc = state.sched||[], sS = sc.filter(function(s){ return s.kind !== "other"; }), sO = sc.filter(function(s){ return s.kind === "other"; });
+    var dn = function(l){ return l.filter(function(s){ return schedState(s).due; }).length; };
+    var cards = [
+      { go:"amp",     ic:"amp",   cls:"",      t:"AMP", s: mAmp.length ? sa.done+" of "+mAmp.length+" ODR_CLSD this month" : "No plans due this month" },
+      { go:"sched",   ic:"cal",   cls:"green", t:"Scheduled maintenance", s: sS.length+" activities, "+dn(sS)+" due" },
+      { go:"other",   ic:"works", cls:"amber", t:"Other scheduled activities", s: sO.length+" activities, "+dn(sO)+" due" },
+      { go:"summary", ic:"notice",cls:"grey",  t:"Summary", s: maintDue().length+" due till today" }
+    ];
+    p.innerHTML = '<div class="panel-head"><h3>Maintenance status</h3></div><div class="hgrid">'+cards.map(function(c){
+      return '<button type="button" class="hcard '+c.cls+'" data-mv="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
+    }).join("")+'</div>';
+    Array.prototype.forEach.call(p.querySelectorAll("[data-mv]"),function(b){
+      b.onclick = function(){ maintView = b.getAttribute("data-mv"); render(); if(maintView === "amp") ampFetch(); };
+    });
+  }
+
+  function renderSched(kind){
+    var p = $("panel"), master = isMaster(), other = kind === "other", t = today();
+    var list = (state.sched||[]).filter(function(s){ return (s.kind === "other") === other; });
+    var nDue = list.filter(function(s){ return schedState(s).due; }).length;
+    var h = BACKBTN+'<div class="panel-head"><h3>'+(other?"Other scheduled activities":"Scheduled maintenance")+'</h3><div class="stats"><span>Total <b>'+list.length+'</b></span>'+
+            '<span>Due till today <b'+(nDue?' style="color:var(--red)"':'')+'>'+nDue+'</b></span></div></div>';
+    if(master){
+      h += '<div class="assign-form"><h4>'+(other?"Add activity":"Add scheduled maintenance")+'</h4><div class="agrid">'+
+        (other ? '<div class="field"><label for="scBr">Branch</label><input type="text" id="scBr" list="scBrList" maxlength="60" placeholder="e.g. SAFETY, HINDI">'+
+          '<datalist id="scBrList">'+BRANCHES.map(function(b){ return '<option value="'+esc(b)+'">'; }).join("")+'</datalist></div>' : '')+
+        '<div class="field"><label for="scFreq">Frequency</label><select id="scFreq">'+freqOpts(other,1)+'</select></div>'+
+        '<div class="field"><label for="scDue">First due date (optional)</label><input type="date" id="scDue"></div>'+
+        '<div class="field"><label for="scComp">Last completion date (optional)</label><input type="date" id="scComp" max="'+t+'"></div>'+
+        '<div class="field span2"><label for="scDesc">Description</label><input type="text" id="scDesc" maxlength="300" placeholder="Activity / maintenance description"></div></div>'+
+        '<p class="error" id="scErr"></p><button class="btn" id="scAdd" type="button">Add</button></div>';
+    } else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add or edit entries. You can update the completion date; next due date and balance days update automatically.</p>';
+    if(!list.length) h += '<div class="empty">Nothing added yet.</div>';
+    else {
+      var groups = {}, order = [];
+      list.forEach(function(s){ var g = other ? (s.branch||"GENERAL").toUpperCase() : (FREQ[s.freq]||"Other"); if(!groups[g]){ groups[g] = []; order.push(g); } groups[g].push(s); });
+      if(other) order.sort(); else order.sort(function(a,b){ return groups[a][0].freq - groups[b][0].freq; });
+      order.forEach(function(g){
+        h += '<h3 class="sec">'+esc(g)+'</h3><table class="atable"><thead><tr><th>#</th><th>Description</th>'+(other?'<th>Frequency</th>':'')+
+             '<th>Completion date</th><th>Next due day</th><th>Balance days</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
+        groups[g].sort(function(a,b){ return (schedNext(a)||"0").localeCompare(schedNext(b)||"0"); }).forEach(function(s,i){
+          var st = schedState(s);
+          h += '<tr class="'+balCls(st)+'"><td data-label="#">'+(i+1)+'</td><td data-label="Description"><span class="wt">'+esc(s.desc)+'</span></td>'+
+            (other?'<td data-label="Frequency">'+esc(FREQ[s.freq]||"–")+'</td>':'')+
+            '<td data-label="Completion date"><input type="date" class="stsel" data-scomp="'+esc(s.id)+'" value="'+esc(s.comp||"")+'" max="'+t+'" aria-label="Completion date"></td>'+
+            '<td data-label="Next due day">'+(st.next?fmtDate(st.next):'–')+'</td><td data-label="Balance days">'+balHTML(st)+'</td>'+
+            (master?'<td class="act"><button class="btn ghost small" data-sedit="'+esc(s.id)+'" type="button">Edit</button> <button class="btn danger small" data-sdel="'+esc(s.id)+'" type="button">Delete</button></td>':'')+'</tr>';
+        });
+        h += '</tbody></table>';
+      });
+    }
+    p.innerHTML = h; bindBack();
+    function findS(id){ return (state.sched||[]).find(function(x){ return x.id === id; }); }
+    if(master) $("scAdd").onclick = function(){
+      var desc = $("scDesc").value.trim(), br = other ? $("scBr").value.trim() : "", err = $("scErr");
+      if(other && !br){ err.textContent = "Enter the branch."; return; }
+      if(!desc){ err.textContent = "Enter the description."; return; }
+      var s = { id:uid(), kind: other?"other":"sched", branch:br, desc:desc, freq:+$("scFreq").value, due:$("scDue").value||"", comp:$("scComp").value||"", created:Date.now() };
+      state.sched = state.sched||[]; state.sched.push(s); schedSave(s); render();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-scomp]"),function(i){
+      i.onchange = function(){ var s = findS(i.getAttribute("data-scomp")); if(!s) return; s.comp = i.value || ""; schedSave(s); render(); };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-sedit]"),function(b){ b.onclick = function(){ var s = findS(b.getAttribute("data-sedit")); if(s) schedModal(s); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-sdel]"),function(b){
+      b.onclick = function(){
+        var id = b.getAttribute("data-sdel"), s = findS(id);
+        confirmModal("Delete “"+(s?s.desc:"")+"”?", function(){ state.sched = state.sched.filter(function(x){ return x.id !== id; }); ampSend({ action:"schedDel", id:id }); render(); });
+      };
+    });
+  }
+  function schedModal(s){
+    var other = s.kind === "other";
+    openModal('<h3>Edit '+(other?'activity':'scheduled maintenance')+'</h3>'+
+      (other?'<div class="field"><label for="seBr">Branch</label><input type="text" id="seBr" maxlength="60" value="'+esc(s.branch||"")+'"></div>':'')+
+      '<div class="field"><label for="seDesc">Description</label><input type="text" id="seDesc" maxlength="300" value="'+esc(s.desc)+'"></div>'+
+      '<div class="field"><label for="seFreq">Frequency</label><select id="seFreq">'+freqOpts(other, +s.freq)+'</select></div>'+
+      '<div class="row"><div><label for="seDue">First due date</label><input type="date" id="seDue" value="'+esc(s.due||"")+'"></div>'+
+      '<div><label for="seComp">Completion date</label><input type="date" id="seComp" value="'+esc(s.comp||"")+'" max="'+today()+'"></div></div>'+
+      '<p class="error" id="seErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var desc = $("seDesc").value.trim(), br = other ? $("seBr").value.trim() : "";
+      if(other && !br){ $("seErr").textContent = "Enter the branch."; return; }
+      if(!desc){ $("seErr").textContent = "Enter the description."; return; }
+      s.branch = br; s.desc = desc; s.freq = +$("seFreq").value; s.due = $("seDue").value || ""; s.comp = $("seComp").value || "";
+      closeModal(); schedSave(s); render();
+    };
+  }
+  function renderMaintSummary(){
+    var p = $("panel"), rows = maintDue();
+    var h = BACKBTN+'<div class="panel-head"><h3>Summary &ndash; activities due till today</h3><div class="stats"><span>Due <b'+(rows.length?' style="color:var(--red)"':'')+'>'+rows.length+'</b></span></div></div>';
+    if(!rows.length) h += '<div class="empty">Nothing is due. All scheduled activities are up to date.</div>';
+    else {
+      h += '<table class="atable"><thead><tr><th>#</th><th>Type</th><th>Branch / Plan / Frequency</th><th>Description</th><th>Due day</th><th>Balance</th></tr></thead><tbody>'+
+        rows.map(function(r,i){ return '<tr class="late"><td data-label="#">'+(i+1)+'</td><td data-label="Type">'+esc(r.type)+'</td><td data-label="Group"><b>'+esc(r.grp)+'</b></td>'+
+          '<td data-label="Description">'+esc(r.desc)+'</td><td data-label="Due day">'+(r.next?fmtDate(r.next):'–')+'</td><td data-label="Balance">'+r.txt+'</td></tr>'; }).join("")+'</tbody></table>';
+    }
+    p.innerHTML = h; bindBack();
+  }
+
+  /* ---------- AMP: transfer to next month / completion date ---------- */
+  function ampTransferModal(a){
+    openModal('<h3>Transfer AMP plan to next month</h3><p style="margin-top:0">Plan no. <b>'+esc(a.plan)+'</b> &middot; currently due '+fmtDate(a.due)+'</p>'+
+      '<div class="field"><label for="atDate">New due date</label><input type="date" id="atDate" value="'+addMonths(a.due,1)+'"></div>'+
+      '<div class="field"><label for="atRem">Remarks (reason for transfer)</label><textarea id="atRem" maxlength="300" placeholder="e.g. Shutdown not available, rescheduled"></textarea></div>'+
+      '<p class="error" id="atErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Transfer</button></div>');
+    $("atRem").focus(); $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var d = $("atDate").value, r = $("atRem").value.trim();
+      if(!d || d <= a.due){ $("atErr").textContent = "Pick a new due date after "+fmtDate(a.due)+"."; return; }
+      if(!r){ $("atErr").textContent = "Enter the remarks."; return; }
+      var rem = (a.remarks ? a.remarks+" | " : "")+fmtDate(a.due)+" → "+fmtDate(d)+": "+r;
+      a.from = a.from || a.due; a.due = d; a.remarks = rem.length > 500 ? rem.slice(-500) : rem;
+      var dd = parseISO(d); ampMonth = { y: dd.getFullYear(), m: dd.getMonth() };
+      closeModal(); ampSave(a, true); render();
+    };
+  }
+  function ampCompDateModal(a, st){
+    openModal('<h3>Completion date</h3><p style="margin-top:0">Plan no. <b>'+esc(a.plan)+'</b> &rarr; <b>'+esc(AMPST[st])+'</b></p>'+
+      '<div class="field"><label for="acDate">Completion date</label><input type="date" id="acDate" value="'+esc(a.comp||today())+'"></div>'+
+      '<p class="error" id="acErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+    $("mNo").onclick = function(){ closeModal(); renderPanel(); };
+    $("mOk").onclick = function(){
+      var d = $("acDate").value; if(!d){ $("acErr").textContent = "Select the completion date."; return; }
+      a.status = st; a.comp = d; closeModal(); ampSave(a); render();
+    };
+  }
+
+  /* ---------- Assigned work -> daily work list ---------- */
+  function assignToDailyModal(a){
+    var e = emp(a.to); if(!e){ alert("The employee for this assignment no longer exists."); return; }
+    openModal('<h3>Add to daily work list</h3><p style="margin-top:0">'+esc(a.text)+'</p><p style="color:var(--muted);margin-top:-6px">Employee: <b>'+esc(e.name)+'</b></p>'+
+      '<div class="field"><label for="adDate">Select date</label><input type="date" id="adDate" value="'+(a.target && a.target >= today() ? a.target : today())+'"></div>'+
+      '<p class="error" id="adErr2"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Add to list</button></div>');
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var d = $("adDate").value; if(!d){ $("adErr2").textContent = "Select a date."; return; }
+      var txt = ("Assigned by "+empName(a.by)+": "+a.text+(a.remarks ? " ("+a.remarks+")" : "")).slice(0,300);
+      if(e.works.some(function(w){ return w.date === d && w.text === txt; })){ $("adErr2").textContent = "This work is already in the list for that date."; return; }
+      var w = { id:uid(), text:txt, date:d, done:false, doneAt:null, movedFrom:"", comment:"", created:Date.now() };
+      e.works.push(w); closeModal(); commit([wput(e,w)]); render();
+    };
+  }
+
+  /* ---------- Muster roll PDF (AMC login) ---------- */
+  function musterExport(from, to){
+    var staff = state.amcStaff || [], daily = state.amcDaily || [];
+    var days = [], d = from; while(d <= to){ days.push(d); d = addDays(d,1); }
+    var map = {}; daily.forEach(function(x){ map[x.staffId+"|"+x.date] = x.attendance; });
+    var ct = (state.contracts||[])[0] || {};
+    var logo = (document.querySelector(".login-logo") || {}).src || "";
+    var wd = ["S","M","T","W","T","F","S"];
+    var th = days.map(function(x){ var p = parseISO(x); return '<th class="dc'+(p.getDay()===0?' sun':'')+'">'+p.getDate()+'<br><small>'+wd[p.getDay()]+'</small></th>'; }).join("");
+    var rows = staff.map(function(s,i){
+      var c = { P:0, A:0, FHL:0, SHL:0, NH:0 };
+      var cells = days.map(function(x){ var a = map[s.id+"|"+x] || ""; if(c[a] != null) c[a]++; return '<td class="dc'+(a==="A"?' ab':'')+'">'+esc(a)+'</td>'; }).join("");
+      var pres = c.P + (c.FHL + c.SHL) * 0.5;
+      return '<tr><td>'+(i+1)+'</td><td class="nm">'+esc(s.name)+'</td><td>'+esc(s.skill)+'</td>'+cells+
+             '<td>'+c.P+'</td><td>'+c.A+'</td><td>'+c.FHL+'</td><td>'+c.SHL+'</td><td>'+c.NH+'</td><td><b>'+pres+'</b></td></tr>';
+    }).join("");
+    var period = from === to ? fmtDate(from) : fmtDate(from)+" to "+fmtDate(to);
+    var title = "Muster_Roll_"+fmtDate(from)+(from===to ? "" : "_to_"+fmtDate(to));
+    var dense = days.length > 20;
+    var doc = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'+
+      '@page{size:A4 landscape;margin:10mm}body{font-family:"Segoe UI",Arial,sans-serif;color:#16212b;font-size:'+(dense?'8':'9.5')+'pt;margin:0}'+
+      '.hd{display:flex;align-items:center;gap:14px;border-bottom:3px solid #e0a100;padding-bottom:6px;margin-bottom:8px}.hd img{height:42px;width:auto}'+
+      '.hd h1{margin:0;font-size:14pt;color:#1f3a52}.hd p{margin:2px 0 0;color:#5d6b78;font-size:9.5pt}'+
+      'table{width:100%;border-collapse:collapse}th,td{border:1px solid #8795a1;padding:'+(dense?'3px 2px':'4px 4px')+';text-align:center;vertical-align:middle}'+
+      'th{background:#1f3a52;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}th small{font-weight:400}'+
+      '.nm{text-align:left;white-space:nowrap}.dc{min-width:'+(dense?'14px':'20px')+'}.sun{background:#8a2318!important}td.ab{color:#c0392b;font-weight:700}'+
+      'tr{page-break-inside:avoid}thead{display:table-header-group}.ft{margin-top:8px;font-size:8.5pt;color:#5d6b78}'+
+      '.sg{display:flex;justify-content:space-between;margin-top:34px;font-size:10pt}.sg div{border-top:1px solid #16212b;padding-top:4px;min-width:200px;text-align:center}'+
+      '</style></head><body><div class="hd">'+(logo ? '<img src="'+esc(logo)+'" alt="">' : '')+'<div><h1>KOZHIKODE SS &ndash; Muster Roll of AMC Staff</h1><p>Period: '+esc(period)+
+      (ct.name ? ' &nbsp;|&nbsp; Contract: '+esc(ct.name)+(ct.agency ? ' ('+esc(ct.agency)+')' : '')+(ct.number ? ' &nbsp;|&nbsp; No. '+esc(ct.number) : '') : '')+'</p></div></div>'+
+      '<table><thead><tr><th>#</th><th>Name</th><th>Skill</th>'+th+'<th>P</th><th>A</th><th>FHL</th><th>SHL</th><th>NH</th><th>Days present</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<p class="ft">P = Present, A = Absent, FHL = First half leave, SHL = Second half leave, NH = National holiday. Days present = P + &frac12; for each FHL / SHL. Blank = not updated.</p>'+
+      '<div class="sg"><div>Prepared by (AMC)</div><div>Verified by (POWERGRID)</div></div>'+
+      '<p class="ft">Generated on '+esc(fmtStamp(Date.now()))+(session ? ' by '+esc(session.id) : '')+'</p>'+
+      '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script></body></html>';
+    var w = window.open("", "_blank");
+    if(!w){ alert("The PDF window was blocked. Please allow pop-ups for this page and try again."); return; }
+    w.document.open(); w.document.write(doc); w.document.close();
+  }
+
+  /* ---------- AMC staff daily work update ---------- */
+  var ATT = { P:"P (Present)", A:"A (Absent)", FHL:"FHL (First half leave)", SHL:"SHL (Second half leave)", NH:"NH (National holiday)" };
+  function attWork(a){ return a === "P" || a === "FHL" || a === "SHL"; }
+  function dKey(sid, d){ return (d||amcDate)+"|"+sid; }
+  function dVal(s){
+    var r = amcDraft[dKey(s.id)]; if(r) return r;
+    var x = (state.amcDaily||[]).find(function(y){ return y.staffId === s.id && y.date === amcDate; });
+    return x ? { att:x.attendance, work:x.work, status:x.status||"OPEN", srem:x.statusRemark||"" } : { att:"", work:"", status:"OPEN", srem:"" };
+  }
+  function amcDailyHTML(edit){
+    var staff = (state.amcStaff||[]).filter(function(s){ return edit || amcFilter === "all" || s.contractId === amcFilter; });
+    var h = '<div class="datebar"><input type="date" id="adDt" value="'+amcDate+'" max="'+today()+'" aria-label="Date"><span class="dlabel">'+esc(dayLabel(amcDate))+'</span></div>';
+    if(!staff.length) return h+'<div class="empty">No AMC staff.</div>';
+    h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Name</th><th>Attendance</th><th>Work details</th><th>Status of work</th><th>Working under</th></tr></thead><tbody>';
+    staff.forEach(function(s,i){
+      var v = dVal(s), w = attWork(v.att);
+      h += '<tr data-srow="'+esc(s.id)+'"><td data-label="#">'+(i+1)+'</td><td data-label="Name"><b>'+esc(s.name)+'</b></td>';
+      if(edit){
+        h += '<td data-label="Attendance"><select data-f="att"><option value="">Select</option>'+Object.keys(ATT).map(function(k){ return '<option value="'+k+'"'+(v.att===k?' selected':'')+'>'+ATT[k]+'</option>'; }).join("")+'</select></td>'+
+          '<td data-label="Work details"><input type="text" data-f="work" maxlength="300" placeholder="Work done" value="'+esc(v.work)+'"'+(w?'':' disabled')+'></td>'+
+          '<td data-label="Status of work"><select data-f="status"'+(w?'':' disabled')+'><option value="OPEN"'+(v.status==="OPEN"?' selected':'')+'>OPEN</option><option value="COMPLETED"'+(v.status==="COMPLETED"?' selected':'')+'>COMPLETED</option></select>'+
+          '<input type="text" data-f="srem" maxlength="200" placeholder="Status remarks" value="'+esc(v.srem)+'"'+(w?'':' disabled')+' style="margin-top:4px"></td>'+
+          '<td data-label="Working under">'+esc(s.workingUnderName)+' <button class="btn ghost small" data-xfer="'+esc(s.id)+'" type="button">Transfer</button></td>';
+      } else {
+        h += '<td data-label="Attendance">'+(v.att ? esc(ATT[v.att]||v.att) : '<span style="color:var(--muted)">Not updated</span>')+'</td><td data-label="Work details">'+(v.work?esc(v.work):'–')+'</td>'+
+          '<td data-label="Status of work">'+(v.att && w ? esc(v.status)+(v.srem?'<span class="cmt">Remarks: '+esc(v.srem)+'</span>':'') : '–')+'</td><td data-label="Working under">'+esc(s.workingUnderName)+'</td>';
+      }
+      h += '</tr>';
+    });
+    return h+'</tbody></table></div>';
+  }
+  function bindDaily(p, edit){
+    var dt = $("adDt");
+    if(dt) dt.onchange = function(){ if(!this.value) return; amcDate = this.value > today() ? today() : this.value; renderPanel(); };
+    if(!edit) return;
+    Array.prototype.forEach.call(p.querySelectorAll("[data-srow]"),function(tr){
+      var sid = tr.getAttribute("data-srow");
+      function g(f){ return tr.querySelector('[data-f="'+f+'"]'); }
+      function sync(){
+        var att = g("att").value, w = attWork(att);
+        ["work","status","srem"].forEach(function(f){ g(f).disabled = !w; });
+        amcDraft[dKey(sid)] = { att:att, work:g("work").value, status:g("status").value, srem:g("srem").value };
+      }
+      Array.prototype.forEach.call(tr.querySelectorAll("[data-f]"),function(el){ el.addEventListener("input",sync); el.addEventListener("change",sync); });
+    });
+    var sv = $("adSave");
+    if(sv) sv.onclick = function(){
+      var entries = [], err = $("adErr"), d = amcDate, bad = "";
+      (state.amcStaff||[]).forEach(function(s){
+        var v = dVal(s); if(!v.att) return; var w = attWork(v.att);
+        if(w && !v.work.trim() && !bad) bad = s.name;
+        entries.push({ staffId:s.id, attendance:v.att, work: w ? v.work.trim() : "", status: w ? v.status : "OPEN", statusRemark: w ? v.srem.trim() : "" });
+      });
+      if(bad){ err.textContent = "Enter work details for "+bad+"."; return; }
+      if(!entries.length){ err.textContent = "Select attendance for at least one person."; return; }
+      err.textContent = "";
+      amcCall({ action:"amcDailySave", date:d, entries:entries }, function(){ (state.amcStaff||[]).forEach(function(s){ delete amcDraft[dKey(s.id, d)]; }); });
+    };
+  }
+  function renderSupportWork(){
+    var p = $("panel");
+    p.innerHTML = '<div style="margin-bottom:10px"><button class="btn ghost small" id="supBack" type="button">&lsaquo; Home</button></div>'+
+      '<div class="panel-head"><h3>Update works of AMC staff</h3></div>'+
+      '<p style="margin:-6px 0 10px;color:var(--muted);font-size:.9rem">Select the date, fill attendance for each person and press Save. Work details and status are needed only for P, FHL and SHL. Use Transfer to change “Working under”.</p>'+
+      amcDailyHTML(true)+'<p class="error" id="adErr"></p><button class="btn" id="adSave" type="button" style="margin-top:10px">Save updates</button>';
+    $("supBack").onclick = function(){ supView = "home"; renderPanel(); };
+    bindDaily(p, true); bindAmcRows(p);
+  }
+
+  /* ---------- Follow-ups & Procurement (Master and Users) ---------- */
+  var FU_ST = { open:"OPEN", closed:"CLOSED" }, fuFilter = "all", RSEP = "\u00A6";
+  var PR_ST = { tbi:"TO BE INITIATED", proposed:"PROPOSED", awarded:"AWARDED", procured:"PROCURED" }, prFilter = "all";
+  var PR_UNITS = ["Nos","Set","Pair","Mtr","Km","Kg","MT","Ltr","Box","Roll","Pkt","Lot","Job","Month","Year","LS"];
+  function stOpts(map, sel){ return Object.keys(map).map(function(k){ return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+map[k]+'</option>'; }).join(""); }
+  function fuEntriesHTML(f){
+    var ents = String(f.remarks||"").split(RSEP).filter(Boolean);
+    if(!ents.length) return '<span style="color:var(--muted)">No remarks yet</span>';
+    return ents.map(function(x){
+      var i = x.indexOf("\n"), head = i < 0 ? "" : x.slice(0,i), body = i < 0 ? x : x.slice(i+1);
+      return '<div style="margin:0 0 8px;padding:6px 8px;background:#f5f7f9;border-left:3px solid var(--line);border-radius:4px"><small style="color:var(--muted);display:block">'+esc(head)+'</small><span style="white-space:pre-wrap">'+esc(body)+'</span></div>';
+    }).join("");
+  }
+  function fuStamp(text){ return fmtStamp(Date.now())+" · "+(session ? ((session.displayName)||session.id) : "")+"\n"+text.replace(/\u00A6/g,"|"); }
+  function fuObj(f, remark){ return { id:f.id, details:f.details, status:f.status, remark: remark||"", created:f.created }; }
+  function renderFollow(){
+    var p = $("panel"), all = state.fu = state.fu || [], master = isMaster();
+    var nOpen = all.filter(function(f){ return f.status !== "closed"; }).length;
+    var h = '<div class="panel-head"><h3>Follow-up</h3><div class="stats"><span>Total <b>'+all.length+'</b></span><span>Open <b>'+nOpen+'</b></span><span>Closed <b>'+(all.length-nOpen)+'</b></span></div></div>'+
+      '<div class="assign-form"><h4>Add follow-up</h4><div class="agrid">'+
+      '<div class="field span2"><label for="fuText">Details of follow-up</label><textarea id="fuText" maxlength="1000" placeholder="What needs to be followed up, with whom"></textarea></div>'+
+      '<div class="field span2"><label for="fuRem">Remarks (optional)</label><textarea id="fuRem" maxlength="2000" placeholder="First remark / latest update"></textarea></div></div>'+
+      '<p class="error" id="fuErr"></p><button class="btn" id="fuAdd" type="button">Add follow-up</button></div>';
+    h += '<div class="filters">'+[["all","All"],["open","Open"],["closed","Closed"]].map(function(f){
+      return '<button type="button" data-fuf="'+f[0]+'" class="'+(fuFilter===f[0]?"active":"")+'">'+f[1]+'</button>'; }).join("")+'</div>';
+    var list = all.filter(function(f){ return fuFilter === "all" || (fuFilter === "closed") === (f.status === "closed"); })
+      .sort(function(a,b){ return (a.status==="closed") - (b.status==="closed") || (a.created||0)-(b.created||0); });
+    if(!list.length) h += '<div class="empty">'+(all.length ? "No follow-ups match this filter." : "No follow-ups yet. Add one above.")+'</div>';
+    else {
+      h += '<table class="atable"><thead><tr><th>Sl. no.</th><th>Details of follow-up</th><th>Status</th><th>Remarks</th><th></th></tr></thead><tbody>';
+      list.forEach(function(f,i){
+        h += '<tr class="'+(f.status==="closed"?"done":"")+'"><td data-label="Sl. no.">'+(i+1)+'</td><td data-label="Details"><span class="wt" style="white-space:pre-wrap">'+esc(f.details)+'</span></td>'+
+          '<td data-label="Status"><select class="stsel" data-fust="'+esc(f.id)+'" aria-label="Status">'+stOpts(FU_ST, f.status)+'</select></td>'+
+          '<td data-label="Remarks">'+fuEntriesHTML(f)+'<button class="btn ghost small" data-furem="'+esc(f.id)+'" type="button">+ Add remark</button></td>'+
+          '<td class="act"><button class="btn ghost small" data-fued="'+esc(f.id)+'" type="button">Edit</button>'+(master?' <button class="btn danger small" data-fudel="'+esc(f.id)+'" type="button">Delete</button>':'')+'</td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+    p.innerHTML = h;
+    function findF(id){ return state.fu.find(function(x){ return x.id === id; }); }
+    $("fuAdd").onclick = function(){
+      var t = $("fuText").value.trim(), r = $("fuRem").value.trim();
+      if(!t){ $("fuErr").textContent = "Enter the details of the follow-up."; return; }
+      var f = { id:uid(), details:t, status:"open", remarks: r ? fuStamp(r) : "", created:Date.now() };
+      state.fu.push(f); ampSend({ action:"fuPut", item: fuObj(f, r) }); render();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-fuf]"),function(b){ b.onclick = function(){ fuFilter = b.getAttribute("data-fuf"); renderPanel(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-fust]"),function(s){
+      s.onchange = function(){ var f = findF(s.getAttribute("data-fust")); if(!f) return; f.status = s.value; ampSend({ action:"fuPut", item: fuObj(f) }); render(); };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-furem]"),function(b){ b.onclick = function(){ var f = findF(b.getAttribute("data-furem")); if(f) fuRemarkModal(f); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-fued]"),function(b){ b.onclick = function(){ var f = findF(b.getAttribute("data-fued")); if(f) fuEditModal(f); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-fudel]"),function(b){
+      b.onclick = function(){ var id = b.getAttribute("data-fudel");
+        confirmModal("Delete this follow-up and its remarks?", function(){ state.fu = state.fu.filter(function(x){ return x.id !== id; }); ampSend({ action:"fuDel", id:id }); render(); }); };
+    });
+  }
+  function fuRemarkModal(f){
+    openModal('<h3>Add remark</h3><p style="margin-top:0;white-space:pre-wrap">'+esc(f.details)+'</p>'+
+      '<div class="field"><label for="frText">Remark</label><textarea id="frText" maxlength="2000" style="min-height:120px" placeholder="Update, discussion, next step…"></textarea></div>'+
+      '<p class="error" id="frErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save remark</button></div>');
+    $("frText").focus(); $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var t = $("frText").value.trim(); if(!t){ $("frErr").textContent = "Enter the remark."; return; }
+      f.remarks = (f.remarks ? f.remarks+RSEP : "")+fuStamp(t); closeModal(); ampSend({ action:"fuRemark", id:f.id, text:t }); render();
+    };
+  }
+  function fuEditModal(f){
+    openModal('<h3>Edit follow-up</h3><div class="field"><label for="feText">Details of follow-up</label><textarea id="feText" maxlength="1000">'+esc(f.details)+'</textarea></div>'+
+      '<div class="field"><label for="feSt">Status</label><select id="feSt">'+stOpts(FU_ST,f.status)+'</select></div>'+
+      '<p class="error" id="feErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var t = $("feText").value.trim(); if(!t){ $("feErr").textContent = "Details cannot be empty."; return; }
+      f.details = t; f.status = $("feSt").value; closeModal(); ampSend({ action:"fuPut", item: fuObj(f) }); render();
+    };
+  }
+
+  function prObj(x, remark){ return { id:x.id, desc:x.desc, qty:x.qty, unit:x.unit, status:x.status, poNo:x.poNo||"", poDate:x.poDate||"", created:x.created, remark: remark||"" }; }
+  function prSave(x, remark){ ampSend({ action:"prPut", item: prObj(x, remark) }); }
+  function poFields(pre, x){
+    return '<div id="'+pre+'Po" style="display:'+(x.status==="procured"?"block":"none")+'"><div class="row"><div><label for="'+pre+'PoNo">PO no. *</label><input type="text" id="'+pre+'PoNo" maxlength="60" value="'+esc(x.poNo||"")+'"></div>'+
+      '<div><label for="'+pre+'PoDt">PO date *</label><input type="date" id="'+pre+'PoDt" value="'+esc(x.poDate||"")+'"></div></div></div>';
+  }
+  function renderProc(){
+    var p = $("panel"), all = state.pr = state.pr || [];
+    var cnt = { tbi:0, proposed:0, awarded:0, procured:0 }; all.forEach(function(x){ if(cnt[x.status] != null) cnt[x.status]++; });
+    var h = '<div class="panel-head"><h3>Procurement</h3><div class="stats"><span>Total <b>'+all.length+'</b></span><span>To be initiated <b>'+cnt.tbi+'</b></span><span>Proposed <b>'+cnt.proposed+'</b></span><span>Awarded <b>'+cnt.awarded+'</b></span><span>Procured <b>'+cnt.procured+'</b></span></div></div>'+
+      '<div class="assign-form"><h4>Add supply / service</h4><div class="agrid">'+
+      '<div class="field span2"><label for="prDesc">Supply or service description</label><input type="text" id="prDesc" maxlength="500" placeholder="e.g. 33 kV CT, 400/1 A"></div>'+
+      '<div class="field"><label for="prQty">Quantity</label><input type="number" id="prQty" min="0" step="any" inputmode="decimal"></div>'+
+      '<div class="field"><label for="prUnit">Unit</label><select id="prUnit"><option value="">Select unit</option>'+PR_UNITS.map(function(u){ return '<option>'+u+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="prSt">Status</label><select id="prSt">'+stOpts(PR_ST,"tbi")+'</select></div></div>'+
+      poFields("pr",{ status:"" })+
+      '<div class="field"><label for="prRem">Follow-up comment (optional)</label><textarea id="prRem" maxlength="2000" placeholder="First follow-up comment"></textarea></div>'+
+      '<p class="error" id="prErr"></p><button class="btn" id="prAdd" type="button">Add</button></div>';
+    h += '<div class="filters"><button type="button" data-prf="all" class="'+(prFilter==="all"?"active":"")+'">All</button>'+Object.keys(PR_ST).map(function(k){
+      return '<button type="button" data-prf="'+k+'" class="'+(prFilter===k?"active":"")+'">'+PR_ST[k]+'</button>'; }).join("")+'</div>';
+    var list = all.filter(function(x){ return prFilter === "all" || x.status === prFilter; }).sort(function(a,b){ return (a.created||0)-(b.created||0); });
+    if(!list.length) h += '<div class="empty">'+(all.length ? "No entries match this filter." : "No procurement entries yet. Add one above.")+'</div>';
+    else {
+      h += '<table class="atable"><thead><tr><th>Sl. no.</th><th>Supply / service description</th><th>Quantity</th><th>Unit</th><th>Status</th><th>PO no. / date</th><th>Follow-up comments</th><th></th></tr></thead><tbody>';
+      list.forEach(function(x,i){
+        h += '<tr class="'+(x.status==="procured"?"done":"")+'"><td data-label="Sl. no.">'+(i+1)+'</td><td data-label="Description"><span class="wt">'+esc(x.desc)+'</span></td>'+
+          '<td data-label="Quantity">'+esc(x.qty)+'</td><td data-label="Unit">'+esc(x.unit)+'</td>'+
+          '<td data-label="Status"><select class="stsel" data-prst="'+esc(x.id)+'" aria-label="Status">'+stOpts(PR_ST,x.status)+'</select></td>'+
+          '<td data-label="PO no. / date">'+(x.status==="procured" ? esc(x.poNo)+'<span class="moved">'+fmtDate(x.poDate)+'</span>' : '–')+'</td>'+
+          '<td data-label="Follow-up comments">'+fuEntriesHTML(x)+'<button class="btn ghost small" data-prrem="'+esc(x.id)+'" type="button">+ Add comment</button></td>'+
+          '<td class="act"><button class="btn ghost small" data-pred="'+esc(x.id)+'" type="button">Edit</button>'+(isMaster()?' <button class="btn danger small" data-prdel="'+esc(x.id)+'" type="button">Delete</button>':'')+'</td></tr>';
+      });
+      h += '</tbody></table>';
+    }
+    p.innerHTML = h;
+    function findP(id){ return state.pr.find(function(x){ return x.id === id; }); }
+    $("prSt").onchange = function(){ $("prPo").style.display = this.value === "procured" ? "block" : "none"; };
+    $("prAdd").onclick = function(){
+      var x = { id:uid(), desc:$("prDesc").value.trim(), qty:$("prQty").value.trim(), unit:$("prUnit").value, status:$("prSt").value,
+                poNo:$("prPoNo").value.trim(), poDate:$("prPoDt").value, created:Date.now() };
+      var er = prCheck(x); if(er){ $("prErr").textContent = er; return; }
+      if(x.status !== "procured"){ x.poNo = ""; x.poDate = ""; }
+      var rm = $("prRem").value.trim();
+      x.remarks = rm ? fuStamp(rm) : "";
+      state.pr.push(x); prSave(x, rm); render();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-prrem]"),function(b){ b.onclick = function(){ var x = findP(b.getAttribute("data-prrem")); if(x) prRemarkModal(x); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-prf]"),function(b){ b.onclick = function(){ prFilter = b.getAttribute("data-prf"); renderPanel(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-prst]"),function(s){
+      s.onchange = function(){
+        var x = findP(s.getAttribute("data-prst")); if(!x) return;
+        if(s.value === "procured"){ prPoModal(x); return; }
+        x.status = s.value; x.poNo = ""; x.poDate = ""; prSave(x); render();
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-pred]"),function(b){ b.onclick = function(){ var x = findP(b.getAttribute("data-pred")); if(x) prEditModal(x); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-prdel]"),function(b){
+      b.onclick = function(){ var id = b.getAttribute("data-prdel");
+        confirmModal("Delete this procurement entry?", function(){ state.pr = state.pr.filter(function(x){ return x.id !== id; }); ampSend({ action:"prDel", id:id }); render(); }); };
+    });
+  }
+  function prRemarkModal(x){
+    openModal('<h3>Add follow-up comment</h3><p style="margin-top:0;white-space:pre-wrap">'+esc(x.desc)+'</p>'+
+      '<div class="field"><label for="prrText">Comment</label><textarea id="prrText" maxlength="2000" style="min-height:120px" placeholder="Follow-up update, discussion, next step…"></textarea></div>'+
+      '<p class="error" id="prrErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save comment</button></div>');
+    $("prrText").focus(); $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var t = $("prrText").value.trim(); if(!t){ $("prrErr").textContent = "Enter the comment."; return; }
+      x.remarks = (x.remarks ? x.remarks+RSEP : "")+fuStamp(t); closeModal(); ampSend({ action:"prRemark", id:x.id, text:t }); render();
+    };
+  }
+  function prCheck(x){
+    if(!x.desc) return "Enter the supply or service description.";
+    if(!(parseFloat(x.qty) > 0)) return "Enter a quantity greater than zero.";
+    if(!x.unit) return "Select the unit.";
+    if(x.status === "procured"){ if(!x.poNo) return "PO no. is mandatory when status is PROCURED."; if(!x.poDate) return "PO date is mandatory when status is PROCURED."; }
+    return "";
+  }
+  function prPoModal(x){
+    openModal('<h3>Mark as PROCURED</h3><p style="margin-top:0"><b>'+esc(x.desc)+'</b></p>'+
+      '<div class="row"><div><label for="ppNo">PO no. *</label><input type="text" id="ppNo" maxlength="60" value="'+esc(x.poNo||"")+'"></div>'+
+      '<div><label for="ppDt">PO date *</label><input type="date" id="ppDt" value="'+esc(x.poDate||"")+'"></div></div>'+
+      '<p class="error" id="ppErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+    $("ppNo").focus(); $("mNo").onclick = function(){ closeModal(); renderPanel(); };
+    $("mOk").onclick = function(){
+      var no = $("ppNo").value.trim(), dt = $("ppDt").value;
+      if(!no || !dt){ $("ppErr").textContent = "PO no. and PO date are both mandatory."; return; }
+      x.status = "procured"; x.poNo = no; x.poDate = dt; closeModal(); prSave(x); render();
+    };
+  }
+  function prEditModal(x){
+    openModal('<h3>Edit procurement entry</h3><div class="field"><label for="peDesc">Supply or service description</label><input type="text" id="peDesc" maxlength="500" value="'+esc(x.desc)+'"></div>'+
+      '<div class="row"><div><label for="peQty">Quantity</label><input type="number" id="peQty" min="0" step="any" value="'+esc(x.qty)+'"></div>'+
+      '<div><label for="peUnit">Unit</label><select id="peUnit"><option value="">Select unit</option>'+PR_UNITS.map(function(u){ return '<option'+(u===x.unit?' selected':'')+'>'+u+'</option>'; }).join("")+'</select></div></div>'+
+      '<div class="field"><label for="peSt">Status</label><select id="peSt">'+stOpts(PR_ST,x.status)+'</select></div>'+poFields("pe",x)+
+      '<p class="error" id="peErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
+    $("mNo").onclick = closeModal;
+    $("peSt").onchange = function(){ $("pePo").style.display = this.value === "procured" ? "block" : "none"; };
+    $("mOk").onclick = function(){
+      var y = { desc:$("peDesc").value.trim(), qty:$("peQty").value.trim(), unit:$("peUnit").value, status:$("peSt").value, poNo:$("pePoNo").value.trim(), poDate:$("pePoDt").value };
+      var er = prCheck(y); if(er){ $("peErr").textContent = er; return; }
+      x.desc = y.desc; x.qty = y.qty; x.unit = y.unit; x.status = y.status;
+      x.poNo = y.status === "procured" ? y.poNo : ""; x.poDate = y.status === "procured" ? y.poDate : "";
+      closeModal(); prSave(x); render();
+    };
+  }
+
   /* ---------- Employee panel ---------- */
   function bindHead(e, done){
     var p = $("panel");
@@ -1813,6 +2340,9 @@
     if(activeTab === "works"){ renderWorks(); return; }
     if(activeTab === "dash"){ renderDashboard(); return; }
     if(activeTab === "assign"){ renderAssignments(); return; }
+    if(activeTab === "maint"){ renderMaint(); return; }
+    if(activeTab === "follow"){ renderFollow(); return; }
+    if(activeTab === "proc"){ renderProc(); return; }
     if(activeTab === "amp"){ renderAmp(); return; }
     if(activeTab === "amc"){ renderAmc(); return; }
     if(activeTab === "contracts"){ contractsModal(); activeTab = "home"; return; }
@@ -1845,7 +2375,7 @@
       return;
     }
 
-    var overdue = e.works.filter(function(w){ return !w.done && w.date < viewDate; });
+    var overdue = e.works.filter(function(w){ return !w.done && w.date < viewDate && w.date <= today(); });
     var byDate = {};
     overdue.forEach(function(w){ byDate[w.date] = (byDate[w.date]||0)+1; });
     var oDates = Object.keys(byDate).sort().reverse();
@@ -1863,7 +2393,10 @@
          '<button class="btn small" id="dToday" type="button"'+(viewDate===today()?' disabled':'')+'>Today</button>'+
          '<span class="dlabel">'+esc(dayLabel(viewDate))+'</span></div>';
 
-    if(overdue.length){
+    if(!overdue.length){
+      h += '<div class="carry"><div class="carry-txt" style="color:var(--muted)">No pending works from earlier dates.</div>'+
+           '<button class="btn small" type="button" disabled>Bring all to '+fmtDate(viewDate)+'</button></div>';
+    } else {
       h += '<div class="carry"><div class="carry-txt"><b>'+overdue.length+' pending</b> from earlier dates: '+
         oDates.slice(0,8).map(function(d){
           return '<button type="button" class="chip" data-jump="'+d+'">'+fmtDate(d)+' ('+byDate[d]+')</button>';
