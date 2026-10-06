@@ -374,6 +374,7 @@
       </div>
       <p class="error" id="loginErr" role="alert"></p>
       <button class="btn wide" id="loginBtn" type="button">Sign in</button>
+      <p id="verLine" style="text-align:center;font-size:.75rem;color:var(--muted);margin:10px 0 0">Page v14</p>
       <button class="linkbtn" id="forgotBtn" type="button">Forgot / change password?</button>
       <p class="mode-note" id="modeNote"></p>
     </div>
@@ -385,6 +386,7 @@
   <header class="top">
     <div class="top-in">
       <img class="top-logo" id="topLogo" alt="POWERGRID logo"><span class="top-title">KOZHIKODE SS</span>
+      <span class="sync" id="onlinePill" role="button" tabindex="0" style="cursor:default"></span>
       <span class="sync" id="syncPill" role="button" tabindex="0" title="Click to refresh now"></span>
       <span class="who" id="whoLabel"></span>
       <span class="sess" id="sessLabel" title="Time left in this login session. It resets whenever you use the app; 30 minutes of inactivity logs you out."></span>
@@ -412,6 +414,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
+  var PAGE_VER = "v14";
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
 
@@ -419,7 +422,7 @@
 
   /* ---------- State ---------- */
   var KEY = "kozhikode_ss_daily_work_v1";
-  var state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], amcDaily: [], fu: [], pr: [] };
+  var state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], amcDaily: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } };
   var assignFilter = "all", assignTo = "", lastBy = "";
   var empView = "work";         // inside an employee tab: "work" or "cal"
   var dashPeriod = "today";     // dashboard range
@@ -463,6 +466,50 @@
   function isMaster(){ return session && session.role === "master"; }
   function isSupport(){ return session && session.role === "support"; }
   function emp(id){ return state.employees.find(function(e){ return e.id === id; }); }
+  /* the employee record that belongs to the logged-in normal user */
+  function myEmpId(){
+    if(!session || session.role !== "user") return "";
+    if(session.employeeId && emp(session.employeeId)) return session.employeeId;
+    var l = state.employees.find(function(e){ return e.userId && e.userId === session.id; });
+    return l ? l.id : "";
+  }
+  function canEditWorks(e){ return isMaster() || (!!e && e.id === myEmpId()); }
+  /* availability for today: "yes" | "no" | "" (not answered) */
+  function availOf(empId){
+    var a = (state.avail || []).find(function(x){ return x.empId === empId && (SYNC || x.date === today()); });
+    return a ? (a.available ? "yes" : "no") : "";
+  }
+  function availChip(empId){
+    var v = availOf(empId);
+    return v === "yes" ? '<span class="availchip" style="color:#1b7f3b;font-weight:600">&#9679; Available today</span>'
+         : v === "no"  ? '<span class="availchip" style="color:#b3261e;font-weight:600">&#9679; Not available today</span>'
+         : '<span class="availchip" style="color:var(--muted)">&#9679; Availability not updated</span>';
+  }
+  function availSave(empId, yes, done, fail){
+    if(!SYNC){
+      state.avail = (state.avail || []).filter(function(a){ return !(a.empId === empId && a.date === today()); });
+      state.avail.push({ empId: empId, date: today(), available: !!yes });
+      saveLocal(); done(); return;
+    }
+    api({ action: "availSet", empId: empId, available: !!yes }).then(function(r){
+      applyData(r.json.data);
+      if(!availOf(empId)){ fail("The server did not record this. Paste the new Code_v11.gs and deploy a New version."); return; }
+      done();
+    }).catch(function(err){ fail(err.server ? err.message : "Cannot reach the server."); });
+  }
+  function availPrompt(){
+    var me = myEmpId(); if(!me || availOf(me) || modalOpen()) return;
+    openModal('<h3>Are you available today?</h3><p style="margin-top:0;color:var(--muted)">'+esc(dayLabel(today()))+'</p>'+
+      '<p class="error" id="avErr"></p>'+
+      '<div class="row"><button class="btn" id="avYes" type="button">Yes, available</button><button class="btn danger" id="avNo" type="button">No, not available</button></div>');
+    var ov = $("ov"); if(ov) ov.parentNode.replaceChild(ov.cloneNode(true), ov);   // must answer: no close on outside click
+    function pick(yes){
+      $("avYes").disabled = true; $("avNo").disabled = true;
+      availSave(me, yes, function(){ closeModal(); render(); }, function(msg){ $("avErr").textContent = msg; $("avYes").disabled = false; $("avNo").disabled = false; });
+    }
+    $("avYes").onclick = function(){ pick(true); };
+    $("avNo").onclick = function(){ pick(false); };
+  }
   function modalOpen(){ return $("modalRoot").innerHTML !== ""; }
   /* The notice is stored as one hidden office record (works with every version of the Google script) */
   var NOTICE_ID = "noticeboard";
@@ -489,7 +536,7 @@
   function defaults(){
     var emps = [];
     for(var i=1;i<=11;i++) emps.push({ id: uid()+i, name: "Employee "+i, works: [] });
-    return { employees: emps, users: [ { id: "User", pass: "Power@400" } ], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], fu: [], pr: [] };
+    return { employees: emps, users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], fu: [], pr: [] };
   }
   function loadLocal(){
     try{ var raw = localStorage.getItem(KEY); if(raw){ var st = JSON.parse(raw); st.events = st.events || []; st.assignments = st.assignments || []; st.amp = st.amp || []; st.notice = st.notice || ""; st.contracts = st.contracts || []; st.amcUsers = st.amcUsers || []; st.amcWorks = st.amcWorks || []; st.sched = st.sched || []; st.fu = st.fu || []; st.pr = st.pr || []; return st; } }catch(e){}
@@ -543,6 +590,8 @@
     state.amcDaily = d.amcDaily || [];
     state.amcAssignees = d.amcAssignees || [];
     state.minWage = d.minWage || [];
+    state.avail = d.avail || [];
+    state.online = d.online || { count: 0, list: [] };
     var nev = null;
     state.events = state.events.filter(function(x){ if(x.id === NOTICE_ID){ nev = x; return false; } return true; });
     state.notice = nev ? (nev.note || "") : "";
@@ -730,10 +779,11 @@
     setStatus("ok");
     sessStart();
     render();
+    if(role === "user") setTimeout(availPrompt, 250);      // once a day: first login asks "Are you available today?"
     if(SYNC){
       if(!isSupport()) ampFetch();
       clearInterval(pollTimer);
-      pollTimer = setInterval(function(){ if(!document.hidden){ pull(); if(!isSupport() && (activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home")) ampFetch(); } }, POLL_MS);
+      pollTimer = setInterval(function(){ if(document.hidden){ if(Date.now() - (window.__lastPing||0) > 60000){ window.__lastPing = Date.now(); api({ action: "ping" }).catch(function(){}); } return; } if(!document.hidden){ pull(); if(!isSupport() && (activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home")) ampFetch(); } }, POLL_MS);
     }
   }
 
@@ -741,7 +791,7 @@
     var id = $("loginId").value.trim(), pw = $("loginPass").value;
     if(!SYNC){
       var ok = false;
-      if(loginRole === "master") ok = id === "Master" && pw === "Master@400";
+      if(loginRole === "master") ok = false;   // no master password is stored in this page; Master login is checked only on the server
       else ok = state.users.some(function(u){ return u.id === id && u.pass === pw && (u.role||"user") === loginRole; });
       if(!ok){ $("loginErr").textContent = "Wrong ID or password. Check and try again."; return; }
       enterApp(loginRole, id); return;
@@ -753,6 +803,9 @@
       try{ sessionStorage.setItem("kss_auth", JSON.stringify(auth)); }catch(e){}
       applyData(r.json.data); lastText = r.text;
       enterApp(r.json.role || auth.role, auth.id, r.json.user);
+      if(r.json.ver && r.json.ver !== PAGE_VER && auth.role === "master"){
+        setTimeout(function(){ try{ alert("VERSION MISMATCH\n\nThis page is " + PAGE_VER + " but the Google Apps Script is " + r.json.ver + ".\n\nIf the server is older: paste the latest Code.gs and Deploy > Manage deployments > New version.\nIf the page is older: hard-refresh (Ctrl+F5) or re-upload the HTML to GitHub."); }catch(e){} }, 400);
+      }
       if(!r.json.ver && auth.role === "master"){
         setTimeout(function(){ try{ alert("OLD BACKEND DETECTED.\n\nThis page is connected to an old version of the Google Apps Script, so new employees will save with a blank name.\n\nFix: in Apps Script paste the v4 Code.gs, then Deploy > Manage deployments > pencil icon > Version: New version > Deploy. Do NOT use 'New deployment' (that changes the URL)."); }catch(e){} }, 300);
       }
@@ -817,6 +870,7 @@
   $("forgotBtn").onclick = forgotModal;
 
   function doLogout(msg){
+    if(SYNC && auth){ try{ fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "logout", auth: auth }) }).catch(function(){}); }catch(e){} }
     clearInterval(pollTimer); clearInterval(sessTick); sessExp = 0;
     var sl = $("sessLabel"); if(sl){ sl.textContent = ""; sl.classList.remove("warn"); }
     session = null; auth = null; queue = []; flushing = false; pendingRefresh = null;
@@ -1040,6 +1094,12 @@
     var notes = allNoticeItems();
 
     var h = '<div class="hero"><h3>'+greet+', '+esc(meName)+'</h3><span class="sub">User ID: '+esc(me)+' &middot; '+esc(dayLabel(t))+'</span></div>';
+    var myE = emp(myEmpId());
+    if(myE){
+      var myTot = 0, myDone = 0; myE.works.forEach(function(w){ if(w.date === t){ myTot++; if(w.done) myDone++; } });
+      h += '<div style="margin:0 0 14px"><button class="btn" id="goMyWorks" type="button" style="width:100%">Go to daily works</button>'+
+           '<div style="margin-top:6px;font-size:.9rem;color:var(--muted)">Your works today: '+(myTot ? (myTot-myDone)+' pending of '+myTot : 'none entered')+' &middot; '+availChip(myE.id)+'</div></div>';
+    }
     if(notes.length || isMaster()){
       h += '<div class="nboard"><div class="nh"><h4>&#9670; Notice board</h4>'+
            (isMaster() ? '<button class="btn ghost small" data-go="notices" type="button">'+(notes.length?'Edit notices':'Add notice')+'</button>' : '')+'</div>'+
@@ -1065,6 +1125,8 @@
       return '<button type="button" class="hcard '+c.cls+'" data-go="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
     }).join("")+'</div>';
     p.innerHTML = h;
+    var gmw = $("goMyWorks");
+    if(gmw) gmw.onclick = function(){ activeTab = myEmpId(); empView = "work"; viewDate = today(); filter = "all"; render(); };
 
     Array.prototype.forEach.call(p.querySelectorAll("[data-go]"),function(b){
       b.onclick = function(){
@@ -1311,7 +1373,7 @@
             else if(!w.done && w.date < t) over++;
           });
           return '<button type="button" class="hcard'+(over?' amber':' green')+'" data-emp="'+esc(e.id)+'"><span class="ic">'+esc((e.name||"?").trim().charAt(0).toUpperCase())+'</span>'+
-            '<b>'+esc(e.name)+'</b>'+desigHTML(e)+rolesHTML(e)+'<small>Today: '+(tot ? (tot-done)+' pending of '+tot : 'no work entered')+(over ? ' &middot; '+over+' pending from earlier dates' : '')+'</small></button>';
+            '<b>'+esc(e.name)+'</b>'+desigHTML(e)+rolesHTML(e)+'<small>Today: '+(tot ? (tot-done)+' pending of '+tot : 'no work entered')+(over ? ' &middot; '+over+' pending from earlier dates' : '')+'<br>'+availChip(e.id)+'</small></button>';
         }).join("")+'</div>';
     }
     p.innerHTML = h;
@@ -1322,7 +1384,26 @@
   }
 
   /* ---------- Render ---------- */
-  function render(){ renderNotice(); renderTabs(); renderPanel(); }
+  function paintOnline(){
+    var el = $("onlinePill"); if(!el) return;
+    if(!SYNC || !session){ el.textContent = ""; return; }
+    var n = (state.online && state.online.count) || 0;
+    var oe = state.online && state.online.err;
+    el.className = oe ? "sync error" : "sync ok"; el.textContent = oe ? "● online: unavailable" : "● " + n + " online";
+    el.style.cursor = isMaster() ? "pointer" : "default";
+    el.title = oe ? ("Online list problem: " + oe) : (isMaster() ? "Click to see who is logged in" : "People logged in right now");
+    el.onclick = isMaster() ? onlineModal : null;
+  }
+  function onlineModal(){
+    var list = (state.online && state.online.list) || [];
+    var rl = { master: "Master", user: "User", support: "Support Staff" };
+    openModal('<h3>Online now ('+list.length+')</h3><ul class="ulist">'+
+      (list.map(function(u){ return '<li><div style="flex:1 1 100%"><b>'+esc(u.name)+'</b> <small>('+esc(u.id)+')</small> <span class="badge">'+esc(rl[u.role]||u.role)+'</span></div></li>'; }).join("") || '<li><small>Nobody else is online.</small></li>')+
+      '</ul><p style="color:var(--muted);font-size:.85rem">A login shows as online while its page is open (checked every few seconds, even in a background tab). It drops off about 3 minutes after the page is closed or the device goes offline.</p>'+
+      '<div class="row"><button class="btn" id="mNo" type="button">Close</button></div>');
+    $("mNo").onclick = closeModal;
+  }
+  function render(){ renderNotice(); renderTabs(); renderPanel(); paintOnline(); }
 
   function renderTabs(){
     var html = '<button type="button" class="tab active" data-tab="home">Home</button>';
@@ -2817,6 +2898,11 @@
     Array.prototype.forEach.call(p.querySelectorAll("[data-view]"),function(b){
       b.onclick = function(){ empView = b.getAttribute("data-view"); render(); };
     });
+    var ac = $("availChg");
+    if(ac) ac.onclick = function(){
+      ac.disabled = true;
+      availSave(e.id, availOf(e.id) !== "yes", function(){ render(); }, function(msg){ ac.disabled = false; try{ alert(msg); }catch(x){} });
+    };
     if(!isMaster()) return;
     $("renameEmp").onclick = function(){
       empFormModal("Edit employee", e, function(v){
@@ -2862,11 +2948,13 @@
     var total = dayWorks.length, done = dayWorks.filter(function(w){ return w.done; }).length;
     var pct = total ? Math.round(done/total*100) : 0;
     var work = empView === "work";
+    var canW = canEditWorks(e);       // only the employee himself and Master can add / change these works
 
     var h = '<div style="margin-bottom:10px"><button class="btn ghost small" id="backWorks" type="button">&lsaquo; All employees</button></div>';
     h += '<div class="panel-head"><div><h3 style="display:inline">'+esc(e.name)+'</h3>'+(e.desig?'<span class="desig" style="display:inline-block;margin-left:8px">'+esc(e.desig)+'</span>':'')+rolesHTML(e)+'</div>';
     if(work) h += '<div class="stats"><span>Total <b>'+total+'</b></span><span>Done <b>'+done+'</b></span><span>Pending <b>'+(total-done)+'</b></span></div>';
     h += '</div>';
+    h += '<div style="margin:-4px 0 10px">'+availChip(e.id)+(canW ? ' <button class="btn ghost small" id="availChg" type="button">'+(availOf(e.id) ? 'Change' : 'Set')+'</button>' : '')+'</div>';
     h += '<div class="viewsw"><button type="button" data-view="work" class="'+(work?"active":"")+'">Worklist</button>'+
          '<button type="button" data-view="cal" class="'+(!work?"active":"")+'">Calendar</button></div>';
     if(isMaster()){
@@ -2902,7 +2990,9 @@
          '<button class="btn ghost small" id="dExport" type="button" title="Export the worklist of this date as PDF">Export PDF</button>'+
          '<span class="dlabel">'+esc(dayLabel(viewDate))+'</span></div>';
 
-    if(!overdue.length){
+    if(!canW){
+      h += '<div class="carry"><div class="carry-txt" style="color:var(--muted)">View only &mdash; only '+esc(e.name)+' and Master can add or update these works.'+(overdue.length ? ' ('+overdue.length+' pending from earlier dates)' : '')+'</div></div>';
+    } else if(!overdue.length){
       h += '<div class="carry"><div class="carry-txt" style="color:var(--muted)">No pending works from earlier dates.</div>'+
            '<button class="btn small" type="button" disabled>Bring all to '+fmtDate(viewDate)+'</button></div>';
     } else {
@@ -2915,7 +3005,7 @@
 
     h += '<div class="progress" aria-hidden="true"><i style="width:'+pct+'%"></i></div>';
 
-    h += '<div class="add-row">'+
+    if(canW) h += '<div class="add-row">'+
          '<div class="field"><label for="wText">Add work for '+fmtDate(viewDate)+'</label><input type="text" id="wText" placeholder="e.g. Inspect 33 kV breaker, feeder 2" maxlength="300"></div>'+
          '<button class="btn" id="wAdd" type="button">Add work</button></div>';
 
@@ -2934,15 +3024,15 @@
       h += '<table><thead><tr><th>Done</th><th>Work details</th><th></th></tr></thead><tbody>';
       list.forEach(function(w){
         h += '<tr class="'+(w.done?"done":"")+'">'+
-          '<td class="chk"><input type="checkbox" data-done="'+esc(w.id)+'" '+(w.done?"checked":"")+' aria-label="Mark complete"></td>'+
+          '<td class="chk"><input type="checkbox" data-done="'+esc(w.id)+'" '+(w.done?"checked":"")+(canW?'':' disabled')+' aria-label="Mark complete"></td>'+
           '<td class="txt"><span class="wt">'+esc(w.text)+'</span>'+
             (w.movedFrom?'<span class="moved">Transferred from '+fmtDate(w.movedFrom)+'</span>':'')+
             (w.done&&w.doneAt?'<span class="doneat">Completed '+fmtStamp(w.doneAt)+'</span>':'')+
             (w.done&&w.comment?'<span class="cmt">Comment: '+esc(w.comment)+'</span>':'')+'</td>'+
-          '<td class="act">'+
+          '<td class="act">'+(!canW ? '' :
             (!w.done?'<button class="btn ghost small" data-move="'+esc(w.id)+'" type="button">Transfer</button> ':'')+
             '<button class="btn ghost small" data-edit="'+esc(w.id)+'" type="button">Edit</button>'+
-            (isMaster()?' <button class="btn danger small" data-del="'+esc(w.id)+'" type="button">Delete</button>':'')+
+            (isMaster()?' <button class="btn danger small" data-del="'+esc(w.id)+'" type="button">Delete</button>':''))+
           '</td></tr>';
       });
       h += '</tbody></table>';
@@ -2977,8 +3067,10 @@
       commit([wput(e,w)]); render();
       $("wText").focus();
     }
-    $("wAdd").onclick = addWork;
-    $("wText").addEventListener("keydown",function(ev){ if(ev.key==="Enter") addWork(); });
+    if(canW){
+      $("wAdd").onclick = addWork;
+      $("wText").addEventListener("keydown",function(ev){ if(ev.key==="Enter") addWork(); });
+    }
 
     Array.prototype.forEach.call(p.querySelectorAll("[data-f]"),function(b){
       b.onclick = function(){ filter = b.getAttribute("data-f"); renderPanel(); };
