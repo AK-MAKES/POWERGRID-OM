@@ -414,7 +414,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v16";
+  var PAGE_VER = "v17";
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
 
@@ -592,6 +592,8 @@
     state.amcHours = d.amcHours || [];
     state.amcAssignees = d.amcAssignees || [];
     state.minWage = d.minWage || [];
+    state.wageRules = d.wageRules || null;
+    state.mandays = d.mandays || [];
     state.avail = d.avail || [];
     state.online = d.online || { count: 0, list: [] };
     var nev = null;
@@ -1029,6 +1031,8 @@
     if(supView === "work"){ renderSupportWork(); return; }
     if(supView === "wage"){ renderSupportWage(); return; }
     if(supView === "hours"){ renderSupportHours(); return; }
+    if(supView === "slip"){ renderSupportSlip(); return; }
+    if(supView === "mandays"){ renderSupportMandays(); return; }
     var p = $("panel"), t = today(), hr = new Date().getHours();
     var greet = hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening";
     var me = session ? session.id : "";
@@ -1049,6 +1053,8 @@
       (function(){ var sa = supAssignList(), so = sa.filter(function(a){ return !a.done; }).length, sl = sa.filter(asOverdue).length;
         return '<button type="button" class="hcard'+(sl?' amber':' green')+'" id="goAssign"><span class="ic">'+ICON.assign+'</span><b>Assignments</b><small>'+so+' open'+(sl?', '+sl+' overdue':'')+' of '+sa.length+' assigned to AMC</small></button>'; })()+
       '<button type="button" class="hcard green" id="goWage"><span class="ic">'+ICON.dash+'</span><b>Min wage rates</b><small>Current minimum wage rates (view only)</small></button>'+
+      '<button type="button" class="hcard green" id="goSlip"><span class="ic">'+ICON.dash+'</span><b>Wage slip</b><small>Monthly wage slip of AMC staff (PDF)</small></button>'+
+      '<button type="button" class="hcard green" id="goMd"><span class="ic">'+ICON.dash+'</span><b>Mandays balance</b><small>Allotted, used and balance mandays of your contract</small></button>'+
       (function(){ var n = staff.filter(function(x){ return hrsBalance(x.id) !== 0; }).length;
         return '<button type="button" class="hcard green" id="goHours"><span class="ic">'+ICON.dash+'</span><b>Overtime &amp; early leave</b><small>'+(n ? n+' of '+staff.length+' AMC staff have an hours balance' : 'Hours balance of AMC staff (view only)')+'</small></button>'; })()+'</div>';
     h += '<div class="assign-form" style="margin-top:14px"><h4>Export muster roll (PDF)</h4><div class="agrid">'+
@@ -1071,6 +1077,8 @@
     $("goWork").onclick = function(){ supView = "work"; renderPanel(); };
     $("goWage").onclick = function(){ supView = "wage"; renderPanel(); };
     $("goHours").onclick = function(){ supView = "hours"; renderPanel(); };
+    $("goSlip").onclick = function(){ supView = "slip"; renderPanel(); };
+    $("goMd").onclick = function(){ supView = "mandays"; renderPanel(); };
     $("goAssign").onclick = function(){ activeTab = "assign"; assignFilter = "pending"; assignTo = ""; render(); };
     $("mrBtn").onclick = function(){
       var fr = $("mrFrom").value, to = $("mrTo").value, er = $("mrErr");
@@ -1154,6 +1162,7 @@
   /* ---------- AMC staff: table of AMC people who get work ---------- */
   var AMC_SKILLS = ["HIGHLY SKILLED","SKILLED","SEMI-SKILLED","UN-SKILLED"];
   var amcFilter = "all";
+  function myContractId(){ var c = (state.contracts||[])[0]; return c ? String(c.id) : "__none__"; }   /* AMC login: the only contract it can see */
   function contractName(id){ var c = (state.contracts||[]).find(function(x){ return x.id === id; }); return c ? c.name : "—"; }
 
   function amcCall(body, onOk){
@@ -1188,6 +1197,8 @@
   function renderAmc(){
     if(amcSub === "wage"){ renderWagePanel(); return; }
     if(amcSub === "hours"){ renderHoursPanel(); return; }
+    if(amcSub === "rules"){ renderRulesPanel(); return; }
+    if(amcSub === "mandays"){ renderMandaysPanel(); return; }
     var p = $("panel"), master = isMaster();
     var list = (state.amcStaff||[]).filter(function(s){ return amcFilter === "all" || s.contractId === amcFilter; });
     var pend = list.filter(function(s){ return !s.done; }).length;
@@ -1221,7 +1232,9 @@
   function amcSubTabs(){
     return '<div class="filters" style="margin:0 0 12px"><button type="button" data-asub="staff" class="'+(amcSub==="staff"?"active":"")+'">AMC STAFF</button>'+
            '<button type="button" data-asub="wage" class="'+(amcSub==="wage"?"active":"")+'">MIN WAGE RATES</button>'+
-           '<button type="button" data-asub="hours" class="'+(amcSub==="hours"?"active":"")+'">OVERTIME / EARLY LEAVE</button></div>';
+           '<button type="button" data-asub="hours" class="'+(amcSub==="hours"?"active":"")+'">OVERTIME / EARLY LEAVE</button>'+
+           '<button type="button" data-asub="rules" class="'+(amcSub==="rules"?"active":"")+'">WAGE RULES</button>'+
+           '<button type="button" data-asub="mandays" class="'+(amcSub==="mandays"?"active":"")+'">MANDAYS</button></div>';
   }
   function bindAsub(p){
     Array.prototype.forEach.call(p.querySelectorAll("[data-asub]"),function(b){
@@ -1293,6 +1306,188 @@
       amcCall({ action:"minWagePut", item:{ id: cur.id || uid(), skill:sk, rate:rt, effective:ef, ref:rf } });
     };
   }
+  /* ---------- Wage rules (Master) + wage slip of AMC staff (AMC login) ---------- */
+  var WR_DEF = { bonus:{ on:false, pct:8.33, max:7000 }, pf:{ on:false, pct:12, max:15000 }, esi:{ on:false, pct:0.75, max:21000 } };
+  var WR_NAME = { bonus:"Bonus", pf:"PF (Provident Fund)", esi:"ESI" };
+  function wrGet(){
+    var o = {}, s = state.wageRules || {};
+    ["bonus","pf","esi"].forEach(function(k){ var r = s[k] || {}; o[k] = { on: r.on === true, pct: isFinite(+r.pct) && r.pct !== "" && r.pct != null ? +r.pct : WR_DEF[k].pct, max: isFinite(+r.max) && r.max !== "" && r.max != null ? +r.max : WR_DEF[k].max }; });
+    return o;
+  }
+  function money(n){ return "&#8377; "+(+n).toLocaleString("en-IN",{ minimumFractionDigits:2, maximumFractionDigits:2 }); }
+  function rulesHTML(master){
+    var r = wrGet();
+    var h = '<div class="panel-head"><h3>Wage rules &ndash; Bonus, PF and ESI</h3></div>'+
+      '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">'+(master ? 'Set the rules used for the wage slip of AMC staff. The percentage is applied on the monthly wages earned, limited to the maximum amount given. Bonus is added to the wages; PF and ESI are deducted.' : 'View only. These rules are set by Master and are used in the wage slip of AMC staff.')+'</p>';
+    ["bonus","pf","esi"].forEach(function(k){
+      var x = r[k], nm = WR_NAME[k];
+      h += '<div class="assign-form" style="margin-bottom:12px"><h4>'+nm+'</h4><div class="agrid">'+
+        '<div class="field"><label for="wr_'+k+'_on">'+nm+' applicable</label><select id="wr_'+k+'_on"'+(master?'':' disabled')+'><option value="no"'+(x.on?'':' selected')+'>No</option><option value="yes"'+(x.on?' selected':'')+'>Yes</option></select></div>'+
+        '<div class="field"><label for="wr_'+k+'_pct">Percentage (%)</label><input type="number" id="wr_'+k+'_pct" min="0" max="100" step="any" inputmode="decimal" value="'+esc(String(x.pct))+'"'+(master?'':' disabled')+'></div>'+
+        '<div class="field"><label for="wr_'+k+'_max">Maximum monthly wage (&#8377;)</label><input type="number" id="wr_'+k+'_max" min="0" step="any" inputmode="decimal" value="'+esc(String(x.max))+'"'+(master?'':' disabled')+'></div></div></div>';
+    });
+    if(master) h += '<p class="error" id="wrErr"></p><button class="btn" id="wrSave" type="button">Save wage rules</button>';
+    return h;
+  }
+  function renderRulesPanel(){
+    var p = $("panel"), master = isMaster();
+    p.innerHTML = amcSubTabs()+rulesHTML(master); bindAsub(p);
+    if(!master) return;
+    $("wrSave").onclick = function(){
+      var rules = {}, err = $("wrErr"); err.textContent = "";
+      var ok = ["bonus","pf","esi"].every(function(k){
+        var on = $("wr_"+k+"_on").value === "yes", pct = parseFloat($("wr_"+k+"_pct").value), mx = parseFloat($("wr_"+k+"_max").value);
+        if(on && !(pct > 0 && pct <= 100)){ err.textContent = "Enter a valid percentage for "+WR_NAME[k]+"."; return false; }
+        if(on && !(mx > 0)){ err.textContent = "Enter the maximum monthly wage for "+WR_NAME[k]+"."; return false; }
+        rules[k] = { on:on, pct: isFinite(pct) ? pct : WR_DEF[k].pct, max: isFinite(mx) ? mx : WR_DEF[k].max };
+        return true;
+      });
+      if(!ok) return;
+      amcCall({ action:"wageRulesPut", rules:rules }, function(){ alert("Wage rules saved."); });
+    };
+  }
+  function wageRateOn(skill, date){
+    var best = null;
+    (state.minWage||[]).forEach(function(r){ if(r.skill === skill && r.effective <= date && (!best || r.effective > best.effective)) best = r; });
+    return best ? parseFloat(best.rate) : 0;
+  }
+  function pad2(n){ return n < 10 ? "0"+n : ""+n; }
+  /* Wages of ONE AMC staff for a month (ym = "YYYY-MM"): paid days = P + 1/2 for FHL / SHL + NH, each day at the minimum wage rate in force on that date */
+  function wageCalc(s, ym){
+    var rules = wrGet(), last = new Date(+ym.slice(0,4), +ym.slice(5,7), 0).getDate(), t = today();
+    var rec = {}; (state.amcDaily||[]).forEach(function(x){ if(x.staffId === s.id && x.date.slice(0,7) === ym) rec[x.date] = x.attendance; });
+    var c = { P:0, A:0, FHL:0, SHL:0, NH:0 }, nu = 0, segs = [], gross = 0, missing = false;
+    for(var i = 1; i <= last; i++){
+      var d = ym+"-"+pad2(i), a = rec[d];
+      if(!a){ if(d <= t) nu++; continue; }
+      if(c[a] != null) c[a]++;
+      var w = (a === "P" || a === "NH") ? 1 : (a === "FHL" || a === "SHL") ? 0.5 : 0;
+      if(!w) continue;
+      var rate = wageRateOn(s.skill, d);
+      if(!(rate > 0)){ missing = true; continue; }
+      gross += w*rate;
+      var sg = segs.find(function(z){ return z.rate === rate; });
+      if(!sg){ sg = { rate:rate, days:0 }; segs.push(sg); }
+      sg.days += w;
+    }
+    gross = r2(gross);
+    var line = function(k, rnd){ var x = rules[k]; if(!x.on) return null; var base = Math.min(gross, x.max); return { pct:x.pct, max:x.max, base:r2(base), amt: rnd(base*x.pct/100) }; };
+    var bonus = line("bonus", Math.round), pf = line("pf", Math.round), esi = line("esi", Math.ceil);
+    var net = r2(gross + (bonus ? bonus.amt : 0) - (pf ? pf.amt : 0) - (esi ? esi.amt : 0));
+    return { staff:s, ym:ym, days:last, c:c, nu:nu, paid: c.P + (c.FHL + c.SHL)/2 + c.NH, segs:segs, gross:gross, bonus:bonus, pf:pf, esi:esi, net:net, missing:missing };
+  }
+  var slipSel = "all", slipMonth = "";
+  function slipMonthLabel(ym){ var mn = ["January","February","March","April","May","June","July","August","September","October","November","December"]; return mn[+ym.slice(5,7)-1]+" "+ym.slice(0,4); }
+  function renderSupportSlip(){
+    var p = $("panel"), t = today(); if(!slipMonth) slipMonth = t.slice(0,7);
+    var staff = state.amcStaff || [], rules = wrGet();
+    if(slipSel !== "all" && !staff.some(function(s){ return s.id === slipSel; })) slipSel = "all";
+    var list = slipSel === "all" ? staff : staff.filter(function(s){ return s.id === slipSel; });
+    var calcs = list.map(function(s){ return wageCalc(s, slipMonth); });
+    var h = '<div style="margin-bottom:10px"><button class="btn ghost small" id="supBack" type="button">&lsaquo; Home</button></div>'+
+      '<div class="panel-head"><h3>Wage slip of AMC staff</h3></div>'+
+      '<div class="agrid"><div class="field"><label for="slWho">Worker</label><select id="slWho"><option value="all">All AMC staff</option>'+
+        staff.map(function(s){ return '<option value="'+esc(s.id)+'"'+(slipSel===s.id?' selected':'')+'>'+esc(s.name)+' ('+esc(s.skill)+')</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="slMon">Month</label><input type="month" id="slMon" value="'+esc(slipMonth)+'" max="'+esc(t.slice(0,7))+'"></div></div>';
+    var rl = ["bonus","pf","esi"].map(function(k){ var x = rules[k]; return WR_NAME[k]+": "+(x.on ? x.pct+"% up to "+money(x.max).replace("&#8377;","Rs.") : "not applicable"); }).join(" &nbsp;|&nbsp; ");
+    h += '<p style="margin:0 0 10px;color:var(--muted);font-size:.85rem"><b>Rules set by Master</b> &ndash; '+rl+'</p>';
+    if(slipMonth+"-"+pad2(new Date(+slipMonth.slice(0,4), +slipMonth.slice(5,7), 0).getDate()) < addDays(t,-90))
+      h += '<p class="error" style="display:block">Attendance is kept for the last 90 days only, so days before '+esc(fmtDate(addDays(t,-90)))+' show as not updated.</p>';
+    if(calcs.some(function(c){ return c.missing; })) h += '<p class="error" style="display:block">The minimum wage rate is not set (for some skill / dates) &ndash; those days are not paid in the figures below. Ask Master to add the rate.</p>';
+    if(!staff.length) h += '<div class="empty">No AMC staff have been added for your contract yet.</div>';
+    else {
+      h += '<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Name</th><th>Skill</th><th>Paid days</th><th>Not updated</th><th>Wages</th><th>Bonus</th><th>PF</th><th>ESI</th><th>Net pay</th></tr></thead><tbody>'+
+        calcs.map(function(c,i){
+          return '<tr><td>'+(i+1)+'</td><td><b>'+esc(c.staff.name)+'</b></td><td>'+esc(c.staff.skill)+'</td><td>'+c.paid+'</td><td>'+(c.nu ? '<span style="color:var(--red)">'+c.nu+'</span>' : '0')+'</td><td>'+money(c.gross)+'</td>'+
+            '<td>'+(c.bonus ? money(c.bonus.amt) : '&ndash;')+'</td><td>'+(c.pf ? money(c.pf.amt) : '&ndash;')+'</td><td>'+(c.esi ? money(c.esi.amt) : '&ndash;')+'</td><td><b>'+money(c.net)+'</b></td></tr>';
+        }).join("")+'</tbody></table></div>'+
+        '<button class="btn" id="slExp" type="button" style="margin-top:12px">Export wage slip (PDF)</button>'+
+        '<p style="margin:10px 0 0;color:var(--muted);font-size:.82rem">Paid days = P + &frac12; for each FHL / SHL + NH (national holiday). Each day is paid at the minimum wage rate of the skill in force on that date. Bonus is added; PF and ESI are deducted. Temporary labour are not included.</p>';
+    }
+    p.innerHTML = h;
+    $("supBack").onclick = function(){ supView = "home"; renderPanel(); };
+    $("slWho").onchange = function(){ slipSel = this.value; renderSupportSlip(); };
+    $("slMon").onchange = function(){ if(this.value){ slipMonth = this.value; renderSupportSlip(); } };
+    var ex = $("slExp"); if(ex) ex.onclick = function(){ slipExport(calcs); };
+  }
+  function slipExport(calcs){
+    if(!calcs.length){ alert("No AMC staff to export."); return; }
+    var ct = (state.contracts||[])[0] || {}, ym = calcs[0].ym, label = slipMonthLabel(ym);
+    var css = listCss(false)+'.pg{page-break-after:always}.pg:last-child{page-break-after:auto}td.r{text-align:right}td.l{text-align:left}.net td{font-weight:700;background:#eef3f7;-webkit-print-color-adjust:exact;print-color-adjust:exact}.two{display:flex;gap:12px}.two>div{flex:1}';
+    var body = calcs.map(function(c){
+      var er = c.segs.length ? c.segs.map(function(z){ return '<tr><td class="l">Wages &ndash; '+z.days+' day'+(z.days===1?'':'s')+' @ '+money(z.rate)+' / day</td><td class="r">'+money(z.days*z.rate)+'</td></tr>'; }).join("") : '<tr><td class="l">Wages</td><td class="r">'+money(0)+'</td></tr>';
+      if(c.bonus) er += '<tr><td class="l">Bonus &ndash; '+c.bonus.pct+'% of '+money(c.bonus.base)+(c.gross > c.bonus.max ? ' <small>(limit '+money(c.bonus.max)+')</small>' : '')+'</td><td class="r">'+money(c.bonus.amt)+'</td></tr>';
+      var dd = '';
+      if(c.pf) dd += '<tr><td class="l">PF &ndash; '+c.pf.pct+'% of '+money(c.pf.base)+(c.gross > c.pf.max ? ' <small>(limit '+money(c.pf.max)+')</small>' : '')+'</td><td class="r">'+money(c.pf.amt)+'</td></tr>';
+      if(c.esi) dd += '<tr><td class="l">ESI &ndash; '+c.esi.pct+'% of '+money(c.esi.base)+(c.gross > c.esi.max ? ' <small>(limit '+money(c.esi.max)+')</small>' : '')+'</td><td class="r">'+money(c.esi.amt)+'</td></tr>';
+      if(!dd) dd = '<tr><td class="l" style="color:#5d6b78">No deductions</td><td class="r">'+money(0)+'</td></tr>';
+      var earn = c.gross + (c.bonus ? c.bonus.amt : 0), ded = (c.pf ? c.pf.amt : 0) + (c.esi ? c.esi.amt : 0);
+      return '<div class="pg">'+docHead('KOZHIKODE SS &ndash; Wage Slip', 'Month: '+esc(label)+(ct.name ? ' &nbsp;|&nbsp; Contract: '+esc(ct.name)+(ct.agency ? ' ('+esc(ct.agency)+')' : '')+(ct.number ? ' &nbsp;|&nbsp; No. '+esc(ct.number) : '') : ''))+
+        '<p class="sm">Name: <b>'+esc(c.staff.name)+'</b> &nbsp;|&nbsp; Skill category: <b>'+esc(c.staff.skill)+'</b></p>'+
+        '<table><thead><tr><th>Days in month</th><th>Present</th><th>Absent</th><th>First half leave</th><th>Second half leave</th><th>National holiday</th><th>Not updated</th><th>Paid days</th></tr></thead><tbody><tr><td>'+c.days+'</td><td>'+c.c.P+'</td><td>'+c.c.A+'</td><td>'+c.c.FHL+'</td><td>'+c.c.SHL+'</td><td>'+c.c.NH+'</td><td>'+c.nu+'</td><td><b>'+c.paid+'</b></td></tr></tbody></table>'+
+        '<div class="two" style="margin-top:12px"><div><table><thead><tr><th>Earnings</th><th>Amount</th></tr></thead><tbody>'+er+'<tr class="net"><td class="l">Total earnings</td><td class="r">'+money(earn)+'</td></tr></tbody></table></div>'+
+        '<div><table><thead><tr><th>Deductions</th><th>Amount</th></tr></thead><tbody>'+dd+'<tr class="net"><td class="l">Total deductions</td><td class="r">'+money(ded)+'</td></tr></tbody></table></div></div>'+
+        '<table style="margin-top:12px"><tbody><tr class="net"><td class="l" style="font-size:12pt">NET PAY</td><td class="r" style="font-size:12pt">'+money(c.net)+'</td></tr></tbody></table>'+
+        '<p class="ft">Paid days = P + &frac12; for each FHL / SHL + NH. Wages at the minimum wage rate of the skill category in force on each date. Computer generated from the daily attendance updated in this system.</p>'+
+        '<div class="sg"><div>Employee signature</div><div>Contractor / AMC</div><div>Verified by (POWERGRID)</div></div>'+docFoot()+'</div>';
+    }).join("");
+    printDoc("Wage_Slip_"+ym+(calcs.length === 1 ? "_"+calcs[0].staff.name.replace(/[^A-Za-z0-9]+/g,"_") : ""), css, body);
+  }
+
+  /* ---------- Mandays: allotted by Master per contract and skill category (incl. TEMP); used = from attendance; balance visible to all ---------- */
+  var MD_CATS = AMC_SKILLS.concat(AMC_SKILLS.map(function(k){ return k+" (TEMP)"; }));
+  var mdContract = "";
+  function mdEntry(cid, cat){ return (state.mandays||[]).find(function(x){ return x.contractId === cid && x.category === cat; }) || null; }
+  function mdNum(n){ return String(r2(n)); }
+  function mdBal(e){ return e && e.allotted != null ? r2(e.allotted - e.used) : null; }
+  function mdBalHTML(b){ return b === null ? '<span style="color:var(--muted)">&ndash;</span>' : '<b style="color:'+(b < 0 ? 'var(--red)' : '#1a7f37')+'">'+(b < 0 ? '&minus;'+mdNum(-b) : mdNum(b))+'</b>'; }
+  function mandaysTable(cid, edit){
+    var h = '<div style="overflow-x:auto"><table><thead><tr><th>Category</th><th>Allotted</th><th>Used</th><th>Balance</th></tr></thead><tbody>';
+    MD_CATS.forEach(function(cat, i){
+      var e = mdEntry(cid, cat), isTemp = cat.indexOf("(TEMP)") > 0;
+      h += '<tr'+(isTemp ? ' style="background:rgba(0,0,0,.025)"' : '')+'><td><b>'+esc(cat)+'</b></td><td>'+
+        (edit ? '<input type="number" min="0" step="any" inputmode="decimal" data-mdi="'+i+'" style="width:110px" value="'+(e && e.allotted != null ? esc(mdNum(e.allotted)) : '')+'" placeholder="not set">'
+              : (e && e.allotted != null ? mdNum(e.allotted) : '<span style="color:var(--muted)">Not set</span>'))+'</td>'+
+        '<td>'+mdNum(e ? e.used : 0)+'</td><td>'+mdBalHTML(mdBal(e))+'</td></tr>';
+    });
+    return h+'</tbody></table></div><p style="margin:8px 0 0;color:var(--muted);font-size:.82rem">Used = attendance updated by the AMC login: Present = 1 manday, First / Second half leave = &frac12;. The balance reduces automatically; a negative balance (red) means the allotted mandays are exceeded. (TEMP) rows count the temporary labour of that skill.</p>';
+  }
+  function mandaysHTML(master, onlyOwn){
+    var cts = state.contracts || [];
+    if(!cts.length) return '<div class="empty">No contracts yet.</div>';
+    if(!cts.some(function(c){ return c.id === mdContract; })) mdContract = cts[0].id;
+    var h = '<div class="panel-head"><h3>Mandays balance</h3></div>'+
+      '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">'+(master ? 'Enter the initial mandays of each contract and skill category. Used mandays and the balance are calculated automatically from the daily attendance.' : 'View only. Allotted mandays are set by Master; the balance reduces automatically as attendance is updated.')+'</p>';
+    if(cts.length > 1) h += '<div class="filters"><select id="mdCt" aria-label="Contract">'+cts.map(function(c){ return '<option value="'+esc(c.id)+'"'+(c.id===mdContract?' selected':'')+'>'+esc(c.name)+'</option>'; }).join("")+'</select></div>';
+    else h += '<p style="margin:0 0 10px"><b>Contract:</b> '+esc(cts[0].name)+(cts[0].agency ? ' &middot; '+esc(cts[0].agency) : '')+'</p>';
+    h += mandaysTable(mdContract, master);
+    if(master) h += '<p class="error" id="mdErr"></p><button class="btn" id="mdSave" type="button" style="margin-top:10px">Save mandays</button>';
+    return h;
+  }
+  function bindMandays(p, master){
+    var sel = $("mdCt"); if(sel) sel.onchange = function(){ mdContract = sel.value; renderPanel(); };
+    var sv = $("mdSave"); if(!sv) return;
+    sv.onclick = function(){
+      var items = [], err = $("mdErr"); err.textContent = "";
+      var ok = Array.prototype.every.call(p.querySelectorAll("[data-mdi]"),function(inp){
+        var cat = MD_CATS[+inp.getAttribute("data-mdi")], v = inp.value.trim();
+        if(v !== "" && !(parseFloat(v) >= 0)){ err.textContent = "Enter valid mandays for "+cat+"."; return false; }
+        items.push({ category:cat, allotted: v === "" ? null : parseFloat(v) }); return true;
+      });
+      if(!ok) return;
+      amcCall({ action:"mandaysPut", contractId:mdContract, items:items }, function(){ alert("Mandays saved."); });
+    };
+  }
+  function renderMandaysPanel(){
+    var p = $("panel"), master = isMaster();
+    p.innerHTML = amcSubTabs()+mandaysHTML(master); bindAsub(p); bindMandays(p, master);
+  }
+  function renderSupportMandays(){
+    var p = $("panel");
+    p.innerHTML = '<div style="margin-bottom:10px"><button class="btn ghost small" id="supBack" type="button">&lsaquo; Home</button></div>'+mandaysHTML(false);
+    $("supBack").onclick = function(){ supView = "home"; renderPanel(); }; bindMandays(p, false);
+  }
+
   function renderSupportWage(){
     var p = $("panel");
     p.innerHTML = '<div style="margin-bottom:10px"><button class="btn ghost small" id="supBack" type="button">&lsaquo; Home</button></div>'+wageHTML(false);
@@ -2672,12 +2867,13 @@
 
   /* ---------- Muster roll PDF (AMC login) ---------- */
   function musterExport(from, to){
-    var staff = (state.amcStaff || []).slice(), daily = state.amcDaily || [];
+    var myC = myContractId();
+    var staff = (state.amcStaff || []).filter(function(s){ return s.contractId === myC; }), daily = state.amcDaily || [];
     var days = [], d = from; while(d <= to){ days.push(d); d = addDays(d,1); }
     var map = {}; daily.forEach(function(x){ map[x.staffId+"|"+x.date] = x.attendance; });
     var tseen = {};   // temporary labour: one row per name + skill, filled only for the days they were entered
     (state.amcTemp || []).forEach(function(t){
-      if(t.date < from || t.date > to) return;
+      if(t.date < from || t.date > to || t.contractId !== myC) return;
       var key = "T:"+String(t.name).toLowerCase().replace(/\s+/g," ").trim()+"|"+t.skill;
       if(!tseen[key]){ tseen[key] = 1; staff.push({ id:key, name:t.name+" (Temp)", skill:t.skill }); }
       map[key+"|"+t.date] = t.attendance;
@@ -2839,7 +3035,7 @@
           work: tw ? String(t.work).trim() : "", status: tw ? t.status : "OPEN", statusRemark: tw ? String(t.srem||"").trim() : "" });
       });
       if(terr){ err.textContent = terr; return; }
-      var hadTemp = (state.amcTemp||[]).some(function(x){ return x.date === d; });
+      var hadTemp = (state.amcTemp||[]).some(function(x){ return x.date === d && x.contractId === myContractId(); });
       if(!entries.length && !tmpOut.length && !hadTemp){ err.textContent = "Select attendance for at least one person."; return; }
       err.textContent = "";
       amcCall({ action:"amcDailySave", date:d, entries:entries, temp:tmpOut }, function(){ (state.amcStaff||[]).forEach(function(s){ delete amcDraft[dKey(s.id, d)]; }); delete amcTempDraft[d]; });
@@ -2847,7 +3043,7 @@
   }
   /* ---------- Temporary labour: added afresh every day by the AMC login (each entry belongs to ONE date only) ---------- */
   function tempDraftGet(d){
-    if(!amcTempDraft[d]) amcTempDraft[d] = (state.amcTemp||[]).filter(function(x){ return x.date === d; }).map(function(x){
+    if(!amcTempDraft[d]) amcTempDraft[d] = (state.amcTemp||[]).filter(function(x){ return x.date === d && x.contractId === myContractId(); }).map(function(x){
       return { id:x.id, name:x.name, skill:x.skill, under:x.workingUnder, att:x.attendance, work:x.work, status:x.status||"OPEN", srem:x.statusRemark||"" };
     });
     return amcTempDraft[d];
