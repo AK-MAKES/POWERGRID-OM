@@ -374,7 +374,7 @@
       </div>
       <p class="error" id="loginErr" role="alert"></p>
       <button class="btn wide" id="loginBtn" type="button">Sign in</button>
-      <p id="verLine" style="text-align:center;font-size:.75rem;color:var(--muted);margin:10px 0 0">Page v14</p>
+      <p id="verLine" style="text-align:center;font-size:.75rem;color:var(--muted);margin:10px 0 0">Page v15</p>
       <button class="linkbtn" id="forgotBtn" type="button">Forgot / change password?</button>
       <p class="mode-note" id="modeNote"></p>
     </div>
@@ -414,7 +414,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v14";
+  var PAGE_VER = "v15";
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
 
@@ -422,7 +422,7 @@
 
   /* ---------- State ---------- */
   var KEY = "kozhikode_ss_daily_work_v1";
-  var state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], amcDaily: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } };
+  var state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], amcDaily: [], amcTemp: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } };
   var assignFilter = "all", assignTo = "", lastBy = "";
   var empView = "work";         // inside an employee tab: "work" or "cal"
   var dashPeriod = "today";     // dashboard range
@@ -588,6 +588,7 @@
     state.amcTransfers = d.amcTransfers || [];
     state.amcEmployees = d.amcEmployees || [];
     state.amcDaily = d.amcDaily || [];
+    state.amcTemp = d.amcTemp || [];
     state.amcAssignees = d.amcAssignees || [];
     state.minWage = d.minWage || [];
     state.avail = d.avail || [];
@@ -1202,7 +1203,7 @@
       });
       h += '</tbody></table></div><p style="color:var(--muted);font-size:.85rem;margin-top:8px">“Working under” can be changed only by the AMC login (transfer).</p>';
     }
-    h += '<h3 class="sec">Daily work updates</h3>'+amcDailyHTML(false);
+    h += '<h3 class="sec">Daily work updates</h3>'+amcDailyHTML(false)+amcTempHTML(false);
     h += amcHistoryHTML();
     p.innerHTML = h; bindAsub(p); bindDaily(p, false);
     var ad = $("amcAdd"); if(ad) ad.onclick = function(){ amcFormModal({}); };
@@ -2235,7 +2236,7 @@
   }
 
   /* ---------- Maintenance status: AMP, scheduled maintenance, other scheduled activities, summary ---------- */
-  var maintView = "menu", supView = "home", amcDate = today(), amcDraft = {};
+  var maintView = "menu", supView = "home", amcDate = today(), amcDraft = {}, amcTempDraft = {};
   var FREQ = { 0:"One-time", 1:"Monthly", 3:"3-Monthly", 4:"4-Monthly", 6:"6-Monthly", 12:"Yearly" };
   var BRANCHES = ROLES.filter(function(r){ return r !== "OTHER (SPECIFY)"; });
   function addMonths(iso,n){ var d = parseISO(iso), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n);
@@ -2481,11 +2482,12 @@
       return (sid && sid !== "all") ? s.id === sid : (amcFilter === "all" || s.contractId === amcFilter);
     });
     var recs = {}; (state.amcDaily||[]).forEach(function(x){ if(x.date === d) recs[x.staffId] = x; });
-    if(!staff.length){ alert("No AMC staff to export."); return; }
-    if(!staff.some(function(s){ return recs[s.id]; })){ alert("No daily work has been updated for "+fmtDate(d)+" (only the last 90 days are available)."); return; }
-    var cids = {}; staff.forEach(function(s){ cids[s.contractId] = 1; });
-    var multi = Object.keys(cids).length > 1;
-    var ct = multi ? null : (state.contracts||[]).find(function(c){ return c.id === staff[0].contractId; });
+    var temps = (sid && sid !== "all") ? [] : (state.amcTemp||[]).filter(function(x){ return x.date === d && (amcFilter === "all" || x.contractId === amcFilter); });
+    if(!staff.length && !temps.length){ alert("No AMC staff to export."); return; }
+    if(!staff.some(function(s){ return recs[s.id]; }) && !temps.length){ alert("No daily work has been updated for "+fmtDate(d)+" (only the last 90 days are available)."); return; }
+    var cids = {}; staff.forEach(function(s){ cids[s.contractId] = 1; }); temps.forEach(function(t){ cids[t.contractId] = 1; });
+    var multi = Object.keys(cids).length > 1, cid0 = Object.keys(cids)[0];
+    var ct = multi ? null : (state.contracts||[]).find(function(c){ return c.id === cid0; });
     var cnt = { P:0, A:0, H:0, NH:0, NU:0 };
     var rows = staff.map(function(s,i){
       var x = recs[s.id], att = x ? x.attendance : "";
@@ -2497,10 +2499,18 @@
         '<td>'+(w ? esc(x.status||"OPEN")+(x.statusRemark ? '<br><small>Remarks: '+esc(x.statusRemark)+'</small>' : '') : '–')+'</td>'+
         '<td class="l">'+esc((x && x.workingUnderName) || s.workingUnderName || "")+'</td></tr>';
     }).join("");
-    var one = staff.length === 1;
+    temps.forEach(function(x,j){
+      var att = x.attendance;
+      if(att === "P") cnt.P++; else if(att === "A") cnt.A++; else if(att === "FHL" || att === "SHL") cnt.H++; else if(att === "NH") cnt.NH++;
+      var tw = attWork(att);
+      rows += '<tr><td>'+(staff.length+j+1)+'</td><td class="l"><b>'+esc(x.name)+'</b> <small>(Temp)</small></td><td class="l">'+esc(x.skill)+'</td>'+(multi ? '<td class="l">'+esc(contractName(x.contractId))+'</td>' : '')+
+        '<td class="'+(att==="A"?'ab':'')+'">'+esc(ATT[att]||att)+'</td><td class="l">'+(x.work ? esc(x.work) : '–')+'</td>'+
+        '<td>'+(tw ? esc(x.status||"OPEN")+(x.statusRemark ? '<br><small>Remarks: '+esc(x.statusRemark)+'</small>' : '') : '–')+'</td><td class="l">'+esc(x.workingUnderName||"")+'</td></tr>';
+    });
+    var one = staff.length === 1 && !temps.length;
     var sub = 'Date: '+esc(dayLabel(d))+(ct ? ' &nbsp;|&nbsp; Contract: '+esc(ct.name)+(ct.agency ? ' ('+esc(ct.agency)+')' : '')+(ct.number ? ' &nbsp;|&nbsp; No. '+esc(ct.number) : '') : '');
     var body = docHead('KOZHIKODE SS &ndash; Daily Work List of '+(one ? 'AMC Staff: '+esc(staff[0].name) : 'Contract Employees'), sub)+
-      '<p class="sm">AMC staff: <b>'+staff.length+'</b> &nbsp;|&nbsp; Present: <b>'+cnt.P+'</b> &nbsp;|&nbsp; Absent: <b>'+cnt.A+'</b> &nbsp;|&nbsp; Half-day leave: <b>'+cnt.H+'</b> &nbsp;|&nbsp; National holiday: <b>'+cnt.NH+'</b> &nbsp;|&nbsp; Not updated: <b>'+cnt.NU+'</b></p>'+
+      '<p class="sm">AMC staff: <b>'+staff.length+'</b>'+(temps.length ? ' &nbsp;|&nbsp; Temporary labour: <b>'+temps.length+'</b>' : '')+' &nbsp;|&nbsp; Present: <b>'+cnt.P+'</b> &nbsp;|&nbsp; Absent: <b>'+cnt.A+'</b> &nbsp;|&nbsp; Half-day leave: <b>'+cnt.H+'</b> &nbsp;|&nbsp; National holiday: <b>'+cnt.NH+'</b> &nbsp;|&nbsp; Not updated: <b>'+cnt.NU+'</b></p>'+
       '<table><thead><tr><th style="width:4%">#</th><th>Name</th><th>Skill</th>'+(multi ? '<th>Contract</th>' : '')+'<th>Attendance</th><th style="width:26%">Work details</th><th>Status of work</th><th>Working under</th></tr></thead><tbody>'+rows+'</tbody></table>'+
       '<div class="sg"><div>Prepared by (AMC)</div><div>Verified by (POWERGRID)</div></div>'+docFoot();
     printDoc("Daily_Work_List_AMC_"+(one ? staff[0].name.replace(/[^A-Za-z0-9]+/g,"_")+"_" : "All_")+fmtDate(d), listCss(true), body);
@@ -2580,9 +2590,16 @@
 
   /* ---------- Muster roll PDF (AMC login) ---------- */
   function musterExport(from, to){
-    var staff = state.amcStaff || [], daily = state.amcDaily || [];
+    var staff = (state.amcStaff || []).slice(), daily = state.amcDaily || [];
     var days = [], d = from; while(d <= to){ days.push(d); d = addDays(d,1); }
     var map = {}; daily.forEach(function(x){ map[x.staffId+"|"+x.date] = x.attendance; });
+    var tseen = {};   // temporary labour: one row per name + skill, filled only for the days they were entered
+    (state.amcTemp || []).forEach(function(t){
+      if(t.date < from || t.date > to) return;
+      var key = "T:"+String(t.name).toLowerCase().replace(/\s+/g," ").trim()+"|"+t.skill;
+      if(!tseen[key]){ tseen[key] = 1; staff.push({ id:key, name:t.name+" (Temp)", skill:t.skill }); }
+      map[key+"|"+t.date] = t.attendance;
+    });
     var ct = (state.contracts||[])[0] || {};
     var logo = (document.querySelector(".login-logo") || {}).src || "";
     var wd = ["S","M","T","W","T","F","S"];
@@ -2609,7 +2626,7 @@
       '</style></head><body><div class="hd">'+(logo ? '<img src="'+esc(logo)+'" alt="">' : '')+'<div><h1>KOZHIKODE SS &ndash; Muster Roll of AMC Staff</h1><p>Period: '+esc(period)+
       (ct.name ? ' &nbsp;|&nbsp; Contract: '+esc(ct.name)+(ct.agency ? ' ('+esc(ct.agency)+')' : '')+(ct.number ? ' &nbsp;|&nbsp; No. '+esc(ct.number) : '') : '')+'</p></div></div>'+
       '<table><thead><tr><th>#</th><th>Name</th><th>Skill</th>'+th+'<th>P</th><th>A</th><th>FHL</th><th>SHL</th><th>NH</th><th>Days present</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-      '<p class="ft">P = Present, A = Absent, FHL = First half leave, SHL = Second half leave, NH = National holiday. Days present = P + &frac12; for each FHL / SHL. Blank = not updated.</p>'+
+      '<p class="ft">P = Present, A = Absent, FHL = First half leave, SHL = Second half leave, NH = National holiday. Days present = P + &frac12; for each FHL / SHL. (Temp) = temporary labour, shown only for the days entered. Blank = not updated.</p>'+
       '<div class="sg"><div>Prepared by (AMC)</div><div>Verified by (POWERGRID)</div></div>'+
       '<p class="ft">Generated on '+esc(fmtStamp(Date.now()))+(session ? ' by '+esc(session.id) : '')+'</p>'+
       '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script></body></html>';
@@ -2681,19 +2698,102 @@
         entries.push({ staffId:s.id, attendance:v.att, work: w ? v.work.trim() : "", status: w ? v.status : "OPEN", statusRemark: w ? v.srem.trim() : "" });
       });
       if(bad){ err.textContent = "Enter work details for "+bad+"."; return; }
-      if(!entries.length){ err.textContent = "Select attendance for at least one person."; return; }
+      var tmpOut = [], terr = "";
+      tempDraftGet(d).forEach(function(t, i){
+        if(terr) return;
+        var nm = String(t.name||"").trim();
+        if(!nm){ terr = "Enter the name of temporary labour #"+(i+1)+"."; return; }
+        if(!t.under){ terr = "Select whom "+nm+" works under."; return; }
+        if(!t.att){ terr = "Select attendance for "+nm+"."; return; }
+        var tw = attWork(t.att);
+        if(tw && !String(t.work||"").trim()){ terr = "Enter work details for "+nm+"."; return; }
+        tmpOut.push({ id:t.id, name:nm, skill:t.skill, workingUnder:t.under, attendance:t.att,
+          work: tw ? String(t.work).trim() : "", status: tw ? t.status : "OPEN", statusRemark: tw ? String(t.srem||"").trim() : "" });
+      });
+      if(terr){ err.textContent = terr; return; }
+      var hadTemp = (state.amcTemp||[]).some(function(x){ return x.date === d; });
+      if(!entries.length && !tmpOut.length && !hadTemp){ err.textContent = "Select attendance for at least one person."; return; }
       err.textContent = "";
-      amcCall({ action:"amcDailySave", date:d, entries:entries }, function(){ (state.amcStaff||[]).forEach(function(s){ delete amcDraft[dKey(s.id, d)]; }); });
+      amcCall({ action:"amcDailySave", date:d, entries:entries, temp:tmpOut }, function(){ (state.amcStaff||[]).forEach(function(s){ delete amcDraft[dKey(s.id, d)]; }); delete amcTempDraft[d]; });
     };
+  }
+  /* ---------- Temporary labour: added afresh every day by the AMC login (each entry belongs to ONE date only) ---------- */
+  function tempDraftGet(d){
+    if(!amcTempDraft[d]) amcTempDraft[d] = (state.amcTemp||[]).filter(function(x){ return x.date === d; }).map(function(x){
+      return { id:x.id, name:x.name, skill:x.skill, under:x.workingUnder, att:x.attendance, work:x.work, status:x.status||"OPEN", srem:x.statusRemark||"" };
+    });
+    return amcTempDraft[d];
+  }
+  function amcTempHTML(edit){
+    var d = amcDate, h = '<h3 class="sec" style="margin-top:18px">Temporary labour &ndash; '+esc(fmtDate(d))+'</h3>';
+    if(!edit){
+      var list = (state.amcTemp||[]).filter(function(x){ return x.date === d && (amcFilter === "all" || x.contractId === amcFilter); });
+      if(!list.length) return h+'<div class="empty">No temporary labour entered for this date.</div>';
+      h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Name</th><th>Skill</th><th>Attendance</th><th>Work details</th><th>Status of work</th><th>Working under</th></tr></thead><tbody>';
+      list.forEach(function(x,i){
+        var w = attWork(x.attendance);
+        h += '<tr><td data-label="#">'+(i+1)+'</td><td data-label="Name"><b>'+esc(x.name)+'</b> <small style="color:var(--muted)">(Temp)</small>'+
+          (amcFilter === "all" && (state.contracts||[]).length > 1 ? '<small style="display:block;color:var(--muted)">'+esc(contractName(x.contractId))+'</small>' : '')+'</td>'+
+          '<td data-label="Skill">'+esc(x.skill)+'</td><td data-label="Attendance">'+esc(ATT[x.attendance]||x.attendance)+'</td>'+
+          '<td data-label="Work details">'+(x.work ? esc(x.work) : '–')+'</td>'+
+          '<td data-label="Status of work">'+(w ? esc(x.status)+(x.statusRemark ? '<span class="cmt">Remarks: '+esc(x.statusRemark)+'</span>' : '') : '–')+'</td>'+
+          '<td data-label="Working under">'+esc(x.workingUnderName)+'</td></tr>';
+      });
+      return h+'</tbody></table></div>';
+    }
+    var rows = tempDraftGet(d), emps = state.amcEmployees || [];
+    h += '<p style="margin:-4px 0 10px;color:var(--muted);font-size:.9rem">Temporary labour are valid for this date only &ndash; add them again on every day they work. Press &ldquo;Save updates&rdquo; to save.</p>';
+    if(!rows.length) h += '<div class="empty" style="padding:14px 10px">No temporary labour added for this date.</div>';
+    else {
+      h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Name</th><th>Skill</th><th>Attendance</th><th>Work details</th><th>Status of work</th><th>Working under</th><th></th></tr></thead><tbody>';
+      rows.forEach(function(t,i){
+        var w = attWork(t.att);
+        h += '<tr data-trow="'+i+'"><td data-label="#">'+(i+1)+'</td>'+
+          '<td data-label="Name"><input type="text" data-tf="name" maxlength="100" placeholder="Name of labour" value="'+esc(t.name)+'"></td>'+
+          '<td data-label="Skill"><select data-tf="skill">'+AMC_SKILLS.map(function(k){ return '<option value="'+k+'"'+(t.skill===k?' selected':'')+'>'+k+'</option>'; }).join("")+'</select></td>'+
+          '<td data-label="Attendance"><select data-tf="att"><option value="">Select</option>'+Object.keys(ATT).map(function(k){ return '<option value="'+k+'"'+(t.att===k?' selected':'')+'>'+ATT[k]+'</option>'; }).join("")+'</select></td>'+
+          '<td data-label="Work details"><input type="text" data-tf="work" maxlength="300" placeholder="Work done" value="'+esc(t.work)+'"'+(w?'':' disabled')+'></td>'+
+          '<td data-label="Status of work"><select data-tf="status"'+(w?'':' disabled')+'><option value="OPEN"'+(t.status==="OPEN"?' selected':'')+'>OPEN</option><option value="COMPLETED"'+(t.status==="COMPLETED"?' selected':'')+'>COMPLETED</option></select>'+
+          '<input type="text" data-tf="srem" maxlength="200" placeholder="Status remarks" value="'+esc(t.srem)+'"'+(w?'':' disabled')+' style="margin-top:4px"></td>'+
+          '<td data-label="Working under"><select data-tf="under"><option value="">Select</option>'+emps.map(function(e){ return '<option value="'+esc(e.id)+'"'+(t.under===e.id?' selected':'')+'>'+esc(e.name)+'</option>'; }).join("")+'</select></td>'+
+          '<td class="act" style="width:auto"><button class="btn danger small" data-tdel="'+i+'" type="button">Remove</button></td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    return h+'<button class="btn ghost small" id="tmpAdd" type="button" style="margin-top:8px">+ Add temporary labour</button>';
+  }
+  function bindTemp(p){
+    var d = amcDate, rows = tempDraftGet(d);
+    var add = $("tmpAdd");
+    if(add) add.onclick = function(){
+      var last = rows.length ? rows[rows.length-1] : null;
+      rows.push({ id:uid(), name:"", skill:last ? last.skill : "UN-SKILLED", under:last ? last.under : "", att:"P", work:"", status:"OPEN", srem:"" });
+      renderPanel();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-trow]"),function(tr){
+      var i = Number(tr.getAttribute("data-trow"));
+      function g(f){ return tr.querySelector('[data-tf="'+f+'"]'); }
+      function sync(){
+        var r = rows[i]; if(!r) return;
+        r.name = g("name").value; r.skill = g("skill").value; r.att = g("att").value; r.under = g("under").value;
+        var w = attWork(r.att);
+        ["work","status","srem"].forEach(function(f){ g(f).disabled = !w; });
+        r.work = g("work").value; r.status = g("status").value; r.srem = g("srem").value;
+      }
+      Array.prototype.forEach.call(tr.querySelectorAll("[data-tf]"),function(el){ el.addEventListener("input",sync); el.addEventListener("change",sync); });
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-tdel]"),function(b){
+      b.onclick = function(){ rows.splice(Number(b.getAttribute("data-tdel")),1); renderPanel(); };
+    });
   }
   function renderSupportWork(){
     var p = $("panel");
     p.innerHTML = '<div style="margin-bottom:10px"><button class="btn ghost small" id="supBack" type="button">&lsaquo; Home</button></div>'+
       '<div class="panel-head"><h3>Update works of AMC staff</h3></div>'+
-      '<p style="margin:-6px 0 10px;color:var(--muted);font-size:.9rem">Select the date, fill attendance for each person and press Save. Work details and status are needed only for P, FHL and SHL. Use Transfer to change “Working under”.</p>'+
-      amcDailyHTML(true)+'<p class="error" id="adErr"></p><button class="btn" id="adSave" type="button" style="margin-top:10px">Save updates</button>';
+      '<p style="margin:-6px 0 10px;color:var(--muted);font-size:.9rem">Select the date, fill attendance for each person and press Save. Work details and status are needed only for P, FHL and SHL. Use Transfer to change “Working under”. Temporary labour working only today are added in the section below the list.</p>'+
+      amcDailyHTML(true)+amcTempHTML(true)+'<p class="error" id="adErr"></p><button class="btn" id="adSave" type="button" style="margin-top:10px">Save updates</button>';
     $("supBack").onclick = function(){ supView = "home"; renderPanel(); };
-    bindDaily(p, true); bindAmcRows(p);
+    bindDaily(p, true); bindTemp(p); bindAmcRows(p);
   }
 
   /* ---------- Follow-ups & Procurement (Master and Users) ---------- */
