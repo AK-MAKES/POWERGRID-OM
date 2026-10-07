@@ -374,7 +374,7 @@
       </div>
       <p class="error" id="loginErr" role="alert"></p>
       <button class="btn wide" id="loginBtn" type="button">Sign in</button>
-      <p id="verLine" style="text-align:center;font-size:.75rem;color:var(--muted);margin:10px 0 0">Page v15</p>
+      <p id="verLine" style="text-align:center;font-size:.75rem;color:var(--muted);margin:10px 0 0">Page v16</p>
       <button class="linkbtn" id="forgotBtn" type="button">Forgot / change password?</button>
       <p class="mode-note" id="modeNote"></p>
     </div>
@@ -414,7 +414,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v15";
+  var PAGE_VER = "v16";
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
 
@@ -422,7 +422,7 @@
 
   /* ---------- State ---------- */
   var KEY = "kozhikode_ss_daily_work_v1";
-  var state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], amcDaily: [], amcTemp: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } };
+  var state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], amcDaily: [], amcTemp: [], amcHours: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } };
   var assignFilter = "all", assignTo = "", lastBy = "";
   var empView = "work";         // inside an employee tab: "work" or "cal"
   var dashPeriod = "today";     // dashboard range
@@ -589,6 +589,7 @@
     state.amcEmployees = d.amcEmployees || [];
     state.amcDaily = d.amcDaily || [];
     state.amcTemp = d.amcTemp || [];
+    state.amcHours = d.amcHours || [];
     state.amcAssignees = d.amcAssignees || [];
     state.minWage = d.minWage || [];
     state.avail = d.avail || [];
@@ -1027,6 +1028,7 @@
   function renderSupportHome(){
     if(supView === "work"){ renderSupportWork(); return; }
     if(supView === "wage"){ renderSupportWage(); return; }
+    if(supView === "hours"){ renderSupportHours(); return; }
     var p = $("panel"), t = today(), hr = new Date().getHours();
     var greet = hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening";
     var me = session ? session.id : "";
@@ -1046,7 +1048,9 @@
     h += '<div class="hgrid"><button type="button" class="hcard green" id="goWork"><span class="ic">'+ICON.works+'</span><b>Update works of AMC staff</b><small>Attendance, work details and status of '+staff.length+' AMC staff</small></button>'+
       (function(){ var sa = supAssignList(), so = sa.filter(function(a){ return !a.done; }).length, sl = sa.filter(asOverdue).length;
         return '<button type="button" class="hcard'+(sl?' amber':' green')+'" id="goAssign"><span class="ic">'+ICON.assign+'</span><b>Assignments</b><small>'+so+' open'+(sl?', '+sl+' overdue':'')+' of '+sa.length+' assigned to AMC</small></button>'; })()+
-      '<button type="button" class="hcard green" id="goWage"><span class="ic">'+ICON.dash+'</span><b>Min wage rates</b><small>Current minimum wage rates (view only)</small></button></div>';
+      '<button type="button" class="hcard green" id="goWage"><span class="ic">'+ICON.dash+'</span><b>Min wage rates</b><small>Current minimum wage rates (view only)</small></button>'+
+      (function(){ var n = staff.filter(function(x){ return hrsBalance(x.id) !== 0; }).length;
+        return '<button type="button" class="hcard green" id="goHours"><span class="ic">'+ICON.dash+'</span><b>Overtime &amp; early leave</b><small>'+(n ? n+' of '+staff.length+' AMC staff have an hours balance' : 'Hours balance of AMC staff (view only)')+'</small></button>'; })()+'</div>';
     h += '<div class="assign-form" style="margin-top:14px"><h4>Export muster roll (PDF)</h4><div class="agrid">'+
       '<div class="field"><label for="mrFrom">From date</label><input type="date" id="mrFrom" value="'+t.slice(0,8)+'01" max="'+t+'"></div>'+
       '<div class="field"><label for="mrTo">To date</label><input type="date" id="mrTo" value="'+t+'" max="'+t+'"></div></div>'+
@@ -1066,6 +1070,7 @@
     p.innerHTML = h;
     $("goWork").onclick = function(){ supView = "work"; renderPanel(); };
     $("goWage").onclick = function(){ supView = "wage"; renderPanel(); };
+    $("goHours").onclick = function(){ supView = "hours"; renderPanel(); };
     $("goAssign").onclick = function(){ activeTab = "assign"; assignFilter = "pending"; assignTo = ""; render(); };
     $("mrBtn").onclick = function(){
       var fr = $("mrFrom").value, to = $("mrTo").value, er = $("mrErr");
@@ -1182,6 +1187,7 @@
 
   function renderAmc(){
     if(amcSub === "wage"){ renderWagePanel(); return; }
+    if(amcSub === "hours"){ renderHoursPanel(); return; }
     var p = $("panel"), master = isMaster();
     var list = (state.amcStaff||[]).filter(function(s){ return amcFilter === "all" || s.contractId === amcFilter; });
     var pend = list.filter(function(s){ return !s.done; }).length;
@@ -1214,7 +1220,8 @@
   var amcSub = "staff";
   function amcSubTabs(){
     return '<div class="filters" style="margin:0 0 12px"><button type="button" data-asub="staff" class="'+(amcSub==="staff"?"active":"")+'">AMC STAFF</button>'+
-           '<button type="button" data-asub="wage" class="'+(amcSub==="wage"?"active":"")+'">MIN WAGE RATES</button></div>';
+           '<button type="button" data-asub="wage" class="'+(amcSub==="wage"?"active":"")+'">MIN WAGE RATES</button>'+
+           '<button type="button" data-asub="hours" class="'+(amcSub==="hours"?"active":"")+'">OVERTIME / EARLY LEAVE</button></div>';
   }
   function bindAsub(p){
     Array.prototype.forEach.call(p.querySelectorAll("[data-asub]"),function(b){
@@ -1290,6 +1297,77 @@
     var p = $("panel");
     p.innerHTML = '<div style="margin-bottom:10px"><button class="btn ghost small" id="supBack" type="button">&lsaquo; Home</button></div>'+wageHTML(false);
     $("supBack").onclick = function(){ supView = "home"; renderPanel(); };
+  }
+
+  /* ----- Overtime / early leave panel (Master adjusts; everyone else views) ----- */
+  var hoursSel = "all";
+  function hoursHTML(master){
+    var staff = (state.amcStaff||[]).filter(function(x){ return amcFilter === "all" || x.contractId === amcFilter; });
+    var multi = master && (state.contracts||[]).length > 1;
+    var h = '<div class="panel-head"><h3>Overtime &amp; early leave &ndash; AMC labour</h3></div>'+
+      '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">Hours are recorded when the AMC login marks a worker\u2019s work as COMPLETED (late = extra hours, early = less hours). '+
+      (master ? 'Use \u201cAdjust\u201d to deduct hours when a worker takes leave against his accumulated hours.' : 'View only. Master can adjust the hours.')+'</p>';
+    if(multi) h += '<div class="filters"><select id="amcFilter" aria-label="Filter by contract"><option value="all">All contracts</option>'+
+      state.contracts.map(function(c){ return '<option value="'+esc(c.id)+'"'+(amcFilter===c.id?' selected':'')+'>'+esc(c.name)+'</option>'; }).join("")+'</select></div>';
+    if(!staff.length) return h+'<div class="empty">No AMC staff.</div>';
+    h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Name</th><th>Skill</th>'+(multi?'<th>Contract</th>':'')+'<th>Extra hours (late)</th><th>Less hours (early / leave)</th><th>Balance</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
+    staff.forEach(function(s,i){
+      var rows = (state.amcHours||[]).filter(function(x){ return x.staffId === s.id; });
+      var plus = r2(rows.reduce(function(a,x){ return x.hours > 0 ? a+x.hours : a; },0)), minus = r2(rows.reduce(function(a,x){ return x.hours < 0 ? a+x.hours : a; },0));
+      h += '<tr><td data-label="#">'+(i+1)+'</td><td data-label="Name"><b>'+esc(s.name)+'</b></td><td data-label="Skill">'+esc(s.skill)+'</td>'+(multi?'<td data-label="Contract">'+esc(contractName(s.contractId))+'</td>':'')+
+        '<td data-label="Extra hours">'+(plus ? '+'+hrsNum(plus)+' h' : '–')+'</td><td data-label="Less hours">'+(minus ? '&minus;'+hrsNum(minus)+' h' : '–')+'</td><td data-label="Balance">'+hrsBalHTML(r2(plus+minus))+'</td>'+
+        (master ? '<td class="act" style="width:auto"><button class="btn small" data-hradj="'+esc(s.id)+'" type="button">Adjust</button></td>' : '')+'</tr>';
+    });
+    h += '</tbody></table></div>';
+    if(hoursSel !== "all" && !staff.some(function(x){ return x.id === hoursSel; })) hoursSel = "all";
+    var ids = {}; staff.forEach(function(x){ ids[x.id] = true; });
+    var led = (state.amcHours||[]).filter(function(x){ return ids[x.staffId] && (hoursSel === "all" || x.staffId === hoursSel); })
+      .sort(function(a,b){ return b.date.localeCompare(a.date) || b.created - a.created; }).slice(0,100);
+    h += '<h3 class="sec">Hours history</h3><div class="filters"><select id="hrSel" aria-label="Select worker"><option value="all">All AMC staff</option>'+
+      staff.map(function(x){ return '<option value="'+esc(x.id)+'"'+(hoursSel===x.id?' selected':'')+'>'+esc(x.name)+'</option>'; }).join("")+'</select></div>';
+    if(!led.length) return h+'<div class="empty">No hours recorded yet.</div>';
+    h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>Date</th><th>Name</th><th>Hours</th><th>Entry</th><th>Note</th><th>By</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>'+
+      led.map(function(x){
+        return '<tr><td data-label="Date">'+esc(fmtDate(x.date))+'</td><td data-label="Name">'+esc(x.staffName)+'</td>'+
+          '<td data-label="Hours">'+(x.hours > 0 ? '<b style="color:#1a7f37">+'+hrsNum(x.hours)+' h</b>' : x.hours < 0 ? '<b style="color:var(--red)">&minus;'+hrsNum(x.hours)+' h</b>' : '0 h')+'</td>'+
+          '<td data-label="Entry">'+(x.kind === "adjust" ? 'Master adjustment' : 'Check-out ('+esc(hrsLabel(x.hours))+')')+'</td><td data-label="Note">'+(x.note ? esc(x.note) : '–')+'</td><td data-label="By">'+esc(x.by)+'</td>'+
+          (master ? '<td class="act" style="width:auto">'+(x.kind === "adjust" ? '<button class="btn danger small" data-hrdel="'+esc(x.id)+'" type="button">Remove</button>' : '')+'</td>' : '')+'</tr>';
+      }).join("")+'</tbody></table></div>'+(led.length >= 100 ? '<p style="color:var(--muted);font-size:.85rem">Showing the latest 100 entries.</p>' : '');
+    return h;
+  }
+  function bindHours(p, master){
+    var af = $("amcFilter"); if(af) af.onchange = function(){ amcFilter = af.value; renderPanel(); };
+    var hs = $("hrSel"); if(hs) hs.onchange = function(){ hoursSel = hs.value; renderPanel(); };
+    if(!master) return;
+    Array.prototype.forEach.call(p.querySelectorAll("[data-hradj]"),function(b){ b.onclick = function(){ var sf = amcStaffById(b.getAttribute("data-hradj")); if(sf) hoursAdjustModal(sf); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-hrdel]"),function(b){
+      b.onclick = function(){ var id = b.getAttribute("data-hrdel"); confirmModal("Remove this adjustment?", function(){ amcCall({ action:"amcHoursDel", id:id }); }); };
+    });
+  }
+  function hoursAdjustModal(s){
+    var bal = hrsBalance(s.id);
+    openModal('<h3>Adjust hours &ndash; '+esc(s.name)+'</h3><p style="margin-top:0">Current balance: '+hrsBalHTML(bal)+'</p>'+
+      '<div class="field"><label for="haType">Adjustment</label><select id="haType"><option value="-1">Deduct &ndash; leave taken against accumulated hours</option><option value="1">Add hours (correction)</option></select></div>'+
+      '<div class="row"><div><label for="haHrs">Hours</label><input type="number" id="haHrs" min="0.25" max="1000" step="0.25" inputmode="decimal" placeholder="e.g. 8"></div>'+
+      '<div><label for="haDate">Date</label><input type="date" id="haDate" value="'+today()+'"></div></div>'+
+      '<div class="field"><label for="haNote">Note (optional)</label><input type="text" id="haNote" maxlength="200" placeholder="e.g. Leave on 12-10-2026"></div>'+
+      '<p class="error" id="haErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save adjustment</button></div>');
+    $("haHrs").focus(); $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var v = parseFloat($("haHrs").value), sign = +$("haType").value, dt = $("haDate").value;
+      if(!(v > 0) || v > 1000){ $("haErr").textContent = "Enter the hours to adjust."; return; }
+      if(!dt){ $("haErr").textContent = "Select the date."; return; }
+      closeModal(); amcCall({ action:"amcHoursAdjust", staffId:s.id, hours:r2(sign*v), date:dt, note:$("haNote").value.trim() });
+    };
+  }
+  function renderHoursPanel(){
+    var p = $("panel"), master = isMaster();
+    p.innerHTML = amcSubTabs()+hoursHTML(master); bindAsub(p); bindHours(p, master);
+  }
+  function renderSupportHours(){
+    var p = $("panel");
+    p.innerHTML = '<div style="margin-bottom:10px"><button class="btn ghost small" id="supBack" type="button">&lsaquo; Home</button></div>'+hoursHTML(false);
+    $("supBack").onclick = function(){ supView = "home"; renderPanel(); }; bindHours(p, false);
   }
 
   function bindAmcRows(p){
@@ -2237,12 +2315,14 @@
 
   /* ---------- Maintenance status: AMP, scheduled maintenance, other scheduled activities, summary ---------- */
   var maintView = "menu", supView = "home", amcDate = today(), amcDraft = {}, amcTempDraft = {};
-  var FREQ = { 0:"One-time", 1:"Monthly", 3:"3-Monthly", 4:"4-Monthly", 6:"6-Monthly", 12:"Yearly" };
+  var FREQ = { 0:"One-time", 101:"Daily", 107:"Weekly", 114:"Fortnightly", 1:"Monthly", 3:"3-Monthly", 4:"4-Monthly", 6:"6-Monthly", 12:"Yearly" };
   var BRANCHES = ROLES.filter(function(r){ return r !== "OTHER (SPECIFY)"; });
   function addMonths(iso,n){ var d = parseISO(iso), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+n);
     d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate())); return toISO(d); }
   function daysBetween(a,b){ return Math.round((parseISO(b)-parseISO(a))/86400000); }
-  function schedNext(s){ return s.comp ? (s.freq > 0 ? addMonths(s.comp, s.freq) : "") : (s.due || ""); }
+  function addDays(iso,n){ var d = parseISO(iso); d.setDate(d.getDate()+n); return toISO(d); }
+  function addFreq(iso,f){ return f === 101 ? addDays(iso,1) : (f === 107 ? addDays(iso,7) : (f === 114 ? addDays(iso,14) : addMonths(iso,f))); }
+  function schedNext(s){ return s.comp ? (s.freq > 0 ? addFreq(s.comp, s.freq) : "") : (s.due || ""); }
   function schedState(s){
     if(s.comp && !(s.freq > 0)) return { next:"", bal:null, txt:"Completed", due:false };
     var nx = schedNext(s);
@@ -2261,7 +2341,7 @@
     var t = today(), out = [];
     (state.sched||[]).forEach(function(s){
       var st = schedState(s); if(!st.due) return;
-      out.push({ type: s.kind==="other" ? "Other activity" : "Scheduled maintenance", grp: s.kind==="other" ? (s.branch||"GENERAL") : (FREQ[s.freq]||""),
+      out.push({ type: s.kind==="other" ? "Other activity" : "Scheduled maintenance", grp: s.kind==="other" ? (s.branch||"GENERAL") : freqLabel(s.freq),
                  desc: s.desc, next: st.next, txt: st.bal === null ? st.txt : balHTML(st), bal: st.bal === null ? -99999 : st.bal });
     });
     ampMigrate();
@@ -2275,8 +2355,10 @@
   }
   function schedObj(s){ return { id:s.id, kind:s.kind, branch:s.branch||"", desc:s.desc, freq:+s.freq||0, due:s.due||"", comp:s.comp||"", created:s.created }; }
   function schedSave(s){ ampSend({ action:"schedPut", item: schedObj(s) }); }
+  function freqLabel(f){ f = +f || 0; return FREQ[f] || (f > 0 ? "Every "+f+" month"+(f===1?"":"s") : ""); }
+  function freqRank(f){ return f === 101 ? -3 : (f === 107 ? -2 : (f === 114 ? -1 : f)); }   // Daily, Weekly, Fortnightly, then months
   function freqOpts(other, sel){
-    return (other ? [0,1,3,4,6,12] : [1,3,4,6]).map(function(k){ return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+FREQ[k]+'</option>'; }).join("");
+    return (other ? [0,101,107,114,1,3,4,6,12] : [101,107,114,1,3,4,6]).map(function(k){ return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+FREQ[k]+'</option>'; }).join("");
   }
   function bindBack(){ var b = $("mBack"); if(b) b.onclick = function(){ maintView = "menu"; render(); }; }
   var BACKBTN = '<div style="margin-bottom:10px"><button class="btn ghost small" id="mBack" type="button">&lsaquo; Maintenance status</button></div>';
@@ -2323,15 +2405,15 @@
     if(!list.length) h += '<div class="empty">Nothing added yet.</div>';
     else {
       var groups = {}, order = [];
-      list.forEach(function(s){ var g = other ? (s.branch||"GENERAL").toUpperCase() : (FREQ[s.freq]||"Other"); if(!groups[g]){ groups[g] = []; order.push(g); } groups[g].push(s); });
-      if(other) order.sort(); else order.sort(function(a,b){ return groups[a][0].freq - groups[b][0].freq; });
+      list.forEach(function(s){ var g = other ? (s.branch||"GENERAL").toUpperCase() : (freqLabel(s.freq)||"Other"); if(!groups[g]){ groups[g] = []; order.push(g); } groups[g].push(s); });
+      if(other) order.sort(); else order.sort(function(a,b){ return freqRank(groups[a][0].freq) - freqRank(groups[b][0].freq); });
       order.forEach(function(g){
         h += '<h3 class="sec">'+esc(g)+'</h3><table class="atable"><thead><tr><th>#</th><th>Description</th>'+(other?'<th>Frequency</th>':'')+
              '<th>Completion date</th><th>Next due day</th><th>Balance days</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
         groups[g].sort(function(a,b){ return (schedNext(a)||"0").localeCompare(schedNext(b)||"0"); }).forEach(function(s,i){
           var st = schedState(s);
           h += '<tr class="'+balCls(st)+'"><td data-label="#">'+(i+1)+'</td><td data-label="Description"><span class="wt">'+esc(s.desc)+'</span></td>'+
-            (other?'<td data-label="Frequency">'+esc(FREQ[s.freq]||"–")+'</td>':'')+
+            (other?'<td data-label="Frequency">'+esc(freqLabel(s.freq)||"–")+'</td>':'')+
             '<td data-label="Completion date"><input type="date" class="stsel" data-scomp="'+esc(s.id)+'" value="'+esc(s.comp||"")+'" max="'+t+'" aria-label="Completion date"></td>'+
             '<td data-label="Next due day">'+(st.next?fmtDate(st.next):'–')+'</td><td data-label="Balance days">'+balHTML(st)+'</td>'+
             (master?'<td class="act"><button class="btn ghost small" data-sedit="'+esc(s.id)+'" type="button">Edit</button> <button class="btn danger small" data-sdel="'+esc(s.id)+'" type="button">Delete</button></td>':'')+'</tr>';
@@ -2642,7 +2724,40 @@
   function dVal(s){
     var r = amcDraft[dKey(s.id)]; if(r) return r;
     var x = (state.amcDaily||[]).find(function(y){ return y.staffId === s.id && y.date === amcDate; });
-    return x ? { att:x.attendance, work:x.work, status:x.status||"OPEN", srem:x.statusRemark||"" } : { att:"", work:"", status:"OPEN", srem:"" };
+    var hx = (state.amcHours||[]).find(function(y){ return y.staffId === s.id && y.date === amcDate && y.kind === "auto"; });
+    return x ? { att:x.attendance, work:x.work, status:x.status||"OPEN", srem:x.statusRemark||"", hrs: hx ? hx.hours : undefined, need:false } : { att:"", work:"", status:"OPEN", srem:"", hrs:undefined, need:false };
+  }
+  /* ---------- Overtime / early leave of AMC labour (hours ledger) ---------- */
+  function r2(n){ return Math.round(n*100)/100; }
+  function hrsNum(h){ return String(r2(Math.abs(h))); }
+  function hrsLabel(h){ return h === 0 ? "on time" : (h > 0 ? hrsNum(h)+" h late (extra)" : hrsNum(h)+" h early (less)"); }
+  function hrsBalance(sid){ return r2((state.amcHours||[]).reduce(function(a,x){ return x.staffId === sid ? a+x.hours : a; },0)); }
+  function hrsBalHTML(b){
+    if(b === 0) return '<b>0 h</b>';
+    return b > 0 ? '<b style="color:#1a7f37">+'+hrsNum(b)+' h</b> <small style="color:var(--muted)">extra</small>'
+                 : '<b style="color:var(--red)">&minus;'+hrsNum(b)+' h</b> <small style="color:var(--muted)">less</small>';
+  }
+  function hrsNote(v){ return (typeof v.hrs === "number") ? '<span class="cmt">Check-out: '+esc(hrsLabel(v.hrs))+'</span>' : ''; }
+  function draftOf(s){ var k = dKey(s.id); if(!amcDraft[k]) amcDraft[k] = Object.assign({}, dVal(s)); return amcDraft[k]; }
+  /* asked when work status of a worker is set from OPEN to COMPLETED */
+  function hoursModal(s){
+    var d = draftOf(s), cur = (typeof d.hrs === "number") ? d.hrs : null;
+    openModal('<h3>Check-out time &ndash; '+esc(s.name)+'</h3><p style="margin-top:0">Work is being marked <b>COMPLETED</b> for '+esc(fmtDate(amcDate))+'. How early or late did he check out?</p>'+
+      '<div class="field"><label for="hhDir">Checked out</label><select id="hhDir"><option value="0"'+(cur===0?' selected':'')+'>On time</option>'+
+      '<option value="1"'+(cur>0?' selected':'')+'>Late &ndash; extra hours (overtime)</option><option value="-1"'+(cur<0?' selected':'')+'>Early &ndash; less hours</option></select></div>'+
+      '<div class="field" id="hhWrap"'+(cur ? '' : ' style="display:none"')+'><label for="hhVal">Hours (e.g. 1.5 for 1 h 30 min)</label>'+
+      '<input type="number" id="hhVal" min="0.25" max="24" step="0.25" inputmode="decimal" value="'+(cur ? hrsNum(cur) : '')+'"></div>'+
+      '<p class="error" id="hhErr"></p><div class="row"><button class="btn ghost" id="hhNo" type="button">Cancel</button><button class="btn" id="hhOk" type="button">Save</button></div>');
+    $("hhDir").onchange = function(){ $("hhWrap").style.display = $("hhDir").value === "0" ? "none" : ""; };
+    $("hhNo").onclick = function(){
+      if(d.need){ d.status = "OPEN"; d.hrs = null; d.need = false; }   // not answered: work stays OPEN
+      closeModal(); renderPanel();
+    };
+    $("hhOk").onclick = function(){
+      var dir = +$("hhDir").value, v = 0;
+      if(dir !== 0){ v = parseFloat($("hhVal").value); if(!(v > 0) || v > 24){ $("hhErr").textContent = "Enter the hours (more than 0 and up to 24)."; return; } }
+      d.hrs = r2(dir*v); d.need = false; closeModal(); renderPanel();
+    };
   }
   function amcDailyHTML(edit){
     var staff = (state.amcStaff||[]).filter(function(s){ return edit || amcFilter === "all" || s.contractId === amcFilter; });
@@ -2662,11 +2777,12 @@
         h += '<td data-label="Attendance"><select data-f="att"><option value="">Select</option>'+Object.keys(ATT).map(function(k){ return '<option value="'+k+'"'+(v.att===k?' selected':'')+'>'+ATT[k]+'</option>'; }).join("")+'</select></td>'+
           '<td data-label="Work details"><input type="text" data-f="work" maxlength="300" placeholder="Work done" value="'+esc(v.work)+'"'+(w?'':' disabled')+'></td>'+
           '<td data-label="Status of work"><select data-f="status"'+(w?'':' disabled')+'><option value="OPEN"'+(v.status==="OPEN"?' selected':'')+'>OPEN</option><option value="COMPLETED"'+(v.status==="COMPLETED"?' selected':'')+'>COMPLETED</option></select>'+
-          '<input type="text" data-f="srem" maxlength="200" placeholder="Status remarks" value="'+esc(v.srem)+'"'+(w?'':' disabled')+' style="margin-top:4px"></td>'+
+          '<input type="text" data-f="srem" maxlength="200" placeholder="Status remarks" value="'+esc(v.srem)+'"'+(w?'':' disabled')+' style="margin-top:4px">'+
+          (w && v.status==="COMPLETED" ? hrsNote(v)+'<button class="btn ghost small" data-hrs="'+esc(s.id)+'" type="button" style="margin-top:4px">'+(typeof v.hrs==="number"?'Change':'Set')+' check-out hours</button>' : '')+'</td>'+
           '<td data-label="Working under">'+esc(s.workingUnderName)+' <button class="btn ghost small" data-xfer="'+esc(s.id)+'" type="button">Transfer</button></td>';
       } else {
         h += '<td data-label="Attendance">'+(v.att ? esc(ATT[v.att]||v.att) : '<span style="color:var(--muted)">Not updated</span>')+'</td><td data-label="Work details">'+(v.work?esc(v.work):'–')+'</td>'+
-          '<td data-label="Status of work">'+(v.att && w ? esc(v.status)+(v.srem?'<span class="cmt">Remarks: '+esc(v.srem)+'</span>':'') : '–')+'</td><td data-label="Working under">'+esc(s.workingUnderName)+'</td>';
+          '<td data-label="Status of work">'+(v.att && w ? esc(v.status)+(v.srem?'<span class="cmt">Remarks: '+esc(v.srem)+'</span>':'')+(v.status==="COMPLETED"?hrsNote(v):'') : '–')+'</td><td data-label="Working under">'+esc(s.workingUnderName)+'</td>';
       }
       h += '</tr>';
     });
@@ -2683,21 +2799,33 @@
       var sid = tr.getAttribute("data-srow");
       function g(f){ return tr.querySelector('[data-f="'+f+'"]'); }
       function sync(){
-        var att = g("att").value, w = attWork(att);
+        var att = g("att").value, w = attWork(att), st = g("status").value, prev = dVal(amcStaffById(sid));
+        var hrs = prev.hrs, need = !!prev.need;
+        if(!w || st !== "COMPLETED"){ hrs = null; need = false; }                   // not completed: any check-out hours are cleared
+        else if(prev.status !== "COMPLETED"){ hrs = undefined; need = true; }       // OPEN -> COMPLETED: ask the hours
         ["work","status","srem"].forEach(function(f){ g(f).disabled = !w; });
-        amcDraft[dKey(sid)] = { att:att, work:g("work").value, status:g("status").value, srem:g("srem").value };
+        amcDraft[dKey(sid)] = { att:att, work:g("work").value, status: w ? st : "OPEN", srem:g("srem").value, hrs:hrs, need:need };
       }
       Array.prototype.forEach.call(tr.querySelectorAll("[data-f]"),function(el){ el.addEventListener("input",sync); el.addEventListener("change",sync); });
+      g("status").addEventListener("change",function(){ var dr = amcDraft[dKey(sid)], sf = amcStaffById(sid); if(dr && dr.need && sf) hoursModal(sf); });
+      g("att").addEventListener("change",function(){ var dr = amcDraft[dKey(sid)], sf = amcStaffById(sid); if(dr && dr.need && sf) hoursModal(sf); });
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-hrs]"),function(b){
+      b.onclick = function(){ var sf = amcStaffById(b.getAttribute("data-hrs")); if(sf) hoursModal(sf); };
     });
     var sv = $("adSave");
     if(sv) sv.onclick = function(){
-      var entries = [], err = $("adErr"), d = amcDate, bad = "";
+      var entries = [], err = $("adErr"), d = amcDate, bad = "", badH = "";
       (state.amcStaff||[]).forEach(function(s){
         var v = dVal(s); if(!v.att) return; var w = attWork(v.att);
         if(w && !v.work.trim() && !bad) bad = s.name;
-        entries.push({ staffId:s.id, attendance:v.att, work: w ? v.work.trim() : "", status: w ? v.status : "OPEN", statusRemark: w ? v.srem.trim() : "" });
+        var done = w && v.status === "COMPLETED";
+        if(done && v.need && typeof v.hrs !== "number" && !badH) badH = s.name;
+        entries.push({ staffId:s.id, attendance:v.att, work: w ? v.work.trim() : "", status: w ? v.status : "OPEN", statusRemark: w ? v.srem.trim() : "",
+                       hours: done ? (typeof v.hrs === "number" ? v.hrs : undefined) : null });
       });
       if(bad){ err.textContent = "Enter work details for "+bad+"."; return; }
+      if(badH){ err.textContent = "Set the check-out hours (early / late) for "+badH+" – use the \u201cSet check-out hours\u201d button."; return; }
       var tmpOut = [], terr = "";
       tempDraftGet(d).forEach(function(t, i){
         if(terr) return;
