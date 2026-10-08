@@ -176,6 +176,11 @@
   .viewsw button.active{background:var(--steel);color:#fff}
   .panel-head + .viewsw{margin-top:0}
   .viewsw + .mbar{margin-top:-2px}
+  .rgbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:0 0 10px}
+  .rgbar .field{margin:0;min-width:130px}.rgbar .grow{flex:1 1 220px}
+  .rgq{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+  tr.rgday td{background:#eef2f6;font-weight:700;text-align:left;color:var(--steel)}
+  mark{background:#ffe9a8;padding:0 1px;border-radius:2px}
 
   /* ---- calendar ---- */
   .c-meeting{--cc:#2d6cdf;--cb:#e3edff;--ct:#143c8c}
@@ -414,7 +419,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v17";
+  var PAGE_VER = "v18.1";
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
 
@@ -620,7 +625,7 @@
     el.className = "sync "+kind; el.textContent = text;
   }
 
-  var KEEP = ["fuText","fuRem","prDesc","prQty","prUnit","prSt","prPoNo","prPoDt","prRem","exFrom","exTo","exStat","wText","aWork","aRem","aBy","aTo","aDate","aPri","mpPlan","mpDesc","mpDue","mpComp","mpStat"];
+  var KEEP = ["fuText","fuRem","prDesc","prQty","prUnit","prSt","prPoNo","prPoDt","prRem","exFrom","exTo","exStat","rgFrom","rgTo","rgQ","rgSt","wText","aWork","aRem","aBy","aTo","aDate","aPri","mpPlan","mpDesc","mpDue","mpComp","mpStat"];
   function softRender(){
     var saved = {}, ae = document.activeElement, focusId = ae && ae.id, pos = 0;
     KEEP.forEach(function(id){ var n = $(id); if(n) saved[id] = n.value; });
@@ -881,7 +886,8 @@
     try{ sessionStorage.removeItem("kss_auth"); }catch(e){}
     closeModal();
     ampBusy = 0; ampText = ""; ampChain = Promise.resolve();
-    noticeShown = null; if(SYNC){ state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [] }; lastText = ""; }
+    noticeShown = null; if(SYNC){ state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], amcStaff: [], amcTransfers: [], amcEmployees: [], amcDaily: [], amcTemp: [], amcHours: [], amcAssignees: [], mandays: [], minWage: [], sched: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } }; lastText = ""; }
+    amcDraft = {}; amcTempDraft = {}; amcFilter = "all"; supView = "home"; amcDate = today();   /* nothing of the previous login (drafts, temporary labour) may reach the next login */
     $("appView").classList.add("hidden");
     noticeShown = null;
     $("loginView").classList.remove("hidden");
@@ -1171,6 +1177,7 @@
     api(body).then(function(r){
       lastText = ""; applyData(r.json.data); setStatus("ok"); if(onOk) onOk();
       if(!modalOpen()) softRender();
+      if(r.json.ver !== PAGE_VER){ try{ alert("Saved, but the Google Apps Script is "+(r.json.ver||"an old version")+" while this page is "+PAGE_VER+".\n\nHours / new features may NOT be stored until you paste the latest Code.gs and Deploy > Manage deployments > pencil > New version."); }catch(e){} }
     }).catch(function(err){
       if(err && err.server && err.message === "auth"){ onSyncError(err); return; }
       setStatus(err && err.server ? "error" : "offline", err && err.server ? err.message : "");
@@ -2736,6 +2743,116 @@
   }
   function docFoot(){ return '<p class="ft">Generated on '+esc(fmtStamp(Date.now()))+(session ? ' by '+esc(session.id) : '')+'</p>'; }
 
+
+  /* ---------- Search & date range of one employee's worklist ---------- */
+  var rg = { from:"", to:"", q:"", st:"all", init:false };
+  function rgWords(q){ return String(q||"").toLowerCase().split(/\s+/).filter(Boolean); }
+  function rgFilter(e){
+    var words = rgWords(rg.q);
+    return e.works.filter(function(w){
+      if(rg.from && w.date < rg.from) return false;
+      if(rg.to && w.date > rg.to) return false;
+      if(rg.st === "done" && !w.done) return false;
+      if(rg.st === "pending" && w.done) return false;
+      if(words.length){
+        var hay = (String(w.text||"")+" "+String(w.comment||"")).toLowerCase();
+        for(var i=0;i<words.length;i++) if(hay.indexOf(words[i]) < 0) return false;
+      }
+      return true;
+    }).sort(function(a,b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : a.created-b.created; });
+  }
+  function hl(t, words){
+    t = String(t||""); if(!words.length) return esc(t);
+    var re = new RegExp("("+words.map(function(w){ return w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"); }).join("|")+")","gi");
+    return t.split(re).map(function(x,i){ return i%2 ? '<mark>'+esc(x)+'</mark>' : esc(x); }).join("");
+  }
+  function rgPeriod(){
+    return (!rg.from && !rg.to) ? "All dates" : (rg.from ? fmtDate(rg.from) : "Beginning")+" to "+(rg.to ? fmtDate(rg.to) : "Latest");
+  }
+  function rgRows(list, words, forPrint){
+    var h = "", last = "";
+    list.forEach(function(w,i){
+      if(w.date !== last){
+        last = w.date;
+        var n = list.filter(function(x){ return x.date === w.date; }).length;
+        h += '<tr class="rgday"><td colspan="'+(forPrint?5:4)+'">'+esc(dayLabel(w.date))+' &nbsp;<small>('+n+' work'+(n>1?'s':'')+')</small></td></tr>';
+      }
+      if(forPrint){
+        h += '<tr><td>'+(i+1)+'</td><td class="l">'+hl(w.text,words)+(w.movedFrom ? '<br><small>Transferred from '+esc(fmtDate(w.movedFrom))+'</small>' : '')+'</td>'+
+          '<td class="'+(w.done?'ok':'')+'">'+(w.done?'Done':'Pending')+'</td><td>'+(w.done && w.doneAt ? esc(fmtStamp(w.doneAt)) : '–')+'</td>'+
+          '<td class="l">'+(w.done && w.comment ? hl(w.comment,words) : '')+'</td></tr>';
+      } else {
+        h += '<tr class="'+(w.done?"done":"")+'"><td class="chk">'+(w.done?'&#10003;':'')+'</td>'+
+          '<td class="txt"><span class="wt">'+hl(w.text,words)+'</span>'+
+            (w.movedFrom?'<span class="moved">Transferred from '+fmtDate(w.movedFrom)+'</span>':'')+
+            (w.done&&w.doneAt?'<span class="doneat">Completed '+fmtStamp(w.doneAt)+'</span>':'')+
+            (w.done&&w.comment?'<span class="cmt">Comment: '+hl(w.comment,words)+'</span>':'')+'</td>'+
+          '<td>'+(w.done?'Done':'Pending')+'</td>'+
+          '<td class="act"><button class="btn ghost small" data-rgo="'+esc(w.date)+'" type="button">Open day</button></td></tr>';
+      }
+    });
+    return h;
+  }
+  function rangeExport(e){
+    if(rg.from && rg.to && rg.from > rg.to){ alert("The From date is after the To date."); return; }
+    var list = rgFilter(e), words = rgWords(rg.q);
+    if(!list.length){ alert("No works match the selected dates, status and search."); return; }
+    var done = list.filter(function(w){ return w.done; }).length;
+    var filt = [];
+    if(rg.st !== "all") filt.push("Status: "+(rg.st === "done" ? "Done" : "Pending"));
+    if(String(rg.q).trim()) filt.push("Search: "+esc(String(rg.q).trim()));
+    var body = docHead('KOZHIKODE SS &ndash; Work List', esc(e.name)+(e.desig ? ' ('+esc(e.desig)+')' : '')+' &nbsp;|&nbsp; Period: '+esc(rgPeriod())+(filt.length ? ' &nbsp;|&nbsp; '+filt.join(' &nbsp;|&nbsp; ') : ''))+
+      '<p class="sm">Total works: <b>'+list.length+'</b> &nbsp;|&nbsp; Completed: <b>'+done+'</b> &nbsp;|&nbsp; Pending: <b>'+(list.length-done)+'</b></p>'+
+      '<table><thead><tr><th style="width:5%">#</th><th>Work details</th><th style="width:11%">Status</th><th style="width:17%">Completed on</th><th style="width:26%">Comment</th></tr></thead><tbody>'+rgRows(list, words, true)+'</tbody></table>'+
+      '<div class="sg"><div>Employee</div><div>Verified by</div></div>'+docFoot();
+    printDoc("Work_List_"+e.name.replace(/[^A-Za-z0-9]+/g,"_")+"_"+(rg.from ? fmtDate(rg.from) : "start")+"_to_"+(rg.to ? fmtDate(rg.to) : "latest"), listCss(false)+'tr.rgday td{background:#e8edf2;font-weight:700;text-align:left}mark{background:#ffe9a8}', body);
+  }
+  function rangeView(e, p, h){
+    if(!rg.init){ rg.init = true; rg.to = today(); rg.from = addDays(today(), -30); rg.q = ""; rg.st = "all"; }
+    h += '<div class="rgbar">'+
+      '<div class="field"><label for="rgFrom">From</label><input type="date" id="rgFrom" value="'+esc(rg.from)+'"></div>'+
+      '<div class="field"><label for="rgTo">To</label><input type="date" id="rgTo" value="'+esc(rg.to)+'"></div>'+
+      '<div class="field"><label for="rgSt">Status</label><select id="rgSt">'+
+        ['all','pending','done'].map(function(k){ return '<option value="'+k+'"'+(rg.st===k?' selected':'')+'>'+k.charAt(0).toUpperCase()+k.slice(1)+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field grow"><label for="rgQ">Search works &amp; comments</label><input type="text" id="rgQ" maxlength="100" placeholder="e.g. breaker feeder" value="'+esc(rg.q)+'"></div>'+
+      '</div>'+
+      '<div class="rgq"><button class="btn ghost small" type="button" data-rq="month">This month</button>'+
+      '<button class="btn ghost small" type="button" data-rq="30">Last 30 days</button>'+
+      '<button class="btn ghost small" type="button" data-rq="90">Last 90 days</button>'+
+      '<button class="btn ghost small" type="button" data-rq="all">All dates</button>'+
+      '<button class="btn small" id="rgExport" type="button">Export PDF</button></div>'+
+      '<div class="stats" id="rgSum" style="margin-bottom:8px"></div><div id="rgRes"></div>';
+    p.innerHTML = h;
+    bindHead(e, 0);
+    function draw(){
+      var sum = $("rgSum"), res = $("rgRes"); if(!sum || !res) return;
+      if(rg.from && rg.to && rg.from > rg.to){ sum.innerHTML = ''; res.innerHTML = '<div class="empty">The From date is after the To date.</div>'; return; }
+      var list = rgFilter(e), words = rgWords(rg.q), done = list.filter(function(w){ return w.done; }).length, MAX = 500;
+      sum.innerHTML = '<span>Period <b>'+esc(rgPeriod())+'</b></span><span>Works <b>'+list.length+'</b></span><span>Done <b>'+done+'</b></span><span>Pending <b>'+(list.length-done)+'</b></span>';
+      if(!list.length){ res.innerHTML = '<div class="empty">No works match the selected dates, status and search.</div>'; return; }
+      var shown = list.slice(0, MAX);
+      res.innerHTML = '<table><thead><tr><th>Done</th><th>Work details</th><th>Status</th><th></th></tr></thead><tbody>'+rgRows(shown, words, false)+'</tbody></table>'+
+        (list.length > MAX ? '<p style="color:var(--muted);font-size:.85rem;margin-top:8px">Showing the first '+MAX+' of '+list.length+' works &ndash; narrow the dates or search. Export PDF includes all.</p>' : '');
+      Array.prototype.forEach.call(res.querySelectorAll("[data-rgo]"),function(b){
+        b.onclick = function(){ viewDate = b.getAttribute("data-rgo"); empView = "work"; filter = "all"; render(); };
+      });
+    }
+    function read(){ rg.from = $("rgFrom").value; rg.to = $("rgTo").value; rg.st = $("rgSt").value; rg.q = $("rgQ").value; draw(); }
+    ["rgFrom","rgTo","rgSt"].forEach(function(id){ $(id).addEventListener("change", read); });
+    $("rgQ").addEventListener("input", read);
+    Array.prototype.forEach.call(p.querySelectorAll("[data-rq]"),function(b){
+      b.onclick = function(){
+        var k = b.getAttribute("data-rq"), t = today();
+        if(k === "all"){ rg.from = ""; rg.to = ""; }
+        else if(k === "month"){ rg.from = t.slice(0,8)+"01"; rg.to = t; }
+        else { rg.from = addDays(t, -Number(k)); rg.to = t; }
+        $("rgFrom").value = rg.from; $("rgTo").value = rg.to; draw();
+      };
+    });
+    $("rgExport").onclick = function(){ rangeExport(e); };
+    draw();
+  }
+
   /* Daily work list of ONE employee for the selected date */
   function workExport(e, d){
     var list = e.works.filter(function(w){ return w.date === d; }).sort(function(a,b){ return a.created-b.created; });
@@ -2882,13 +2999,19 @@
     var logo = (document.querySelector(".login-logo") || {}).src || "";
     var wd = ["S","M","T","W","T","F","S"];
     var th = days.map(function(x){ var p = parseISO(x); return '<th class="dc'+(p.getDay()===0?' sun':'')+'">'+p.getDate()+'<br><small>'+wd[p.getDay()]+'</small></th>'; }).join("");
+    var tot = { P:0, A:0, FHL:0, SHL:0, NH:0, pres:0 }, dayTot = {};
+    days.forEach(function(x){ dayTot[x] = 0; });
     var rows = staff.map(function(s,i){
       var c = { P:0, A:0, FHL:0, SHL:0, NH:0 };
-      var cells = days.map(function(x){ var a = map[s.id+"|"+x] || ""; if(c[a] != null) c[a]++; return '<td class="dc'+(a==="A"?' ab':'')+'">'+esc(a)+'</td>'; }).join("");
+      var cells = days.map(function(x){ var a = map[s.id+"|"+x] || ""; if(c[a] != null) c[a]++; dayTot[x] += (a === "P" ? 1 : (a === "FHL" || a === "SHL") ? 0.5 : 0); return '<td class="dc'+(a==="A"?' ab':'')+'">'+esc(a)+'</td>'; }).join("");
       var pres = c.P + (c.FHL + c.SHL) * 0.5;
+      tot.P += c.P; tot.A += c.A; tot.FHL += c.FHL; tot.SHL += c.SHL; tot.NH += c.NH; tot.pres += pres;
       return '<tr><td>'+(i+1)+'</td><td class="nm">'+esc(s.name)+'</td><td>'+esc(s.skill)+'</td>'+cells+
              '<td>'+c.P+'</td><td>'+c.A+'</td><td>'+c.FHL+'</td><td>'+c.SHL+'</td><td>'+c.NH+'</td><td><b>'+pres+'</b></td></tr>';
     }).join("");
+    var foot = '<tr class="tot"><td colspan="3" class="nm">Total mandays</td>'+
+      days.map(function(x){ return '<td class="dc">'+(dayTot[x] ? dayTot[x] : '')+'</td>'; }).join("")+
+      '<td>'+tot.P+'</td><td>'+tot.A+'</td><td>'+tot.FHL+'</td><td>'+tot.SHL+'</td><td>'+tot.NH+'</td><td><b>'+tot.pres+'</b></td></tr>';
     var period = from === to ? fmtDate(from) : fmtDate(from)+" to "+fmtDate(to);
     var title = "Muster_Roll_"+fmtDate(from)+(from===to ? "" : "_to_"+fmtDate(to));
     var dense = days.length > 20;
@@ -2898,13 +3021,13 @@
       '.hd h1{margin:0;font-size:14pt;color:#1f3a52}.hd p{margin:2px 0 0;color:#5d6b78;font-size:9.5pt}'+
       'table{width:100%;border-collapse:collapse}th,td{border:1px solid #8795a1;padding:'+(dense?'3px 2px':'4px 4px')+';text-align:center;vertical-align:middle}'+
       'th{background:#1f3a52;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}th small{font-weight:400}'+
-      '.nm{text-align:left;white-space:nowrap}.dc{min-width:'+(dense?'14px':'20px')+'}.sun{background:#8a2318!important}td.ab{color:#c0392b;font-weight:700}'+
+      'tr.tot td{background:#e8edf2;font-weight:700;border-top:2px solid #1f3a52;-webkit-print-color-adjust:exact;print-color-adjust:exact}.nm{text-align:left;white-space:nowrap}.dc{min-width:'+(dense?'14px':'20px')+'}.sun{background:#8a2318!important}td.ab{color:#c0392b;font-weight:700}'+
       'tr{page-break-inside:avoid}thead{display:table-header-group}.ft{margin-top:8px;font-size:8.5pt;color:#5d6b78}'+
       '.sg{display:flex;justify-content:space-between;margin-top:34px;font-size:10pt}.sg div{border-top:1px solid #16212b;padding-top:4px;min-width:200px;text-align:center}'+
       '</style></head><body><div class="hd">'+(logo ? '<img src="'+esc(logo)+'" alt="">' : '')+'<div><h1>KOZHIKODE SS &ndash; Muster Roll of AMC Staff</h1><p>Period: '+esc(period)+
       (ct.name ? ' &nbsp;|&nbsp; Contract: '+esc(ct.name)+(ct.agency ? ' ('+esc(ct.agency)+')' : '')+(ct.number ? ' &nbsp;|&nbsp; No. '+esc(ct.number) : '') : '')+'</p></div></div>'+
-      '<table><thead><tr><th>#</th><th>Name</th><th>Skill</th>'+th+'<th>P</th><th>A</th><th>FHL</th><th>SHL</th><th>NH</th><th>Days present</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-      '<p class="ft">P = Present, A = Absent, FHL = First half leave, SHL = Second half leave, NH = National holiday. Days present = P + &frac12; for each FHL / SHL. (Temp) = temporary labour, shown only for the days entered. Blank = not updated.</p>'+
+      '<table><thead><tr><th>#</th><th>Name</th><th>Skill</th>'+th+'<th>P</th><th>A</th><th>FHL</th><th>SHL</th><th>NH</th><th>Days present</th></tr></thead><tbody>'+rows+'</tbody><tfoot>'+foot+'</tfoot></table>'+
+      '<p class="ft">P = Present, A = Absent, FHL = First half leave, SHL = Second half leave, NH = National holiday. Days present = P + &frac12; for each FHL / SHL. Last row = total mandays (per day and for the whole period). (Temp) = temporary labour, shown only for the days entered. Blank = not updated.</p>'+
       '<div class="sg"><div>Prepared by (AMC)</div><div>Verified by (POWERGRID)</div></div>'+
       '<p class="ft">Generated on '+esc(fmtStamp(Date.now()))+(session ? ' by '+esc(session.id) : '')+'</p>'+
       '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script></body></html>';
@@ -3031,22 +3154,23 @@
         if(!t.att){ terr = "Select attendance for "+nm+"."; return; }
         var tw = attWork(t.att);
         if(tw && !String(t.work||"").trim()){ terr = "Enter work details for "+nm+"."; return; }
-        tmpOut.push({ id:t.id, name:nm, skill:t.skill, workingUnder:t.under, attendance:t.att,
+        tmpOut.push({ id:t.id, contractId:(t.cid||myContractId()), name:nm, skill:t.skill, workingUnder:t.under, attendance:t.att,
           work: tw ? String(t.work).trim() : "", status: tw ? t.status : "OPEN", statusRemark: tw ? String(t.srem||"").trim() : "" });
       });
       if(terr){ err.textContent = terr; return; }
       var hadTemp = (state.amcTemp||[]).some(function(x){ return x.date === d && x.contractId === myContractId(); });
       if(!entries.length && !tmpOut.length && !hadTemp){ err.textContent = "Select attendance for at least one person."; return; }
       err.textContent = "";
-      amcCall({ action:"amcDailySave", date:d, entries:entries, temp:tmpOut }, function(){ (state.amcStaff||[]).forEach(function(s){ delete amcDraft[dKey(s.id, d)]; }); delete amcTempDraft[d]; });
+      amcCall({ action:"amcDailySave", date:d, entries:entries, temp:tmpOut }, function(){ (state.amcStaff||[]).forEach(function(s){ delete amcDraft[dKey(s.id, d)]; }); delete amcTempDraft[myContractId()+"|"+d]; });
     };
   }
   /* ---------- Temporary labour: added afresh every day by the AMC login (each entry belongs to ONE date only) ---------- */
   function tempDraftGet(d){
-    if(!amcTempDraft[d]) amcTempDraft[d] = (state.amcTemp||[]).filter(function(x){ return x.date === d && x.contractId === myContractId(); }).map(function(x){
-      return { id:x.id, name:x.name, skill:x.skill, under:x.workingUnder, att:x.attendance, work:x.work, status:x.status||"OPEN", srem:x.statusRemark||"" };
+    var k = myContractId()+"|"+d;
+    if(!amcTempDraft[k]) amcTempDraft[k] = (state.amcTemp||[]).filter(function(x){ return x.date === d && x.contractId === myContractId(); }).map(function(x){
+      return { id:x.id, cid:x.contractId, name:x.name, skill:x.skill, under:x.workingUnder, att:x.attendance, work:x.work, status:x.status||"OPEN", srem:x.statusRemark||"" };
     });
-    return amcTempDraft[d];
+    return amcTempDraft[k];
   }
   function amcTempHTML(edit){
     var d = amcDate, h = '<h3 class="sec" style="margin-top:18px">Temporary labour &ndash; '+esc(fmtDate(d))+'</h3>';
@@ -3069,11 +3193,12 @@
     h += '<p style="margin:-4px 0 10px;color:var(--muted);font-size:.9rem">Temporary labour are valid for this date only &ndash; add them again on every day they work. Press &ldquo;Save updates&rdquo; to save.</p>';
     if(!rows.length) h += '<div class="empty" style="padding:14px 10px">No temporary labour added for this date.</div>';
     else {
-      h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Name</th><th>Skill</th><th>Attendance</th><th>Work details</th><th>Status of work</th><th>Working under</th><th></th></tr></thead><tbody>';
+      h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Name</th><th>Contract</th><th>Skill</th><th>Attendance</th><th>Work details</th><th>Status of work</th><th>Working under</th><th></th></tr></thead><tbody>';
       rows.forEach(function(t,i){
         var w = attWork(t.att);
         h += '<tr data-trow="'+i+'"><td data-label="#">'+(i+1)+'</td>'+
           '<td data-label="Name"><input type="text" data-tf="name" maxlength="100" placeholder="Name of labour" value="'+esc(t.name)+'"></td>'+
+          '<td data-label="Contract"><select data-tf="cid">'+(state.contracts||[]).map(function(c){ return '<option value="'+esc(c.id)+'"'+((t.cid||myContractId())===c.id?' selected':'')+'>'+esc(c.name)+'</option>'; }).join("")+'</select></td>'+
           '<td data-label="Skill"><select data-tf="skill">'+AMC_SKILLS.map(function(k){ return '<option value="'+k+'"'+(t.skill===k?' selected':'')+'>'+k+'</option>'; }).join("")+'</select></td>'+
           '<td data-label="Attendance"><select data-tf="att"><option value="">Select</option>'+Object.keys(ATT).map(function(k){ return '<option value="'+k+'"'+(t.att===k?' selected':'')+'>'+ATT[k]+'</option>'; }).join("")+'</select></td>'+
           '<td data-label="Work details"><input type="text" data-tf="work" maxlength="300" placeholder="Work done" value="'+esc(t.work)+'"'+(w?'':' disabled')+'></td>'+
@@ -3091,7 +3216,7 @@
     var add = $("tmpAdd");
     if(add) add.onclick = function(){
       var last = rows.length ? rows[rows.length-1] : null;
-      rows.push({ id:uid(), name:"", skill:last ? last.skill : "UN-SKILLED", under:last ? last.under : "", att:"P", work:"", status:"OPEN", srem:"" });
+      rows.push({ id:uid(), cid:myContractId(), name:"", skill:last ? last.skill : "UN-SKILLED", under:last ? last.under : "", att:"P", work:"", status:"OPEN", srem:"" });
       renderPanel();
     };
     Array.prototype.forEach.call(p.querySelectorAll("[data-trow]"),function(tr){
@@ -3099,7 +3224,7 @@
       function g(f){ return tr.querySelector('[data-tf="'+f+'"]'); }
       function sync(){
         var r = rows[i]; if(!r) return;
-        r.name = g("name").value; r.skill = g("skill").value; r.att = g("att").value; r.under = g("under").value;
+        r.name = g("name").value; r.cid = g("cid").value; r.skill = g("skill").value; r.att = g("att").value; r.under = g("under").value;
         var w = attWork(r.att);
         ["work","status","srem"].forEach(function(f){ g(f).disabled = !w; });
         r.work = g("work").value; r.status = g("status").value; r.srem = g("srem").value;
@@ -3380,7 +3505,8 @@
     h += '</div>';
     h += '<div style="margin:-4px 0 10px">'+availChip(e.id)+(canW ? ' <button class="btn ghost small" id="availChg" type="button">'+(availOf(e.id) ? 'Change' : 'Set')+'</button>' : '')+'</div>';
     h += '<div class="viewsw"><button type="button" data-view="work" class="'+(work?"active":"")+'">Worklist</button>'+
-         '<button type="button" data-view="cal" class="'+(!work?"active":"")+'">Calendar</button></div>';
+         '<button type="button" data-view="cal" class="'+(empView==="cal"?"active":"")+'">Calendar</button>'+
+         '<button type="button" data-view="range" class="'+(empView==="range"?"active":"")+'">Search / Date range</button></div>';
     if(isMaster()){
       h += '<div class="mbar">'+
            '<button class="btn ghost small" id="renameEmp" type="button">Edit employee</button>'+
@@ -3388,6 +3514,7 @@
            '<button class="btn danger small" id="delEmp" type="button">Delete employee</button></div>';
     }
 
+    if(empView === "range"){ rangeView(e, p, h); return; }
     if(!work){
       h += calHTML(e.id);
       p.innerHTML = h;
