@@ -126,7 +126,7 @@
   .chip:hover{background:#fff8e0}
   .quick{display:flex;gap:6px;margin-bottom:6px}
 
-  .add-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;
+  .add-row{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:end;
     padding:14px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;margin-bottom:16px}
   .add-row .field{margin:0}
 
@@ -141,6 +141,12 @@
   td.act{width:220px;text-align:right;white-space:nowrap}
   input[type=checkbox]{width:22px;height:22px;accent-color:var(--green);cursor:pointer}
   tr.done .wt{text-decoration:line-through;color:var(--muted)}
+  /* work priority colours: Normal = black, High = yellow, Urgent = red */
+  .wt.wp-normal{color:#000}
+  .wt.wp-high{color:#c99700;font-weight:700}
+  .wt.wp-urgent{color:#d11a0a;font-weight:700}
+  tr.done .wt.wp-normal,tr.done .wt.wp-high,tr.done .wt.wp-urgent{color:var(--muted);font-weight:400}
+  .add-row select{min-width:130px}
   .cmt{display:block;font-size:.85rem;color:var(--ink);background:#f1f5f2;border-left:3px solid var(--green);padding:3px 8px;margin-top:4px;border-radius:2px;white-space:pre-wrap}
   textarea{width:100%;padding:10px 12px;border:1px solid #b9c3cc;border-radius:4px;font:inherit;resize:vertical;min-height:84px;background:#fff;color:var(--ink)}
   tr.done{background:#f6fbf8}
@@ -157,6 +163,14 @@
   .card.r b{color:var(--red)}
   .tscroll{overflow-x:auto;margin-top:6px}
   tr.link{cursor:pointer} tr.link:hover{background:#f4f8fc}
+  .aprog{display:flex;height:14px;border-radius:99px;background:#e3e8ec;overflow:hidden;margin:6px 0 4px}
+  .aprog i{display:block;height:100%}
+  .aprog .c{background:var(--green)}.aprog .p{background:var(--amber)}
+  .aprog-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+  .aprog-legend b{color:var(--ink)}
+  .audcard{border:1px solid var(--line);background:#fff;border-radius:6px;padding:12px 14px;margin-bottom:10px}
+  .audcard h4{margin:0 0 2px}
+  .doclink{word-break:break-all}
   .pbar{display:inline-block;width:90px;height:8px;background:#e3e8ec;border-radius:99px;overflow:hidden;vertical-align:middle;margin-right:6px}
   .pbar i{display:block;height:100%;background:var(--green)}
   h3.sec{margin:26px 0 10px;padding-top:16px;border-top:1px solid var(--line);font-size:1.1rem}
@@ -330,6 +344,7 @@
 
   @media(max-width:700px){
     .add-row{grid-template-columns:1fr}
+    .add-row select{width:100%}
     td.act{width:auto}
     td.act .btn{margin-top:4px}
     .stats{flex-wrap:wrap}
@@ -379,7 +394,7 @@
       </div>
       <p class="error" id="loginErr" role="alert"></p>
       <button class="btn wide" id="loginBtn" type="button">Sign in</button>
-      <p id="verLine" style="text-align:center;font-size:.75rem;color:var(--muted);margin:10px 0 0">Page v16</p>
+      <p id="verLine" style="text-align:center;font-size:.75rem;color:var(--muted);margin:10px 0 0">Page</p>
       <button class="linkbtn" id="forgotBtn" type="button">Forgot / change password?</button>
       <p class="mode-note" id="modeNote"></p>
     </div>
@@ -419,7 +434,8 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.1";
+  var PAGE_VER = "v18.5";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
 
@@ -580,7 +596,8 @@
     (d.works || []).forEach(function(w){
       if(map[w.empId]) map[w.empId].works.push({
         id: w.id, text: w.text, date: w.date, done: !!w.done, doneAt: w.doneAt || null,
-        movedFrom: w.movedFrom || "", comment: w.comment || "", created: w.created || 0
+        movedFrom: w.movedFrom || "", comment: w.comment || "", created: w.created || 0,
+        priority: (w.priority === "high" || w.priority === "urgent") ? w.priority : "normal"
       });
     });
     state.users = (d.users || []).map(function(id){ return typeof id === "object" ? id : { id: id }; });
@@ -606,7 +623,7 @@
     state.notice = nev ? (nev.note || "") : "";
     if(isSupport()){
       if(activeTab !== "home" && activeTab !== "assign") activeTab = "home";
-    } else if(activeTab !== "dash" && activeTab !== "assign" && activeTab !== "amp" && activeTab !== "maint" && activeTab !== "follow" && activeTab !== "proc" && activeTab !== "amc" && activeTab !== "home" && activeTab !== "works" && activeTab !== "contracts" && !emp(activeTab)) activeTab = "dash";
+    } else if(activeTab !== "dash" && activeTab !== "assign" && activeTab !== "amp" && activeTab !== "maint" && activeTab !== "follow" && activeTab !== "proc" && activeTab !== "amc" && activeTab !== "misc" && activeTab !== "home" && activeTab !== "works" && activeTab !== "contracts" && !emp(activeTab)) activeTab = "dash";
   }
 
   // Contracts & AMC admin responses include direct contracts/users arrays as well as a snapshot.
@@ -625,7 +642,7 @@
     el.className = "sync "+kind; el.textContent = text;
   }
 
-  var KEEP = ["fuText","fuRem","prDesc","prQty","prUnit","prSt","prPoNo","prPoDt","prRem","exFrom","exTo","exStat","rgFrom","rgTo","rgQ","rgSt","wText","aWork","aRem","aBy","aTo","aDate","aPri","mpPlan","mpDesc","mpDue","mpComp","mpStat"];
+  var KEEP = ["fuText","fuRem","prDesc","prQty","prUnit","prSt","prPoNo","prPoDt","prRem","exFrom","exTo","exStat","rgFrom","rgTo","rgQ","rgSt","wText","wPri","audName","apDesc","apDept","apLink","aWork","aRem","aBy","aTo","aDate","aPri","mpPlan","mpDesc","mpDue","mpComp","mpStat"];
   function softRender(){
     var saved = {}, ae = document.activeElement, focusId = ae && ae.id, pos = 0;
     KEEP.forEach(function(id){ var n = $(id); if(n) saved[id] = n.value; });
@@ -693,7 +710,7 @@
     if(!SYNC || !auth || ampBusy || isSupport()) return;
     api({ action: "ampList" }).then(function(r){
       if(ampBusy || r.text === ampText) return;
-      ampText = r.text; state.amp = r.json.amp || []; state.sched = r.json.sched || state.sched || []; state.fu = r.json.fu || state.fu || []; state.pr = r.json.pr || state.pr || [];
+      ampText = r.text; state.amp = r.json.amp || []; state.sched = r.json.sched || state.sched || []; state.fu = r.json.fu || state.fu || []; state.pr = r.json.pr || state.pr || []; state.audits = r.json.audits || state.audits || []; state.audPts = r.json.audPts || state.audPts || [];
       if(modalOpen()) return;
       if(activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home") softRender(); else renderTabs();
     }).catch(function(err){ if(err && err.server && err.message === "auth") onSyncError(err); });
@@ -704,7 +721,7 @@
     ampBusy++; setStatus("saving");
     var failed = false;
     ampChain = ampChain.then(function(){ return api(body); }).then(function(r){
-      if(ampBusy === 1){ state.amp = r.json.amp || state.amp; if(r.json.sched) state.sched = r.json.sched; if(r.json.fu) state.fu = r.json.fu; if(r.json.pr) state.pr = r.json.pr; ampText = r.text; }
+      if(ampBusy === 1){ state.amp = r.json.amp || state.amp; if(r.json.sched) state.sched = r.json.sched; if(r.json.fu) state.fu = r.json.fu; if(r.json.pr) state.pr = r.json.pr; if(r.json.audits) state.audits = r.json.audits; if(r.json.audPts) state.audPts = r.json.audPts; ampText = r.text; }
       setStatus("ok");
     }).catch(function(err){
       failed = true; ampText = "";
@@ -721,7 +738,19 @@
   /* op builders */
   function wput(e,w){
     return { t: "work.put", work: { id: w.id, empId: e.id, date: w.date, text: w.text, done: !!w.done,
-             doneAt: w.doneAt || null, movedFrom: w.movedFrom || "", comment: w.comment || "", created: w.created } };
+             doneAt: w.doneAt || null, movedFrom: w.movedFrom || "", comment: w.comment || "", created: w.created,
+             priority: wpri(w) } };
+  }
+  /* priority of a daily work: normal (black) | high (yellow) | urgent (red) */
+  function wpri(w){ return (w && (w.priority === "high" || w.priority === "urgent")) ? w.priority : "normal"; }
+  var WP_LABEL = { normal:"Normal", high:"High", urgent:"Urgent" };
+  var WP_PRINT = { normal:"#000", high:"#c99700", urgent:"#d11a0a" };
+  function wpriOptions(sel){
+    return ["normal","high","urgent"].map(function(k){ return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+WP_LABEL[k]+'</option>'; }).join("");
+  }
+  function wpriTag(w){ var p = wpri(w); return p === "normal" ? "" : ' <span class="pri p-'+p+'">'+WP_LABEL[p]+'</span>'; }
+  function wpriPrint(w){   // coloured work text for the PDF exports
+    var p = wpri(w); return p === "normal" ? "" : ' style="color:'+WP_PRINT[p]+';font-weight:700"';
   }
 
   /* ---------- Login session: 30 minutes, renewed by activity, shown in the header ---------- */
@@ -1697,7 +1726,8 @@
               '<button type="button" class="tab'+(activeTab==="maint"?" active":"")+'" data-tab="maint">Maintenance Status</button>'+
               '<button type="button" class="tab'+(activeTab==="follow"?" active":"")+'" data-tab="follow">Follow-up</button>'+
               '<button type="button" class="tab'+(activeTab==="proc"?" active":"")+'" data-tab="proc">Procurement</button>'+
-              '<button type="button" class="tab'+(activeTab==="amc"?" active":"")+'" data-tab="amc">AMC</button>';
+              '<button type="button" class="tab'+(activeTab==="amc"?" active":"")+'" data-tab="amc">AMC</button>'+
+              '<button type="button" class="tab'+(activeTab==="misc"?" active":"")+'" data-tab="misc">Miscellaneous</button>';
     }
     $("tabs").innerHTML = html;
     Array.prototype.forEach.call($("tabs").querySelectorAll("[data-tab]"),function(b){
@@ -2569,6 +2599,8 @@
     if(maintView === "amp"){ renderAmp(); return; }
     if(maintView === "sched" || maintView === "other"){ renderSched(maintView); return; }
     if(maintView === "summary"){ renderMaintSummary(); return; }
+    if(maintView === "audit"){ renderAuditList(); return; }
+    if(maintView === "auditDet"){ renderAuditDetail(); return; }
     ampMigrate();
     var p = $("panel"), d = new Date(), mk = d.getFullYear()+"-"+pad2(d.getMonth()+1);
     var mAmp = state.amp.filter(function(x){ return (x.due||"").slice(0,7) === mk; }), sa = ampStat(mAmp);
@@ -2578,6 +2610,7 @@
       { go:"amp",     ic:"amp",   cls:"",      t:"AMP", s: mAmp.length ? sa.done+" of "+mAmp.length+" ODR_CLSD this month" : "No plans due this month" },
       { go:"sched",   ic:"cal",   cls:"green", t:"Scheduled maintenance", s: sS.length+" activities, "+dn(sS)+" due" },
       { go:"other",   ic:"works", cls:"amber", t:"Other scheduled activities", s: sO.length+" activities, "+dn(sO)+" due" },
+      { go:"audit",   ic:"assign",cls:"",      t:"Audit Compliance", s: audSummaryText() },
       { go:"summary", ic:"notice",cls:"grey",  t:"Summary", s: maintDue().length+" due till today" }
     ];
     p.innerHTML = '<div class="panel-head"><h3>Maintenance status</h3></div><div class="hgrid">'+cards.map(function(c){
@@ -2585,6 +2618,150 @@
     }).join("")+'</div>';
     Array.prototype.forEach.call(p.querySelectorAll("[data-mv]"),function(b){
       b.onclick = function(){ maintView = b.getAttribute("data-mv"); render(); if(maintView === "amp") ampFetch(); };
+    });
+  }
+
+
+  /* ---------- Audit Compliance (inside Maintenance status) ---------- */
+  var AUD_ST = { open:"OPEN", progress:"UNDER PROGRESS", closed:"CLOSED" };
+  var AUD_DEPTS = BRANCHES;
+  var audSel = "";
+  function audPts(id){ return (state.audPts || []).filter(function(x){ return x.auditId === id; }); }
+  function audCount(list){
+    var c = { open:0, progress:0, closed:0, total:list.length };
+    list.forEach(function(x){ if(c[x.status] != null) c[x.status]++; else c.open++; });
+    c.pct = c.total ? Math.round(c.closed*100/c.total) : 0; return c;
+  }
+  function audSummaryText(){
+    var a = state.audits || [], c = audCount(state.audPts || []);
+    return a.length ? a.length+" audit"+(a.length>1?"s":"")+", "+c.pct+"% closed" : "No audits yet";
+  }
+  function audProgressHTML(c, title){
+    var pc = c.total ? c.closed*100/c.total : 0, pp = c.total ? c.progress*100/c.total : 0;
+    return '<div class="audprog">'+(title ? '<div style="display:flex;justify-content:space-between;gap:10px;font-weight:700"><span>'+esc(title)+'</span><span>'+c.pct+'% closed</span></div>' : '')+
+      '<div class="aprog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+c.pct+'"><i class="c" style="width:'+pc+'%"></i><i class="p" style="width:'+pp+'%"></i></div>'+
+      '<div class="aprog-legend"><span>Total points <b>'+c.total+'</b></span><span>Open <b>'+c.open+'</b></span><span>Under progress <b>'+c.progress+'</b></span><span>Closed <b>'+c.closed+'</b></span></div></div>';
+  }
+  function audSave(a){ ampSend({ action:"audPut", item:{ id:a.id, name:a.name, created:a.created } }); }
+  function apObj(x){ return { id:x.id, auditId:x.auditId, desc:x.desc, dept:x.dept, status:x.status, link:x.link||"", created:x.created }; }
+  function apSave(x){ ampSend({ action:"audPtPut", item: apObj(x) }); }
+  function apUpdate(x){
+    x.updated = Date.now(); x.updatedBy = session ? (session.displayName || session.id) : "";
+    ampSend({ action:"audPtUpdate", id:x.id, status:x.status, link:x.link||"" });
+  }
+  function okLink(l){ return /^https?:\/\/[^\s]+$/i.test(String(l||"").trim()); }
+  function bindAudBack(to){ var b = $("aBack"); if(b) b.onclick = function(){ maintView = to; render(); }; }
+
+  function renderAuditList(){
+    var p = $("panel"), master = isMaster(), audits = (state.audits = state.audits || []);
+    state.audPts = state.audPts || [];
+    var all = audCount(state.audPts);
+    var h = BACKBTN+'<div class="panel-head"><h3>Audit Compliance</h3><div class="stats"><span>Audits <b>'+audits.length+'</b></span></div></div>';
+    if(audits.length) h += '<div class="audcard">'+audProgressHTML(all, "Overall compliance")+'</div>';
+    if(master) h += '<div class="assign-form"><h4>Add audit</h4><div class="agrid"><div class="field span2"><label for="audName">Audit name</label>'+
+      '<input type="text" id="audName" maxlength="200" placeholder="e.g. Internal Safety Audit 2026"></div></div>'+
+      '<p class="error" id="audErr"></p><button class="btn" id="audAdd" type="button">Add audit</button></div>';
+    else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add audits and audit points. Open an audit to update the status or document link of any point.</p>';
+    if(!audits.length) h += '<div class="empty">No audits added yet.</div>';
+    else audits.slice().sort(function(a,b){ return (a.created||0)-(b.created||0); }).forEach(function(a){
+      h += '<div class="audcard"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h4>'+esc(a.name)+'</h4><div>'+
+        '<button class="btn small" data-aopen="'+esc(a.id)+'" type="button">Open</button>'+
+        (master ? ' <button class="btn ghost small" data-aren="'+esc(a.id)+'" type="button">Rename</button> <button class="btn danger small" data-adel="'+esc(a.id)+'" type="button">Delete</button>' : '')+
+        '</div></div>'+audProgressHTML(audCount(audPts(a.id)))+'</div>';
+    });
+    p.innerHTML = h; bindAudBack("menu");
+    function findA(id){ return audits.find(function(x){ return x.id === id; }); }
+    if(master) $("audAdd").onclick = function(){
+      var n = $("audName").value.trim(); if(!n){ $("audErr").textContent = "Enter the audit name."; return; }
+      var a = { id:uid(), name:n, created:Date.now() }; audits.push(a); audSave(a); render();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-aopen]"),function(b){ b.onclick = function(){ audSel = b.getAttribute("data-aopen"); maintView = "auditDet"; render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-aren]"),function(b){
+      b.onclick = function(){ var a = findA(b.getAttribute("data-aren")); if(!a) return;
+        openModal('<h3>Rename audit</h3><div class="field"><label for="arName">Audit name</label><input type="text" id="arName" maxlength="200" value="'+esc(a.name)+'"></div>'+
+          '<p class="error" id="arErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+        $("mNo").onclick = closeModal;
+        $("mOk").onclick = function(){ var n = $("arName").value.trim(); if(!n){ $("arErr").textContent = "Enter the audit name."; return; } a.name = n; closeModal(); audSave(a); render(); };
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-adel]"),function(b){
+      b.onclick = function(){ var id = b.getAttribute("data-adel"), a = findA(id); if(!a) return;
+        confirmModal("Delete the audit “"+a.name+"” and all its audit points?", function(){
+          state.audits = state.audits.filter(function(x){ return x.id !== id; }); state.audPts = state.audPts.filter(function(x){ return x.auditId !== id; });
+          ampSend({ action:"audDel", id:id }); render(); });
+      };
+    });
+  }
+
+  function renderAuditDetail(){
+    var p = $("panel"), master = isMaster(), a = (state.audits || []).find(function(x){ return x.id === audSel; });
+    if(!a){ maintView = "audit"; renderAuditList(); return; }
+    var pts = audPts(a.id).sort(function(x,y){ return (x.created||0)-(y.created||0); });
+    var h = '<div style="margin-bottom:10px"><button class="btn ghost small" id="aBack" type="button">&lsaquo; Audit Compliance</button></div>'+
+      '<div class="panel-head"><h3>'+esc(a.name)+'</h3></div><div class="audcard">'+audProgressHTML(audCount(pts), "Audit progress")+'</div>';
+    if(master) h += '<div class="assign-form"><h4>Add audit point</h4><div class="agrid">'+
+      '<div class="field span2"><label for="apDesc">Description</label><textarea id="apDesc" maxlength="1000" placeholder="Audit observation / point to be complied"></textarea></div>'+
+      '<div class="field"><label for="apDept">Department</label><select id="apDept"><option value="">Select department</option>'+AUD_DEPTS.map(function(d){ return '<option>'+esc(d)+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="apLink">Document link (SharePoint / OneDrive, optional)</label><input type="url" id="apLink" maxlength="1000" placeholder="https://…sharepoint.com/…"></div></div>'+
+      '<p class="error" id="apErr"></p><button class="btn" id="apAdd" type="button">Add audit point</button></div>';
+    if(!pts.length) h += '<div class="empty">No audit points yet.'+(master ? ' Add the first one above.' : '')+'</div>';
+    else {
+      h += '<table class="atable"><thead><tr><th>#</th><th>Description</th><th>Department</th><th>Status</th><th>Document</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
+      pts.forEach(function(x,i){
+        h += '<tr class="'+(x.status==="closed"?"done":"")+'"><td data-label="#">'+(i+1)+'</td>'+
+          '<td data-label="Description"><span class="wt" style="white-space:pre-wrap">'+esc(x.desc)+'</span></td>'+
+          '<td data-label="Department">'+esc(x.dept)+'</td>'+
+          '<td data-label="Status"><select class="stsel" data-apst="'+esc(x.id)+'" aria-label="Status">'+stOpts(AUD_ST, x.status)+'</select>'+
+            (x.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(x.updatedBy)+(x.updated ? ', '+esc(fmtStamp(x.updated)) : '')+'</small>' : '')+'</td>'+
+          '<td data-label="Document">'+(okLink(x.link) ? '<a class="doclink" href="'+esc(x.link)+'" target="_blank" rel="noopener noreferrer">Open document</a><br>' : '<span style="color:var(--muted)">No document</span><br>')+
+            '<button class="btn ghost small" data-aplk="'+esc(x.id)+'" type="button">'+(x.link ? 'Change link' : 'Add link')+'</button></td>'+
+          (master ? '<td class="act"><button class="btn ghost small" data-aped="'+esc(x.id)+'" type="button">Edit</button> <button class="btn danger small" data-apdel="'+esc(x.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
+      });
+      h += '</tbody></table>';
+    }
+    p.innerHTML = h; bindAudBack("audit");
+    function findP(id){ return (state.audPts || []).find(function(x){ return x.id === id; }); }
+    if(master) $("apAdd").onclick = function(){
+      var d = $("apDesc").value.trim(), dp = $("apDept").value, lk = $("apLink").value.trim(), err = $("apErr");
+      if(!d){ err.textContent = "Enter the description."; return; }
+      if(!dp){ err.textContent = "Select the department."; return; }
+      if(lk && !okLink(lk)){ err.textContent = "The document link must start with https://"; return; }
+      var x = { id:uid(), auditId:a.id, desc:d, dept:dp, status:"open", link:lk, created:Date.now(), updated:Date.now(), updatedBy: session ? (session.displayName || session.id) : "" };
+      state.audPts.push(x); apSave(x); render();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-apst]"),function(s){
+      s.onchange = function(){ var x = findP(s.getAttribute("data-apst")); if(!x) return; x.status = s.value; apUpdate(x); render(); };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-aplk]"),function(b){
+      b.onclick = function(){ var x = findP(b.getAttribute("data-aplk")); if(!x) return;
+        openModal('<h3>Document link</h3><p style="margin-top:0;white-space:pre-wrap">'+esc(x.desc)+'</p>'+
+          '<div class="field"><label for="alUrl">SharePoint / OneDrive link</label><input type="url" id="alUrl" maxlength="1000" placeholder="https://…" value="'+esc(x.link||"")+'"></div>'+
+          '<p style="color:var(--muted);font-size:.85rem;margin-top:-6px">Upload the document to SharePoint / OneDrive, copy its share link and paste it here. Leave empty to remove the link.</p>'+
+          '<p class="error" id="alErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save link</button></div>');
+        $("alUrl").focus(); $("mNo").onclick = closeModal;
+        $("mOk").onclick = function(){ var l = $("alUrl").value.trim(); if(l && !okLink(l)){ $("alErr").textContent = "The link must start with https://"; return; } x.link = l; closeModal(); apUpdate(x); render(); };
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-aped]"),function(b){
+      b.onclick = function(){ var x = findP(b.getAttribute("data-aped")); if(!x) return;
+        openModal('<h3>Edit audit point</h3><div class="field"><label for="aeDesc">Description</label><textarea id="aeDesc" maxlength="1000">'+esc(x.desc)+'</textarea></div>'+
+          '<div class="field"><label for="aeDept">Department</label><select id="aeDept">'+AUD_DEPTS.map(function(d){ return '<option'+(d===x.dept?' selected':'')+'>'+esc(d)+'</option>'; }).join("")+'</select></div>'+
+          '<div class="field"><label for="aeSt">Status</label><select id="aeSt">'+stOpts(AUD_ST, x.status)+'</select></div>'+
+          '<div class="field"><label for="aeLink">Document link</label><input type="url" id="aeLink" maxlength="1000" value="'+esc(x.link||"")+'"></div>'+
+          '<p class="error" id="aeErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
+        $("mNo").onclick = closeModal;
+        $("mOk").onclick = function(){
+          var d = $("aeDesc").value.trim(), lk = $("aeLink").value.trim();
+          if(!d){ $("aeErr").textContent = "Description cannot be empty."; return; }
+          if(lk && !okLink(lk)){ $("aeErr").textContent = "The link must start with https://"; return; }
+          x.desc = d; x.dept = $("aeDept").value; x.status = $("aeSt").value; x.link = lk; x.updated = Date.now(); x.updatedBy = session ? (session.displayName || session.id) : "";
+          closeModal(); apSave(x); render();
+        };
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-apdel]"),function(b){
+      b.onclick = function(){ var id = b.getAttribute("data-apdel");
+        confirmModal("Delete this audit point?", function(){ state.audPts = state.audPts.filter(function(x){ return x.id !== id; }); ampSend({ action:"audPtDel", id:id }); render(); }); };
     });
   }
 
@@ -2712,7 +2889,7 @@
       var d = $("adDate").value; if(!d){ $("adErr2").textContent = "Select a date."; return; }
       var txt = ("Assigned by "+empName(a.by)+": "+a.text+(a.remarks ? " ("+a.remarks+")" : "")).slice(0,300);
       if(e.works.some(function(w){ return w.date === d && w.text === txt; })){ $("adErr2").textContent = "This work is already in the list for that date."; return; }
-      var w = { id:uid(), text:txt, date:d, done:false, doneAt:null, movedFrom:"", comment:"", created:Date.now() };
+      var w = { id:uid(), text:txt, date:d, done:false, doneAt:null, movedFrom:"", comment:"", created:Date.now(), priority:(a.priority==="high"||a.priority==="urgent")?a.priority:"normal" };
       e.works.push(w); closeModal(); commit([wput(e,w)]); render();
     };
   }
@@ -2747,13 +2924,13 @@
   /* ---------- Search & date range of one employee's worklist ---------- */
   var rg = { from:"", to:"", q:"", st:"all", init:false };
   function rgWords(q){ return String(q||"").toLowerCase().split(/\s+/).filter(Boolean); }
-  function rgFilter(e){
-    var words = rgWords(rg.q);
+  function rgFilter(e, r){
+    r = r || rg; var words = rgWords(r.q);
     return e.works.filter(function(w){
-      if(rg.from && w.date < rg.from) return false;
-      if(rg.to && w.date > rg.to) return false;
-      if(rg.st === "done" && !w.done) return false;
-      if(rg.st === "pending" && w.done) return false;
+      if(r.from && w.date < r.from) return false;
+      if(r.to && w.date > r.to) return false;
+      if(r.st === "done" && !w.done) return false;
+      if(r.st === "pending" && w.done) return false;
       if(words.length){
         var hay = (String(w.text||"")+" "+String(w.comment||"")).toLowerCase();
         for(var i=0;i<words.length;i++) if(hay.indexOf(words[i]) < 0) return false;
@@ -2766,8 +2943,9 @@
     var re = new RegExp("("+words.map(function(w){ return w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"); }).join("|")+")","gi");
     return t.split(re).map(function(x,i){ return i%2 ? '<mark>'+esc(x)+'</mark>' : esc(x); }).join("");
   }
-  function rgPeriod(){
-    return (!rg.from && !rg.to) ? "All dates" : (rg.from ? fmtDate(rg.from) : "Beginning")+" to "+(rg.to ? fmtDate(rg.to) : "Latest");
+  function rgPeriod(r){
+    r = r || rg;
+    return (!r.from && !r.to) ? "All dates" : (r.from ? fmtDate(r.from) : "Beginning")+" to "+(r.to ? fmtDate(r.to) : "Latest");
   }
   function rgRows(list, words, forPrint){
     var h = "", last = "";
@@ -2778,12 +2956,12 @@
         h += '<tr class="rgday"><td colspan="'+(forPrint?5:4)+'">'+esc(dayLabel(w.date))+' &nbsp;<small>('+n+' work'+(n>1?'s':'')+')</small></td></tr>';
       }
       if(forPrint){
-        h += '<tr><td>'+(i+1)+'</td><td class="l">'+hl(w.text,words)+(w.movedFrom ? '<br><small>Transferred from '+esc(fmtDate(w.movedFrom))+'</small>' : '')+'</td>'+
+        h += '<tr><td>'+(i+1)+'</td><td class="l"><span'+wpriPrint(w)+'>'+hl(w.text,words)+'</span>'+(w.movedFrom ? '<br><small>Transferred from '+esc(fmtDate(w.movedFrom))+'</small>' : '')+'</td>'+
           '<td class="'+(w.done?'ok':'')+'">'+(w.done?'Done':'Pending')+'</td><td>'+(w.done && w.doneAt ? esc(fmtStamp(w.doneAt)) : '–')+'</td>'+
           '<td class="l">'+(w.done && w.comment ? hl(w.comment,words) : '')+'</td></tr>';
       } else {
         h += '<tr class="'+(w.done?"done":"")+'"><td class="chk">'+(w.done?'&#10003;':'')+'</td>'+
-          '<td class="txt"><span class="wt">'+hl(w.text,words)+'</span>'+
+          '<td class="txt"><span class="wt wp-'+wpri(w)+'">'+hl(w.text,words)+'</span>'+wpriTag(w)+
             (w.movedFrom?'<span class="moved">Transferred from '+fmtDate(w.movedFrom)+'</span>':'')+
             (w.done&&w.doneAt?'<span class="doneat">Completed '+fmtStamp(w.doneAt)+'</span>':'')+
             (w.done&&w.comment?'<span class="cmt">Comment: '+hl(w.comment,words)+'</span>':'')+'</td>'+
@@ -2793,19 +2971,20 @@
     });
     return h;
   }
-  function rangeExport(e){
-    if(rg.from && rg.to && rg.from > rg.to){ alert("The From date is after the To date."); return; }
-    var list = rgFilter(e), words = rgWords(rg.q);
+  function rangeExport(e, r){
+    r = r || rg;
+    if(r.from && r.to && r.from > r.to){ alert("The From date is after the To date."); return; }
+    var list = rgFilter(e, r), words = rgWords(r.q);
     if(!list.length){ alert("No works match the selected dates, status and search."); return; }
     var done = list.filter(function(w){ return w.done; }).length;
     var filt = [];
-    if(rg.st !== "all") filt.push("Status: "+(rg.st === "done" ? "Done" : "Pending"));
-    if(String(rg.q).trim()) filt.push("Search: "+esc(String(rg.q).trim()));
-    var body = docHead('KOZHIKODE SS &ndash; Work List', esc(e.name)+(e.desig ? ' ('+esc(e.desig)+')' : '')+' &nbsp;|&nbsp; Period: '+esc(rgPeriod())+(filt.length ? ' &nbsp;|&nbsp; '+filt.join(' &nbsp;|&nbsp; ') : ''))+
+    if(r.st !== "all") filt.push("Status: "+(r.st === "done" ? "Done" : "Pending"));
+    if(String(r.q).trim()) filt.push("Search: "+esc(String(r.q).trim()));
+    var body = docHead('KOZHIKODE SS &ndash; Work List', esc(e.name)+(e.desig ? ' ('+esc(e.desig)+')' : '')+' &nbsp;|&nbsp; Period: '+esc(rgPeriod(r))+(filt.length ? ' &nbsp;|&nbsp; '+filt.join(' &nbsp;|&nbsp; ') : ''))+
       '<p class="sm">Total works: <b>'+list.length+'</b> &nbsp;|&nbsp; Completed: <b>'+done+'</b> &nbsp;|&nbsp; Pending: <b>'+(list.length-done)+'</b></p>'+
       '<table><thead><tr><th style="width:5%">#</th><th>Work details</th><th style="width:11%">Status</th><th style="width:17%">Completed on</th><th style="width:26%">Comment</th></tr></thead><tbody>'+rgRows(list, words, true)+'</tbody></table>'+
       '<div class="sg"><div>Employee</div><div>Verified by</div></div>'+docFoot();
-    printDoc("Work_List_"+e.name.replace(/[^A-Za-z0-9]+/g,"_")+"_"+(rg.from ? fmtDate(rg.from) : "start")+"_to_"+(rg.to ? fmtDate(rg.to) : "latest"), listCss(false)+'tr.rgday td{background:#e8edf2;font-weight:700;text-align:left}mark{background:#ffe9a8}', body);
+    printDoc("Work_List_"+e.name.replace(/[^A-Za-z0-9]+/g,"_")+"_"+(r.from ? fmtDate(r.from) : "start")+"_to_"+(r.to ? fmtDate(r.to) : "latest"), listCss(false)+'tr.rgday td{background:#e8edf2;font-weight:700;text-align:left}mark{background:#ffe9a8}', body);
   }
   function rangeView(e, p, h){
     if(!rg.init){ rg.init = true; rg.to = today(); rg.from = addDays(today(), -30); rg.q = ""; rg.st = "all"; }
@@ -2853,13 +3032,67 @@
     draw();
   }
 
+
+  /* ---------- Miscellaneous tab: export any employee's worklist for a date range ---------- */
+  var misc = { empId:"", from:"", to:"", st:"all", q:"", init:false };
+  function renderMisc(){
+    var p = $("panel");
+    var h = '<div class="panel-head"><h3>Miscellaneous</h3></div>'+
+            '<h4 style="margin:0 0 4px">Export employee worklist</h4>'+
+            '<p style="margin:0 0 12px;color:var(--muted);font-size:.9rem">Choose an employee and a date range, then export the worklist as a PDF.</p>';
+    if(!state.employees.length){ p.innerHTML = h+'<div class="empty">No employees yet.</div>'; return; }
+    if(!misc.init){ misc.init = true; misc.to = today(); misc.from = addDays(today(), -30); }
+    if(!state.employees.some(function(x){ return x.id === misc.empId; })) misc.empId = state.employees[0].id;
+    h += '<div class="rgbar">'+
+      '<div class="field grow"><label for="miEmp">Employee</label><select id="miEmp">'+
+        state.employees.map(function(x){ return '<option value="'+esc(x.id)+'"'+(x.id===misc.empId?' selected':'')+'>'+esc(x.name)+(x.desig?' ('+esc(x.desig)+')':'')+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="miFrom">From</label><input type="date" id="miFrom" value="'+esc(misc.from)+'"></div>'+
+      '<div class="field"><label for="miTo">To</label><input type="date" id="miTo" value="'+esc(misc.to)+'"></div>'+
+      '<div class="field"><label for="miSt">Status</label><select id="miSt">'+
+        ['all','pending','done'].map(function(k){ return '<option value="'+k+'"'+(misc.st===k?' selected':'')+'>'+k.charAt(0).toUpperCase()+k.slice(1)+'</option>'; }).join("")+'</select></div>'+
+      '</div>'+
+      '<div class="rgq"><button class="btn ghost small" type="button" data-mq="month">This month</button>'+
+      '<button class="btn ghost small" type="button" data-mq="30">Last 30 days</button>'+
+      '<button class="btn ghost small" type="button" data-mq="90">Last 90 days</button>'+
+      '<button class="btn ghost small" type="button" data-mq="all">All dates</button>'+
+      '<button class="btn small" id="miExport" type="button">Export PDF</button></div>'+
+      '<div class="stats" id="miSum" style="margin-bottom:8px"></div><div id="miRes"></div>';
+    p.innerHTML = h;
+    function cur(){ return emp(misc.empId); }
+    function draw(){
+      var sum = $("miSum"), res = $("miRes"), e = cur(); if(!sum || !res || !e) return;
+      if(misc.from && misc.to && misc.from > misc.to){ sum.innerHTML = ''; res.innerHTML = '<div class="empty">The From date is after the To date.</div>'; return; }
+      var list = rgFilter(e, misc), done = list.filter(function(w){ return w.done; }).length, MAX = 300;
+      sum.innerHTML = '<span>Period <b>'+esc(rgPeriod(misc))+'</b></span><span>Works <b>'+list.length+'</b></span><span>Done <b>'+done+'</b></span><span>Pending <b>'+(list.length-done)+'</b></span>';
+      if(!list.length){ res.innerHTML = '<div class="empty">No works for '+esc(e.name)+' in the selected dates.</div>'; return; }
+      res.innerHTML = '<table><thead><tr><th>Done</th><th>Work details</th><th>Status</th><th></th></tr></thead><tbody>'+rgRows(list.slice(0, MAX), [], false)+'</tbody></table>'+
+        (list.length > MAX ? '<p style="color:var(--muted);font-size:.85rem;margin-top:8px">Showing the first '+MAX+' of '+list.length+' works. Export PDF includes all.</p>' : '');
+      Array.prototype.forEach.call(res.querySelectorAll("[data-rgo]"),function(b){
+        b.onclick = function(){ activeTab = e.id; viewDate = b.getAttribute("data-rgo"); empView = "work"; filter = "all"; render(); };
+      });
+    }
+    function read(){ misc.empId = $("miEmp").value; misc.from = $("miFrom").value; misc.to = $("miTo").value; misc.st = $("miSt").value; draw(); }
+    ["miEmp","miFrom","miTo","miSt"].forEach(function(id){ $(id).addEventListener("change", read); });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-mq]"),function(b){
+      b.onclick = function(){
+        var k = b.getAttribute("data-mq"), t = today();
+        if(k === "all"){ misc.from = ""; misc.to = ""; }
+        else if(k === "month"){ misc.from = t.slice(0,8)+"01"; misc.to = t; }
+        else { misc.from = addDays(t, -Number(k)); misc.to = t; }
+        $("miFrom").value = misc.from; $("miTo").value = misc.to; draw();
+      };
+    });
+    $("miExport").onclick = function(){ read(); var e = cur(); if(e) rangeExport(e, misc); };
+    draw();
+  }
+
   /* Daily work list of ONE employee for the selected date */
   function workExport(e, d){
     var list = e.works.filter(function(w){ return w.date === d; }).sort(function(a,b){ return a.created-b.created; });
     if(!list.length){ alert("No work has been entered for "+fmtDate(d)+"."); return; }
     var done = list.filter(function(w){ return w.done; }).length;
     var rows = list.map(function(w,i){
-      return '<tr><td>'+(i+1)+'</td><td class="l">'+esc(w.text)+(w.movedFrom ? '<br><small>Transferred from '+esc(fmtDate(w.movedFrom))+'</small>' : '')+'</td>'+
+      return '<tr><td>'+(i+1)+'</td><td class="l"><span'+wpriPrint(w)+'>'+esc(w.text)+'</span>'+(wpri(w)!=="normal" ? ' <small'+wpriPrint(w)+'>['+WP_LABEL[wpri(w)]+']</small>' : '')+(w.movedFrom ? '<br><small>Transferred from '+esc(fmtDate(w.movedFrom))+'</small>' : '')+'</td>'+
         '<td class="'+(w.done?'ok':'')+'">'+(w.done?'Done':'Pending')+'</td><td>'+(w.done && w.doneAt ? esc(fmtStamp(w.doneAt)) : '–')+'</td>'+
         '<td class="l">'+(w.done && w.comment ? esc(w.comment) : '')+'</td></tr>';
     }).join("");
@@ -3066,17 +3299,24 @@
       '<option value="1"'+(cur>0?' selected':'')+'>Late &ndash; extra hours (overtime)</option><option value="-1"'+(cur<0?' selected':'')+'>Early &ndash; less hours</option></select></div>'+
       '<div class="field" id="hhWrap"'+(cur ? '' : ' style="display:none"')+'><label for="hhVal">Hours (e.g. 1.5 for 1 h 30 min)</label>'+
       '<input type="number" id="hhVal" min="0.25" max="24" step="0.25" inputmode="decimal" value="'+(cur ? hrsNum(cur) : '')+'"></div>'+
-      '<p class="error" id="hhErr"></p><div class="row"><button class="btn ghost" id="hhNo" type="button">Cancel</button><button class="btn" id="hhOk" type="button">Save</button></div>');
+      '<p class="error" id="hhErr"></p><div class="row"><button class="btn ghost" id="hhNo" type="button">Cancel</button><button class="btn ghost" id="hhOk" type="button">Add to update</button><button class="btn" id="hhSave" type="button">Save update</button></div>'+
+      '<p style="margin:8px 0 0;color:var(--muted);font-size:.85rem"><b>Save update</b> saves the hours and the day\u2019s update now. <b>Add to update</b> keeps the hours and lets you continue editing &ndash; press &ldquo;Save updates&rdquo; at the bottom later.</p>');
     $("hhDir").onchange = function(){ $("hhWrap").style.display = $("hhDir").value === "0" ? "none" : ""; };
     $("hhNo").onclick = function(){
       if(d.need){ d.status = "OPEN"; d.hrs = null; d.need = false; }   // not answered: work stays OPEN
       closeModal(); renderPanel();
     };
-    $("hhOk").onclick = function(){
+    function applyHrs(thenSave){
       var dir = +$("hhDir").value, v = 0;
       if(dir !== 0){ v = parseFloat($("hhVal").value); if(!(v > 0) || v > 24){ $("hhErr").textContent = "Enter the hours (more than 0 and up to 24)."; return; } }
       d.hrs = r2(dir*v); d.need = false; closeModal(); renderPanel();
-    };
+      if(thenSave){
+        var sv = $("adSave"); if(sv) sv.click();       // same save as the "Save updates" button
+        var er = $("adErr"); if(er && er.textContent && er.scrollIntoView) er.scrollIntoView({ block:"center" });
+      }
+    }
+    $("hhOk").onclick = function(){ applyHrs(false); };
+    $("hhSave").onclick = function(){ applyHrs(true); };
   }
   function amcDailyHTML(edit){
     var staff = (state.amcStaff||[]).filter(function(s){ return edit || amcFilter === "all" || s.contractId === amcFilter; });
@@ -3488,6 +3728,7 @@
     if(activeTab === "proc"){ renderProc(); return; }
     if(activeTab === "amp"){ renderAmp(); return; }
     if(activeTab === "amc"){ renderAmc(); return; }
+    if(activeTab === "misc"){ renderMisc(); return; }
     if(activeTab === "contracts"){ contractsModal(); activeTab = "home"; return; }
     if(isSupport()){ renderSupportHome(); return; }
     var e = emp(activeTab), p = $("panel");
@@ -3558,6 +3799,7 @@
 
     if(canW) h += '<div class="add-row">'+
          '<div class="field"><label for="wText">Add work for '+fmtDate(viewDate)+'</label><input type="text" id="wText" placeholder="e.g. Inspect 33 kV breaker, feeder 2" maxlength="300"></div>'+
+         '<div class="field"><label for="wPri">Priority</label><select id="wPri">'+wpriOptions("normal")+'</select></div>'+
          '<button class="btn" id="wAdd" type="button">Add work</button></div>';
 
     h += '<div class="filters">'+
@@ -3567,7 +3809,11 @@
 
     var list = dayWorks.filter(function(w){
       return filter==="all" || (filter==="done"?w.done:!w.done);
-    }).sort(function(a,b){ return a.created-b.created; });
+    }).sort(function(a,b){
+      if(!!a.done !== !!b.done) return a.done ? 1 : -1;          // completed works go to the bottom
+      if(a.done) return (a.doneAt||0)-(b.doneAt||0) || a.created-b.created;   // ...in the order they were completed
+      return a.created-b.created;
+    });
 
     if(!list.length){
       h += '<div class="empty">'+(total? "No works match this filter." : "No work entered for "+fmtDate(viewDate)+". Add the first work above.")+'</div>';
@@ -3576,7 +3822,7 @@
       list.forEach(function(w){
         h += '<tr class="'+(w.done?"done":"")+'">'+
           '<td class="chk"><input type="checkbox" data-done="'+esc(w.id)+'" '+(w.done?"checked":"")+(canW?'':' disabled')+' aria-label="Mark complete"></td>'+
-          '<td class="txt"><span class="wt">'+esc(w.text)+'</span>'+
+          '<td class="txt"><span class="wt wp-'+wpri(w)+'">'+esc(w.text)+'</span>'+wpriTag(w)+
             (w.movedFrom?'<span class="moved">Transferred from '+fmtDate(w.movedFrom)+'</span>':'')+
             (w.done&&w.doneAt?'<span class="doneat">Completed '+fmtStamp(w.doneAt)+'</span>':'')+
             (w.done&&w.comment?'<span class="cmt">Comment: '+esc(w.comment)+'</span>':'')+'</td>'+
@@ -3613,9 +3859,10 @@
     function addWork(){
       var t = $("wText").value.trim();
       if(!t){ $("wText").focus(); return; }
-      var w = { id: uid(), text: t, date: viewDate, done:false, doneAt:null, movedFrom:"", comment:"", created: Date.now() };
+      var w = { id: uid(), text: t, date: viewDate, done:false, doneAt:null, movedFrom:"", comment:"", created: Date.now(), priority: $("wPri").value };
       e.works.push(w);
       commit([wput(e,w)]); render();
+      $("wPri").value = "normal";
       $("wText").focus();
     }
     if(canW){
@@ -3745,12 +3992,13 @@
     openModal('<h3>Edit work</h3>'+
       (isMaster()?'<div class="field"><label for="eDate">Date</label><input type="date" id="eDate" value="'+esc(w.date)+'"></div>':'')+
       '<div class="field"><label for="eText">Work details</label><input type="text" id="eText" maxlength="300" value="'+esc(w.text)+'"></div>'+
+      '<div class="field"><label for="ePriW">Priority</label><select id="ePriW">'+wpriOptions(wpri(w))+'</select></div>'+
       '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
     $("eText").focus();
     $("mNo").onclick = closeModal;
     $("mOk").onclick = function(){
       var t = $("eText").value.trim(); if(!t) return;
-      w.text = t; if(isMaster() && $("eDate")) w.date = $("eDate").value || w.date;
+      w.text = t; w.priority = $("ePriW").value; if(isMaster() && $("eDate")) w.date = $("eDate").value || w.date;
       closeModal(); commit([wput(e,w)]); render();
     };
   }
