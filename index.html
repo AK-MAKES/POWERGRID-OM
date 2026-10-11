@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KOZHIKODE SS – POWERGRID</title>
+<title>OFFICE MANAGER</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1f3a52">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="OFFICE MANAGER-DEVELOPED BY AMIT KUMAR">
+<meta name="apple-mobile-web-app-title" content="OFFICE MANAGER">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -455,7 +455,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.19";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.20";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -480,7 +480,7 @@
   var loginRole = "user";
   var viewDate = today();
   var version = 0;              // bumps on every local change
-  var queue = [], flushing = false, lastText = "", pendingRefresh = null, pollTimer = null;
+  var queue = [], flushing = false, lastText = "", pendingRefresh = null, pollTimer = null, lastTok = "", lastFullAt = 0, pullBusy = 0;
 
   /* ---------- Helpers ---------- */
   var $ = function(id){ return document.getElementById(id); };
@@ -590,8 +590,10 @@
   /* ---------- Sync layer ---------- */
   function api(body){
     body.auth = auth;
-    return fetch(API_URL, { method: "POST", body: JSON.stringify(body) })
-      .then(function(r){ return r.text(); })
+    var ctl = null, tm = null;
+    if(body.action !== "ops" && typeof AbortController !== "undefined"){ ctl = new AbortController(); tm = setTimeout(function(){ ctl.abort(); }, 45000); }   // reads give up after 45 s (saves are never cut off)
+    return fetch(API_URL, { method: "POST", body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined })
+      .then(function(r){ if(tm) clearTimeout(tm); return r.text(); }, function(e){ if(tm) clearTimeout(tm); throw e; })
       .then(function(t){
         var j; try{ j = JSON.parse(t); }catch(e){ throw new Error("Bad response from server"); }
         if(!j.ok){ var er = new Error(j.error || "Server error"); er.server = true; throw er; }
@@ -687,14 +689,22 @@
   function pull(force){
     if(!SYNC || !auth) return;
     if(!force && (flushing || queue.length)) return;
+    if(pullBusy && Date.now() - pullBusy < 30000) return;       // the previous refresh is still on its way: do not pile up another one
+    pullBusy = Date.now();
     var v = version;
-    api({ action: "getAll" }).then(function(r){
+    var since = (lastTok && Date.now() - lastFullAt < 60000) ? lastTok : "";   // a full reload at least once a minute as a safety net
+    api({ action: "getAll", since: since }).then(function(r){
+      pullBusy = 0;
       if(!force && (v !== version || flushing || queue.length)) return;
       setStatus("ok");
-      if(r.text === lastText) return;
+      if(r.json.same){                                           // nothing changed on the server: only refresh the online count
+        if(r.json.online){ state.online = r.json.online; paintOnline(); }
+        return;
+      }
+      if(r.text === lastText){ lastTok = r.json.tok || ""; lastFullAt = Date.now(); return; }
       if(modalOpen()){ pendingRefresh = { r: r, v: version }; return; }
-      lastText = r.text; applyData(r.json.data); softRender();
-    }).catch(onSyncError);
+      lastText = r.text; lastTok = r.json.tok || ""; lastFullAt = Date.now(); applyData(r.json.data); softRender();
+    }).catch(function(err){ pullBusy = 0; onSyncError(err); });
   }
 
   function commit(ops){
@@ -717,7 +727,7 @@
       }
       if(queue.length){ flush(); return; }
       lastText = r.text; setStatus("ok");
-      if(!modalOpen()){ applyData(r.json.data); softRender(); }
+      if(!modalOpen()){ lastTok = r.json.tok || ""; lastFullAt = Date.now(); applyData(r.json.data); softRender(); } else { lastTok = ""; }
     }).catch(function(err){
       flushing = false;
       if(err.server && err.message !== "auth"){      // rejected by server: drop and resync
@@ -885,7 +895,7 @@
     auth = { role: loginRole, id: id, pass: pw };
     api({ action: "login" }).then(function(r){
       try{ sessionStorage.setItem("kss_auth", JSON.stringify(auth)); }catch(e){}
-      applyData(r.json.data); lastText = r.text;
+      applyData(r.json.data); lastText = r.text; lastTok = r.json.tok || ""; lastFullAt = Date.now();
       enterApp(r.json.role || auth.role, auth.id, r.json.user);
       if(r.json.ver && r.json.ver !== PAGE_VER && auth.role === "master"){
         setTimeout(function(){ try{ alert("VERSION MISMATCH\n\nThis page is " + PAGE_VER + " but the Google Apps Script is " + r.json.ver + ".\n\nIf the server is older: paste the latest Code.gs and Deploy > Manage deployments > New version.\nIf the page is older: hard-refresh (Ctrl+F5) or re-upload the HTML to GitHub."); }catch(e){} }, 400);
@@ -961,7 +971,7 @@
     try{ sessionStorage.removeItem("kss_auth"); }catch(e){}
     closeModal();
     ampBusy = 0; ampText = ""; ampChain = Promise.resolve();
-    noticeShown = null; if(SYNC){ state = { employees: [], xfers: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], amcStaff: [], amcTransfers: [], amcEmployees: [], amcDaily: [], amcTemp: [], amcHours: [], amcAssignees: [], mandays: [], minWage: [], sched: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } }; lastText = ""; }
+    noticeShown = null; if(SYNC){ state = { employees: [], xfers: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], amcStaff: [], amcTransfers: [], amcEmployees: [], amcDaily: [], amcTemp: [], amcHours: [], amcAssignees: [], mandays: [], minWage: [], sched: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } }; lastText = ""; lastTok = ""; pullBusy = 0; }
     amcDraft = {}; amcTempDraft = {}; amcFilter = "all"; supView = "home"; amcDate = today();   /* nothing of the previous login (drafts, temporary labour) may reach the next login */
     $("appView").classList.add("hidden");
     noticeShown = null;
@@ -987,7 +997,7 @@
       if(saved){
         auth = { role: saved.role, id: saved.id, pass: saved.pass };
         api({ action: "login" }).then(function(r){
-          applyData(r.json.data); lastText = r.text; enterApp(r.json.role || auth.role, auth.id, r.json.user);
+          applyData(r.json.data); lastText = r.text; lastTok = r.json.tok || ""; lastFullAt = Date.now(); enterApp(r.json.role || auth.role, auth.id, r.json.user);
         }).catch(function(){ auth = null; });
       }
     }catch(e){}
