@@ -159,6 +159,26 @@
   textarea{width:100%;padding:10px 12px;border:1px solid #b9c3cc;border-radius:4px;font:inherit;resize:vertical;min-height:84px;background:#fff;color:var(--ink)}
   tr.done{background:#f6fbf8}
   .doneat{display:block;font-size:.78rem;color:var(--green);text-decoration:none}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1f3a52;color:#fff;padding:10px 16px;border-radius:8px;font-size:.9rem;z-index:99999;max-width:90vw;box-shadow:0 4px 14px rgba(0,0,0,.25);transition:opacity .6s}
+  .toast.off{opacity:0}
+  .clmbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:0 0 12px}
+  .clmchips{display:flex;gap:6px;flex-wrap:wrap}
+  .clmchips button{padding:5px 12px;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:.85rem;color:var(--steel)}
+  .clmchips button.on{background:var(--steel);color:#fff;border-color:var(--steel)}
+  .clm{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;margin:0 0 10px}
+  .clm-top{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:.88rem;color:var(--muted)}
+  .clm-top b{color:var(--steel);font-size:1rem}
+  .clm-type{margin-left:auto;background:#eef3f8;color:var(--steel);border-radius:999px;padding:2px 10px;font-size:.78rem;font-weight:600}
+  .clm-v{font-weight:600;margin:6px 0 2px}
+  .clm-v small{font-weight:400;color:var(--muted);margin-left:6px}
+  .clm-d{margin:0 0 4px;white-space:pre-wrap;overflow-wrap:anywhere}
+  .clm-q{color:var(--muted);white-space:nowrap}
+  .clm-rem{font-size:.85rem;color:var(--muted);margin:0 0 4px;white-space:pre-wrap}
+  .clm-act{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .clm-act select{padding:6px 8px;border-radius:6px;border:1px solid var(--line);font-weight:600}
+  .clm-act select[data-v="Not applied"]{color:#8a6500;background:#fff7e0}
+  .clm-act select[data-v="Applied"]{color:#1d4f91;background:#e8f1fc}
+  .clm-act select[data-v="Settled"]{color:#1b7f3b;background:#e6f5ea}
   [data-install]{display:none !important}
   html.can-install [data-install]{display:inline-block !important}
   .xin{border:1px solid #e3c76a;background:var(--amber-bg);border-radius:8px;padding:6px 12px;margin:0 0 10px}
@@ -206,6 +226,8 @@
 
   /* ---- employee view switch ---- */
   .viewsw{display:inline-flex;border:1px solid var(--steel);border-radius:6px;overflow:hidden;margin-bottom:14px}
+  .viewsw{max-width:100%;overflow-x:auto}
+  .viewsw button{white-space:nowrap}
   .viewsw button{padding:8px 18px;border:0;background:#fff;color:var(--steel);font-weight:600}
   .viewsw button.active{background:var(--steel);color:#fff}
   .panel-head + .viewsw{margin-top:0}
@@ -455,7 +477,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.20";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.22";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -527,17 +549,36 @@
          : v === "no"  ? '<span class="availchip" style="color:#b3261e;font-weight:600">&#9679; Not available today</span>'
          : '<span class="availchip" style="color:var(--muted)">&#9679; Availability not updated</span>';
   }
+  var availBusy = 0;
+  function toast(msg){
+    var t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
+    setTimeout(function(){ t.classList.add("off"); }, 3500); setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 4200);
+  }
+  /* The answer is shown at once; the server copy is saved in the background (retried quietly, reverted with a message only if every try fails). */
   function availSave(empId, yes, done, fail){
-    if(!SYNC){
-      state.avail = (state.avail || []).filter(function(a){ return !(a.empId === empId && a.date === today()); });
-      state.avail.push({ empId: empId, date: today(), available: !!yes });
-      saveLocal(); done(); return;
+    var prev = (state.avail || []).find(function(a){ return a.empId === empId && (SYNC || a.date === today()); });
+    state.avail = (state.avail || []).filter(function(a){ return a !== prev; });
+    state.avail.push({ empId: empId, date: today(), available: !!yes });
+    version++;                                         // any refresh already on its way is now out of date: ignore it
+    if(!SYNC){ saveLocal(); done(); return; }
+    availBusy++;
+    done();                                            // close the popup / update the screen immediately
+    var tries = 0;
+    function send(){
+      tries++;
+      api({ action: "availSet", empId: empId, available: !!yes }).then(function(){
+        availBusy--; lastTok = "";                     // next refresh confirms with the server
+      }).catch(function(err){
+        if(!(err && err.server) && tries < 3){ setTimeout(send, 3000); return; }       // network hiccup: retry quietly
+        availBusy--;
+        state.avail = state.avail.filter(function(a){ return !(a.empId === empId && a.date === today()); });
+        if(prev) state.avail.push(prev);
+        version++; render();
+        var m = "Availability was not saved" + (err && err.server && err.message ? ": " + err.message : " (no connection)") + ". Please try again.";
+        try{ toast(m); }catch(x){}
+      });
     }
-    api({ action: "availSet", empId: empId, available: !!yes }).then(function(r){
-      applyData(r.json.data);
-      if(!availOf(empId)){ fail("The server did not record this. Paste the new Code_v11.gs and deploy a New version."); return; }
-      done();
-    }).catch(function(err){ fail(err.server ? err.message : "Cannot reach the server."); });
+    send();
   }
   function availPrompt(){
     var me = myEmpId(); if(!me || availOf(me) || modalOpen()) return;
@@ -547,7 +588,7 @@
     var ov = $("ov"); if(ov) ov.parentNode.replaceChild(ov.cloneNode(true), ov);   // must answer: no close on outside click
     function pick(yes){
       $("avYes").disabled = true; $("avNo").disabled = true;
-      availSave(me, yes, function(){ closeModal(); render(); }, function(msg){ $("avErr").textContent = msg; $("avYes").disabled = false; $("avNo").disabled = false; });
+      availSave(me, yes, function(){ closeModal(); render(); }, function(){});
     }
     $("avYes").onclick = function(){ pick(true); };
     $("avNo").onclick = function(){ pick(false); };
@@ -688,14 +729,14 @@
   /* fetch the latest data; skips quietly if local changes are in flight */
   function pull(force){
     if(!SYNC || !auth) return;
-    if(!force && (flushing || queue.length)) return;
+    if(!force && (flushing || queue.length || availBusy)) return;
     if(pullBusy && Date.now() - pullBusy < 30000) return;       // the previous refresh is still on its way: do not pile up another one
     pullBusy = Date.now();
     var v = version;
     var since = (lastTok && Date.now() - lastFullAt < 60000) ? lastTok : "";   // a full reload at least once a minute as a safety net
     api({ action: "getAll", since: since }).then(function(r){
       pullBusy = 0;
-      if(!force && (v !== version || flushing || queue.length)) return;
+      if(!force && (v !== version || flushing || queue.length || availBusy)) return;
       setStatus("ok");
       if(r.json.same){                                           // nothing changed on the server: only refresh the online count
         if(r.json.online){ state.online = r.json.online; paintOnline(); }
@@ -971,7 +1012,7 @@
     try{ sessionStorage.removeItem("kss_auth"); }catch(e){}
     closeModal();
     ampBusy = 0; ampText = ""; ampChain = Promise.resolve();
-    noticeShown = null; if(SYNC){ state = { employees: [], xfers: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], amcStaff: [], amcTransfers: [], amcEmployees: [], amcDaily: [], amcTemp: [], amcHours: [], amcAssignees: [], mandays: [], minWage: [], sched: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } }; lastText = ""; lastTok = ""; pullBusy = 0; }
+    noticeShown = null; if(SYNC){ state = { employees: [], xfers: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], amcStaff: [], amcTransfers: [], amcEmployees: [], amcDaily: [], amcTemp: [], amcHours: [], amcAssignees: [], mandays: [], minWage: [], sched: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } }; lastText = ""; lastTok = ""; pullBusy = 0; claimsData = { claims: [], vendors: [], loaded: false }; claimBusy = 0; clFilter = "all"; }
     amcDraft = {}; amcTempDraft = {}; amcFilter = "all"; supView = "home"; amcDate = today();   /* nothing of the previous login (drafts, temporary labour) may reach the next login */
     $("appView").classList.add("hidden");
     noticeShown = null;
@@ -3681,6 +3722,252 @@
 
 
 
+  /* ---------- Claims (each employee sees only his own) + Vendor list (Master maintains) ---------- */
+  var CLAIM_TYPES = ["Imprest","Staff advance","Post facto","Audit expenses","HINDI","SAFETY","Other"];
+  var CLAIM_NAMED = ["Staff advance","Other"];                 // these ask the employee to type a name
+  var CLAIM_STATUS = ["Not applied","Applied","Settled"];
+  var BUSINESS = ["Electrical","Electronics","Snacks","Stationery","Hardware","Civil","Mechanical","Printing","Transport","Other"];
+  var claimsData = { claims: [], vendors: [], loaded: false }, claimBusy = 0, clFilter = "all", vnQ = "";
+  function claimFetch(){
+    if(!SYNC) return;
+    api({ action: "claimList" }).then(function(r){
+      if(claimBusy) return;
+      claimsData.claims = r.json.claims || []; claimsData.vendors = r.json.vendors || []; claimsData.loaded = true;
+      if(!modalOpen() && ((activeTab === myEmpId() && empView === "claims") || (activeTab === "misc" && miscView === "vendors"))) render();
+    }).catch(onSyncError);
+  }
+  /* saves in the background: the screen is already updated; quiet retries; only a final failure shows a message and reloads the truth */
+  function claimSend(body){
+    claimBusy++; var tries = 0;
+    (function go(){
+      tries++;
+      api(body).then(function(r){
+        claimBusy--;
+        if(!claimBusy){ claimsData.claims = r.json.claims || []; claimsData.vendors = r.json.vendors || []; if(!modalOpen()) render(); }
+      }).catch(function(err){
+        if(err && err.server && err.message === "auth"){ claimBusy--; onSyncError(err); return; }
+        if(!(err && err.server) && tries < 3){ setTimeout(go, 3000); return; }
+        claimBusy--;
+        try{ toast("Not saved" + (err && err.server && err.message ? ": " + err.message : " (no connection)") + "."); }catch(x){}
+        claimFetch();
+      });
+    })();
+  }
+  function vendorById(id){ return claimsData.vendors.find(function(v){ return v.id === id; }); }
+  function vendorInfo(v){ return v ? (v.registered === "Registered" ? "Registered &middot; GST "+esc(v.gst) : "Non registered")+(v.business ? " &middot; "+esc(v.business) : "")+(v.phone ? " &middot; "+esc(v.phone) : "") : ""; }
+  function claimTypeText(c){ return c.type + (c.typeName ? " – " + c.typeName : ""); }
+
+  function claimsView(e, p, h, done){
+    var L = claimsData.claims.slice().sort(function(a,b){ return b.serial - a.serial; });
+    var cnt = { "Not applied": 0, "Applied": 0, "Settled": 0 }; L.forEach(function(c){ cnt[c.status]++; });
+    var shown = clFilter === "all" ? L : L.filter(function(c){ return c.status === clFilter; });
+    h += '<div class="clmbar"><div class="clmchips">'+
+         [["all","All ("+L.length+")"],["Not applied","Not applied ("+cnt["Not applied"]+")"],["Applied","Applied ("+cnt["Applied"]+")"],["Settled","Settled ("+cnt["Settled"]+")"]].map(function(f){
+           return '<button type="button" data-clf="'+f[0]+'" class="'+(clFilter===f[0]?"on":"")+'">'+f[1]+'</button>'; }).join("")+'</div>'+
+         '<button class="btn" id="clNew" type="button">Add claim</button></div>';
+    if(!claimsData.loaded) h += '<div class="empty">Loading…</div>';
+    else if(!L.length) h += '<div class="empty">No claims yet. Tap <b>Add claim</b> to note a bill you have to claim.<br><small>Only you can see this list.</small></div>';
+    else if(!shown.length) h += '<div class="empty">No claims with this status.</div>';
+    else h += shown.map(function(c){
+      return '<div class="clm"><div class="clm-top"><b>#'+c.serial+'</b><span>'+fmtDate(c.date)+'</span><span class="clm-type">'+esc(claimTypeText(c))+'</span></div>'+
+        '<div class="clm-v">'+esc(c.vendorName)+'<small>'+vendorInfo(vendorById(c.vendorId))+'</small></div>'+
+        '<div class="clm-d">'+esc(c.desc)+' <span class="clm-q">&times; '+esc(c.qty)+'</span></div>'+
+        (c.remarks ? '<div class="clm-rem">'+esc(c.remarks)+'</div>' : '')+
+        '<div class="clm-act"><select data-clst="'+esc(c.id)+'" data-v="'+esc(c.status)+'" aria-label="Settlement status">'+
+          CLAIM_STATUS.map(function(s){ return '<option'+(s===c.status?' selected':'')+'>'+s+'</option>'; }).join("")+'</select>'+
+        '<button class="btn ghost small" data-cled="'+esc(c.id)+'" type="button">Edit</button>'+
+        '<button class="btn ghost small" data-cldel="'+esc(c.id)+'" type="button">Delete</button></div></div>';
+    }).join("");
+    p.innerHTML = h;
+    bindHead(e, done);
+    $("clNew").onclick = function(){ claimForm(null); };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-clf]"),function(b){ b.onclick = function(){ clFilter = b.getAttribute("data-clf"); render(); }; });
+    function byId(id){ return claimsData.claims.find(function(c){ return c.id === id; }); }
+    Array.prototype.forEach.call(p.querySelectorAll("[data-clst]"),function(s){
+      s.onchange = function(){ var c = byId(s.getAttribute("data-clst")); if(!c) return; c.status = s.value; render(); claimSend({ action: "claimPut", item: c }); };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-cled]"),function(b){ b.onclick = function(){ claimForm(byId(b.getAttribute("data-cled"))); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-cldel]"),function(b){
+      b.onclick = function(){ var c = byId(b.getAttribute("data-cldel")); if(!c) return;
+        confirmModal("Delete claim #"+c.serial+" ("+c.vendorName+")?", function(){
+          claimsData.claims = claimsData.claims.filter(function(x){ return x.id !== c.id; }); render(); claimSend({ action: "claimDel", id: c.id }); }); };
+    });
+  }
+
+  function claimForm(c){
+    var isNew = !c, d = c || { id: uid(), date: today(), type: "", typeName: "", vendorId: "", desc: "", qty: "", status: "Not applied", remarks: "" };
+    var nextNo = claimsData.claims.reduce(function(m, x){ return Math.max(m, x.serial); }, 0) + 1;
+    openModal('<h3>'+(isNew ? 'Add claim' : 'Edit claim #'+d.serial)+'</h3>'+
+      '<div class="field"><label>Sl. no.</label><input type="text" value="'+(isNew ? nextNo+' (automatic)' : d.serial)+'" disabled></div>'+
+      '<div class="field"><label for="clDate">Date</label><input type="date" id="clDate" value="'+esc(d.date)+'"></div>'+
+      '<div class="field"><label for="clType">Claim type</label><select id="clType"><option value="">Select</option>'+
+        CLAIM_TYPES.map(function(t){ return '<option'+(t===d.type?' selected':'')+'>'+t+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field" id="clNameF"><label for="clName">Name for this claim</label><input type="text" id="clName" maxlength="60" placeholder="e.g. Tour advance, Diwali cleaning" value="'+esc(d.typeName)+'"></div>'+
+      '<div class="field"><label for="clVen">Vendor</label><select id="clVen"><option value="">Select vendor</option>'+
+        claimsData.vendors.map(function(v){ return '<option value="'+esc(v.id)+'"'+(v.id===d.vendorId?' selected':'')+'>'+esc(v.name)+'</option>'; }).join("")+'</select>'+
+        '<small id="clVenInfo" style="display:block;color:var(--muted);margin-top:4px">'+(claimsData.vendors.length ? vendorInfo(vendorById(d.vendorId)) : 'No vendors yet. Ask Master to add them.')+'</small></div>'+
+      '<div class="field"><label for="clDesc">Material description</label><textarea id="clDesc" maxlength="500">'+esc(d.desc)+'</textarea></div>'+
+      '<div class="field"><label for="clQty">Quantity</label><input type="text" id="clQty" maxlength="30" placeholder="e.g. 5 nos" value="'+esc(d.qty)+'"></div>'+
+      '<div class="field"><label for="clStat">Settlement status</label><select id="clStat">'+
+        CLAIM_STATUS.map(function(s){ return '<option'+(s===d.status?' selected':'')+'>'+s+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="clRem">Remarks (optional)</label><textarea id="clRem" maxlength="500">'+esc(d.remarks)+'</textarea></div>'+
+      '<p class="error" id="clErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+    function nameShow(){ $("clNameF").style.display = CLAIM_NAMED.indexOf($("clType").value) >= 0 ? "" : "none"; }
+    nameShow();
+    $("clType").onchange = nameShow;
+    $("clVen").onchange = function(){ $("clVenInfo").innerHTML = vendorInfo(vendorById(this.value)); };
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var er = $("clErr"), v = vendorById($("clVen").value), type = $("clType").value, name = $("clName").value.trim();
+      var date = $("clDate").value, desc = $("clDesc").value.trim(), qty = $("clQty").value.trim();
+      if(!date){ er.textContent = "Pick a date."; return; }
+      if(!type){ er.textContent = "Select the claim type."; return; }
+      if(CLAIM_NAMED.indexOf(type) >= 0 && !name){ er.textContent = "Enter a name for this "+type+" claim."; return; }
+      if(!v){ er.textContent = "Select a vendor."; return; }
+      if(!desc){ er.textContent = "Enter the material description."; return; }
+      if(!qty){ er.textContent = "Enter the quantity."; return; }
+      var item = { id: d.id, serial: isNew ? nextNo : d.serial, date: date, type: type, typeName: CLAIM_NAMED.indexOf(type) >= 0 ? name : "", vendorId: v.id, vendorName: v.name,
+                   desc: desc, qty: qty, status: $("clStat").value, remarks: $("clRem").value.trim(), created: d.created || Date.now() };
+      claimsData.claims = claimsData.claims.filter(function(x){ return x.id !== item.id; }).concat([item]);
+      closeModal(); render();                               // shown at once; saved in the background
+      claimSend({ action: "claimPut", item: item });
+    };
+  }
+
+  /* ---------- Vendor list <-> Excel (Master) ---------- */
+  var VN_COLS = ["Vendor name","GST registration","GST number","Type of business","Phone no.","Address"];
+  function vendorExcelDownload(err){
+    loadXLSX(function(){
+      var X = window.XLSX, rows = [VN_COLS];
+      claimsData.vendors.forEach(function(v){ rows.push([v.name, v.registered, v.gst, v.business, v.phone, v.address]); });
+      var ws = X.utils.aoa_to_sheet(rows); ws["!cols"] = [30,18,18,20,16,44].map(function(w){ return { wch: w }; });
+      var help = X.utils.aoa_to_sheet([["How to fill this sheet"],
+        ["Keep the first row of the Vendors sheet (the headings) as it is. One vendor per row."],
+        ["Vendor name: required. A name that is already in the list is updated instead of added again."],
+        ["GST registration: Registered or Non registered. If left blank, it is taken as Registered when a GST number is given."],
+        ["GST number: required (15 characters) for Registered vendors; ignored for Non registered."],
+        ["Type of business, Phone no., Address: optional."],
+        ["Upload the file with the Upload Excel button on the Vendor list screen. You see a preview before anything is saved."]]);
+      help["!cols"] = [{ wch: 110 }];
+      var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Vendors"); X.utils.book_append_sheet(wb, help, "How to fill");
+      X.writeFile(wb, claimsData.vendors.length ? "Vendors_"+today()+".xlsx" : "Vendors_template.xlsx");
+      err("");
+    }, function(){ err("Could not load the Excel library. Check your internet connection and try again."); });
+  }
+  function vnKey(s){ return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, ""); }
+  function parseVendorWorkbook(buf){
+    var X = window.XLSX, wb = X.read(buf, { type: "array" });
+    var sn = wb.SheetNames.indexOf("Vendors") >= 0 ? "Vendors" : wb.SheetNames[0];
+    if(!sn) throw new Error("The file has no sheet.");
+    var data = X.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: "", raw: false, blankrows: false });
+    var ALIAS = { name: ["vendorname","name","vendor"], reg: ["gstregistration","registration","registered","gstregistered","gststatus"], gst: ["gstnumber","gstno","gstin","gst"],
+                  business: ["typeofbusiness","business","businesstype","type"], phone: ["phoneno","phone","phonenumber","mobile","mobileno","contact","contactno"], address: ["address"] };
+    var hr = -1, col = {};
+    for(var r = 0; r < Math.min(data.length, 6) && hr < 0; r++){
+      var m = {}; data[r].forEach(function(c, i){ var k = vnKey(c); Object.keys(ALIAS).forEach(function(f){ if(m[f] === undefined && ALIAS[f].indexOf(k) >= 0) m[f] = i; }); });
+      if(m.name !== undefined){ hr = r; col = m; }
+    }
+    if(hr < 0) throw new Error("Could not find the \"Vendor name\" column. Use the Excel from the Download Excel button.");
+    var existing = {}; claimsData.vendors.forEach(function(v){ existing[v.name.trim().toLowerCase()] = v; });
+    var seen = {}, items = [], errors = [], nNew = 0, nUpd = 0;
+    function cell(row, f){ return col[f] === undefined ? "" : String(row[col[f]] == null ? "" : row[col[f]]).trim(); }
+    for(var i = hr + 1; i < data.length; i++){
+      var row = data[i], name = cell(row, "name");
+      if(!row.some(function(c){ return String(c).trim() !== ""; })) continue;
+      var rn = i + 1;
+      if(items.length + errors.length >= 500){ errors.push("Only the first 500 rows are read."); break; }
+      if(!name){ errors.push("Row "+rn+": vendor name is empty."); continue; }
+      if(seen[name.toLowerCase()]){ errors.push("Row "+rn+": \""+name+"\" is repeated (first on row "+seen[name.toLowerCase()]+")."); continue; }
+      var gst = cell(row, "gst").toUpperCase().replace(/\s+/g, ""), rg = cell(row, "reg").toLowerCase(), reg;
+      if(/^(non|un|no|n$)/.test(rg)) reg = "Non registered"; else if(/^(reg|yes|y$|r$)/.test(rg)) reg = "Registered"; else reg = gst ? "Registered" : "Non registered";
+      if(reg === "Registered" && !/^[0-9A-Z]{15}$/.test(gst)){ errors.push("Row "+rn+": \""+name+"\" is Registered but the GST number is not 15 characters."); continue; }
+      seen[name.toLowerCase()] = rn;
+      var ex = existing[name.toLowerCase()];
+      if(ex) nUpd++; else nNew++;
+      items.push({ id: ex ? ex.id : uid(), name: name.slice(0, 100), registered: reg, gst: reg === "Registered" ? gst : "", business: cell(row, "business").slice(0, 60),
+                   phone: cell(row, "phone").slice(0, 25), address: cell(row, "address").slice(0, 300) });
+    }
+    return { items: items, errors: errors, nNew: nNew, nUpd: nUpd };
+  }
+  function vendorUploadPreview(res){
+    var n = res.items.length;
+    openModal('<h3>Upload vendors</h3>'+
+      '<p style="margin:0 0 8px"><b>'+res.nNew+'</b> new &middot; <b>'+res.nUpd+'</b> updated'+(res.errors.length ? ' &middot; <b style="color:#a33">'+res.errors.length+' row'+(res.errors.length>1?'s':'')+' skipped</b>' : '')+'</p>'+
+      (res.errors.length ? '<div style="max-height:150px;overflow:auto;font-size:.85rem;color:#a33;margin:0 0 10px;padding:8px 10px;background:#fdf1f1;border-radius:6px">'+res.errors.slice(0, 30).map(function(e){ return esc(e); }).join("<br>")+(res.errors.length>30?'<br>…':'')+'</div>' : '')+
+      (n ? '<p style="margin:0 0 10px;color:var(--muted);font-size:.88rem">Names already in the list are updated with the details in the file. Nothing is deleted.</p>' : '<p class="error">There is no valid vendor in this file.</p>')+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button>'+(n ? '<button class="btn" id="mOk" type="button">Import '+n+' vendor'+(n>1?'s':'')+'</button>' : '')+'</div>');
+    $("mNo").onclick = closeModal;
+    if(n) $("mOk").onclick = function(){
+      var byId = {}; res.items.forEach(function(it){ byId[it.id] = it; });
+      claimsData.vendors = claimsData.vendors.filter(function(v){ return !byId[v.id]; }).concat(res.items).sort(function(a,b){ return a.name.localeCompare(b.name); });
+      closeModal(); render(); try{ toast("Importing "+n+" vendor"+(n>1?"s":"")+"…"); }catch(x){}
+      claimSend({ action: "vendorBulk", items: res.items });
+    };
+  }
+  function vendorExcelUpload(file, err){
+    loadXLSX(function(){
+      var rd = new FileReader();
+      rd.onload = function(){ try{ var res = parseVendorWorkbook(rd.result); err(""); vendorUploadPreview(res); } catch(e){ err(e && e.message ? e.message : "Could not read that file."); } };
+      rd.onerror = function(){ err("Could not read that file."); };
+      rd.readAsArrayBuffer(file);
+    }, function(){ err("Could not load the Excel library. Check your internet connection and try again."); });
+  }
+
+  /* ---------- Vendor list (Master only) ---------- */
+  function renderVendors(){
+    var p = $("panel"), q = vnQ.toLowerCase(), L = claimsData.vendors.filter(function(v){ return !q || (v.name+" "+v.business+" "+v.gst+" "+v.phone).toLowerCase().indexOf(q) >= 0; });
+    var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Vendor list</h3><button class="btn" id="vnNew" type="button">Add vendor</button></div>'+
+      '<div class="clmbar" style="margin-top:-4px"><div class="clmchips"><button type="button" id="vnDl">Download Excel</button><button type="button" id="vnUp">Upload Excel</button></div>'+
+      '<input type="file" id="vnFile" accept=".xlsx,.xls,.csv" style="display:none"></div><p class="error" id="vnXErr" style="margin:-6px 0 8px"></p>'+
+      '<div class="filters"><input type="text" id="vnQ" maxlength="60" placeholder="Search name, business, GST, phone…" value="'+esc(vnQ)+'" aria-label="Search vendors"></div>';
+    if(!claimsData.loaded) h += '<div class="empty">Loading…</div>';
+    else if(!L.length) h += '<div class="empty">'+(q ? 'No vendor matches your search.' : 'No vendors yet. Add the vendors employees can pick in their Claims.')+'</div>';
+    else h += L.map(function(v){
+      return '<div class="clm"><div class="clm-top"><b>'+esc(v.name)+'</b><span class="clm-type">'+(v.registered === "Registered" ? "Registered" : "Non registered")+'</span></div>'+
+        '<div class="clm-d" style="margin-top:6px">'+vendorInfo(v)+'</div>'+(v.address ? '<div class="clm-rem">'+esc(v.address)+'</div>' : '')+
+        '<div class="clm-act"><button class="btn ghost small" data-vned="'+esc(v.id)+'" type="button">Edit</button><button class="btn ghost small" data-vndel="'+esc(v.id)+'" type="button">Delete</button></div></div>';
+    }).join("");
+    p.innerHTML = h; gpBind("menu");
+    $("vnNew").onclick = function(){ vendorForm(null); };
+    function xe(t){ var n = $("vnXErr"); if(n) n.textContent = t || ""; }
+    $("vnDl").onclick = function(){ xe("Preparing…"); vendorExcelDownload(xe); };
+    $("vnUp").onclick = function(){ $("vnFile").click(); };
+    $("vnFile").onchange = function(){ var f = this.files[0]; this.value = ""; if(f){ xe("Reading file…"); vendorExcelUpload(f, xe); } };
+    $("vnQ").oninput = function(){ vnQ = this.value; var pos = this.selectionStart; render(); var n = $("vnQ"); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(x){} } };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-vned]"),function(b){ b.onclick = function(){ vendorForm(vendorById(b.getAttribute("data-vned"))); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-vndel]"),function(b){
+      b.onclick = function(){ var v = vendorById(b.getAttribute("data-vndel")); if(!v) return;
+        confirmModal("Delete vendor "+v.name+"? Existing claims keep the vendor name.", function(){
+          claimsData.vendors = claimsData.vendors.filter(function(x){ return x.id !== v.id; }); render(); claimSend({ action: "vendorDel", id: v.id }); }); };
+    });
+  }
+  function vendorForm(v){
+    var isNew = !v, d = v || { id: uid(), name: "", registered: "Registered", gst: "", address: "", phone: "", business: "" };
+    var biz = BUSINESS.slice(); claimsData.vendors.forEach(function(x){ if(x.business && biz.indexOf(x.business) < 0) biz.push(x.business); });
+    openModal('<h3>'+(isNew ? 'Add vendor' : 'Edit vendor')+'</h3>'+
+      '<div class="field"><label for="vnName">Vendor name</label><input type="text" id="vnName" maxlength="100" value="'+esc(d.name)+'"></div>'+
+      '<div class="field"><label for="vnReg">GST registration</label><select id="vnReg"><option'+(d.registered==="Registered"?' selected':'')+'>Registered</option><option'+(d.registered!=="Registered"?' selected':'')+'>Non registered</option></select></div>'+
+      '<div class="field" id="vnGstF"><label for="vnGst">GST number</label><input type="text" id="vnGst" maxlength="15" autocapitalize="characters" placeholder="15 characters" value="'+esc(d.gst)+'"></div>'+
+      '<div class="field"><label for="vnBiz">Type of business</label><input type="text" id="vnBiz" list="vnBizList" maxlength="60" placeholder="e.g. Electrical" value="'+esc(d.business)+'"><datalist id="vnBizList">'+biz.map(function(b){ return '<option value="'+esc(b)+'">'; }).join("")+'</datalist></div>'+
+      '<div class="field"><label for="vnPh">Phone no.</label><input type="tel" id="vnPh" maxlength="25" value="'+esc(d.phone)+'"></div>'+
+      '<div class="field"><label for="vnAd">Address</label><textarea id="vnAd" maxlength="300">'+esc(d.address)+'</textarea></div>'+
+      '<p class="error" id="vnErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+    function gstShow(){ $("vnGstF").style.display = $("vnReg").value === "Registered" ? "" : "none"; }
+    gstShow(); $("vnReg").onchange = gstShow;
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var er = $("vnErr"), name = $("vnName").value.trim(), reg = $("vnReg").value, gst = $("vnGst").value.trim().toUpperCase().replace(/\s+/g, "");
+      if(!name){ er.textContent = "Enter the vendor name."; return; }
+      if(reg === "Registered" && !/^[0-9A-Z]{15}$/.test(gst)){ er.textContent = "Enter the 15 character GST number."; return; }
+      if(claimsData.vendors.some(function(x){ return x.id !== d.id && x.name.trim().toLowerCase() === name.toLowerCase(); })){ er.textContent = "A vendor with this name already exists."; return; }
+      var item = { id: d.id, name: name, registered: reg, gst: reg === "Registered" ? gst : "", address: $("vnAd").value.trim(), phone: $("vnPh").value.trim(), business: $("vnBiz").value.trim() };
+      claimsData.vendors = claimsData.vendors.filter(function(x){ return x.id !== item.id; }).concat([item]).sort(function(a,b){ return a.name.localeCompare(b.name); });
+      closeModal(); render(); claimSend({ action: "vendorPut", item: item });
+    };
+  }
+
   /* ---------- Miscellaneous: menu + Gate Pass ---------- */
   var miscView = "menu", gpSel = "", gpEditId = "", gpDraft = null, gpFilter = "";
   var GP_REASONS = ["Repair","Diversion","Scrap","Oil sample","Other"];
@@ -3689,6 +3976,7 @@
   var GP_APPROVER_DESIG = ["Engineer","Assistant Manager","Deputy Manager","Manager","Chief Manager","DGM","Sr. DGM","GM","Sr. GM","CGM"];
   function renderMisc(){
     if(miscView === "export"){ renderMiscExport(); return; }
+    if(miscView === "vendors" && isMaster()){ renderVendors(); return; }
     if(miscView === "gp"){ renderGateList(); return; }
     if(miscView === "gpForm"){ renderGateForm(); return; }
     if(miscView === "gpDet"){ renderGateDetail(); return; }
@@ -3701,11 +3989,12 @@
       { go:"gp",     ic:"assign", cls:"",     t:"Gate Pass", s: n ? n+" gate pass"+(n>1?"es":"") : "Create and print material exit gate passes" },
       { go:"dio",    ic:"works",  cls:"",     t:"Dispatch / Inward entry", s: (nSent || nHeld) ? nSent+" sent, awaiting return · "+nHeld+" held from others" : "Track returnable assets and material received" }
     ];
+    if(isMaster() && SYNC) cards.push({ go:"vendors", ic:"works", cls:"", t:"Vendor list", s: claimsData.loaded ? claimsData.vendors.length+" vendor"+(claimsData.vendors.length===1?"":"s")+" · used in employee Claims" : "Vendors employees pick in their Claims" });
     p.innerHTML = '<div class="panel-head"><h3>Miscellaneous</h3></div><div class="hgrid">'+cards.map(function(c){
       return '<button type="button" class="hcard '+c.cls+'" data-miv="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
     }).join("")+'</div>';
     Array.prototype.forEach.call(p.querySelectorAll("[data-miv]"),function(b){
-      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); };
+      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); if(miscView === "vendors") claimFetch(); };
     });
   }
   function gpMine(g){ return isMaster() || (session && g.createdBy === session.id); }
@@ -3828,7 +4117,7 @@
       d.mode = v("gpMode"); d.vehicle = v("gpVeh"); d.transporter = v("gpTrans"); d.approverId = v("gpAppr"); d.receiverName = v("gpRecv"); d.receiverPhone = v("gpPhone"); d.remarks = v("gpRem");
     }
     ["gpDate","gpAsset","gpType","gpFrom","gpTo","gpOther","gpVeh","gpTrans","gpAppr","gpRecv","gpPhone","gpRem"].forEach(function(id){ var n = $(id); if(n){ n.addEventListener("input", grab); n.addEventListener("change", grab); } });
-    $("gpAsset").addEventListener("change", function(){ grab(); if(d.asset === "YES"){ d.type = "RETURNABLE"; renderGateForm(); } });   // asset of the substation: returnable
+    $("gpAsset").addEventListener("change", function(){ grab(); if(d.asset === "YES" || d.asset === "NO"){ d.type = d.asset === "YES" ? "RETURNABLE" : "NON RETURNABLE"; renderGateForm(); } });   // asset of Kozhikode SS: Yes = Returnable, No = Non returnable (set automatically)
     ["gpReason","gpMode"].forEach(function(id){ $(id).addEventListener("change", function(){ grab(); renderGateForm(); }); });   // show / hide the dependent fields
     var ie = $("gpInEntry");
     if(ie) ie.addEventListener("change", function(){ grab(); var en = inFind(ie.value); d.inEntry = en ? en.id : ""; d.inPick = {}; if(en) applyInDraft(d, en, null); renderGateForm(); });
@@ -5208,12 +5497,11 @@
     var p = $("panel");
     var bw = $("backWorks"); if(bw) bw.onclick = function(){ activeTab = "works"; render(); };
     Array.prototype.forEach.call(p.querySelectorAll("[data-view]"),function(b){
-      b.onclick = function(){ empView = b.getAttribute("data-view"); render(); };
+      b.onclick = function(){ empView = b.getAttribute("data-view"); render(); if(empView === "claims") claimFetch(); };
     });
     var ac = $("availChg");
     if(ac) ac.onclick = function(){
-      ac.disabled = true;
-      availSave(e.id, availOf(e.id) !== "yes", function(){ render(); }, function(msg){ ac.disabled = false; try{ alert(msg); }catch(x){} });
+      availSave(e.id, availOf(e.id) !== "yes", function(){ render(); }, function(){});
     };
     if(!isMaster()) return;
     $("renameEmp").onclick = function(){
@@ -5260,6 +5548,8 @@
     var dayWorks = e.works.filter(function(w){ return w.date === viewDate; });
     var total = dayWorks.length, done = dayWorks.filter(function(w){ return w.done; }).length;
     var pct = total ? Math.round(done/total*100) : 0;
+    var canClaims = SYNC && !!session && session.role === "user" && e.id === myEmpId();       // Claims: visible to the employee himself only
+    if(empView === "claims" && !canClaims) empView = "work";
     var work = empView === "work";
     var canW = canEditWorks(e);       // only the employee himself and Master can add / change these works
 
@@ -5270,7 +5560,8 @@
     h += '<div style="margin:-4px 0 10px">'+availChip(e.id)+(canW ? ' <button class="btn ghost small" id="availChg" type="button">'+(availOf(e.id) ? 'Change' : 'Set')+'</button>' : '')+'</div>';
     h += '<div class="viewsw"><button type="button" data-view="work" class="'+(work?"active":"")+'">Worklist</button>'+
          '<button type="button" data-view="cal" class="'+(empView==="cal"?"active":"")+'">Calendar</button>'+
-         '<button type="button" data-view="range" class="'+(empView==="range"?"active":"")+'">Search / Date range</button></div>';
+         '<button type="button" data-view="range" class="'+(empView==="range"?"active":"")+'">Search / Date range</button>'+
+         (canClaims ? '<button type="button" data-view="claims" class="'+(empView==="claims"?"active":"")+'">Claims</button>' : '')+'</div>';
     if(isMaster()){
       h += '<div class="mbar">'+
            '<button class="btn ghost small" id="renameEmp" type="button">Edit employee</button>'+
@@ -5278,6 +5569,7 @@
            '<button class="btn danger small" id="delEmp" type="button">Delete employee</button></div>';
     }
 
+    if(empView === "claims"){ claimsView(e, p, h, done); return; }
     if(empView === "range"){ rangeView(e, p, h); return; }
     if(!work){
       h += calHTML(e.id);
