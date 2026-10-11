@@ -179,6 +179,12 @@
   .clm-act select[data-v="Not applied"]{color:#8a6500;background:#fff7e0}
   .clm-act select[data-v="Applied"]{color:#1d4f91;background:#e8f1fc}
   .clm-act select[data-v="Settled"]{color:#1b7f3b;background:#e6f5ea}
+  .cpl{border:1px solid var(--line);border-radius:8px;margin:0 0 12px;max-height:55vh;overflow:auto}
+  .cpr{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 10px}
+  .cpr + .cpr{border-top:1px solid var(--line)}
+  .cpt{min-width:0;flex:1}
+  .cpt small{display:block;color:var(--muted);font-size:.74rem}
+  .cpt span{display:block;font-weight:600;overflow-wrap:anywhere;white-space:pre-wrap}
   [data-install]{display:none !important}
   html.can-install [data-install]{display:inline-block !important}
   .xin{border:1px solid #e3c76a;background:var(--amber-bg);border-radius:8px;padding:6px 12px;margin:0 0 10px}
@@ -477,7 +483,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.23";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.24";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -3790,9 +3796,11 @@
       return '<div class="clm"><div class="clm-top"><b>#'+c.serial+'</b><span>'+fmtDate(c.date)+'</span><span class="clm-type">'+esc(claimTypeText(c))+'</span></div>'+
         '<div class="clm-v">'+esc(c.vendorName)+'<small>'+vendorInfo(vendorById(c.vendorId))+'</small></div>'+
         '<div class="clm-d">'+esc(c.desc)+' <span class="clm-q">&times; '+esc(c.qty)+'</span></div>'+
+        ((c.invNo || c.invDate || c.amount) ? '<div class="clm-rem">'+[c.invNo ? "Inv "+esc(c.invNo) : "", c.invDate ? fmtDate(c.invDate) : "", c.amount ? "&#8377; "+inr(c.amount) : ""].filter(Boolean).join(" &middot; ")+'</div>' : '')+
         (c.remarks ? '<div class="clm-rem">'+esc(c.remarks)+'</div>' : '')+
         '<div class="clm-act"><select data-clst="'+esc(c.id)+'" data-v="'+esc(c.status)+'" aria-label="Settlement status">'+
           CLAIM_STATUS.map(function(s){ return '<option'+(s===c.status?' selected':'')+'>'+s+'</option>'; }).join("")+'</select>'+
+        '<button class="btn small" data-clcp="'+esc(c.id)+'" type="button">Copy for portal</button>'+
         '<button class="btn ghost small" data-cled="'+esc(c.id)+'" type="button">Edit</button>'+
         '<button class="btn ghost small" data-cldel="'+esc(c.id)+'" type="button">Delete</button></div></div>';
     }).join("");
@@ -3804,6 +3812,7 @@
     Array.prototype.forEach.call(p.querySelectorAll("[data-clst]"),function(s){
       s.onchange = function(){ var c = byId(s.getAttribute("data-clst")); if(!c) return; c.status = s.value; render(); claimSend({ action: "claimPut", item: c }); };
     });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-clcp]"),function(b){ b.onclick = function(){ var c = byId(b.getAttribute("data-clcp")); if(c) claimCopyModal(c); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-cled]"),function(b){ b.onclick = function(){ claimForm(byId(b.getAttribute("data-cled"))); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-cldel]"),function(b){
       b.onclick = function(){ var c = byId(b.getAttribute("data-cldel")); if(!c) return;
@@ -3812,8 +3821,41 @@
     });
   }
 
+  function inr(a){ var n = Number(a); return isNaN(n) ? String(a) : n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function dotDate(iso){ if(!iso) return ""; var q = String(iso).split("-"); return q.length === 3 ? q[2]+"."+q[1]+"."+q[0] : iso; }   // portal format dd.mm.yyyy
+  /* One line per portal field, in the same order as the SAP form, each with a Copy button */
+  function claimCopyModal(c){
+    var v = vendorById(c.vendorId), notReg = v && v.registered !== "Registered";
+    var F = [
+      { l: "GST No", v: v && v.registered === "Registered" ? v.gst : "", miss: notReg ? "" : "vendor", note: notReg ? "Vendor is not registered: tick &lsquo;Vendor not Registered&rsquo; in the portal." : "" },
+      { l: "Invoice No", v: c.invNo, miss: "claim" },
+      { l: "Invoice Date", v: dotDate(c.invDate), miss: "claim" },
+      { l: "Vendor Name", v: (v && v.name) || c.vendorName, miss: "vendor" },
+      { l: "Address", v: v ? v.address : "", miss: "vendor" },
+      { l: "City", v: v ? (v.city || "") : "", miss: "vendor" },
+      { l: "Requested Amount", v: c.amount ? Number(c.amount).toFixed(2) : "", miss: "claim" },
+      { l: "Item Description", v: c.desc, miss: "claim" }
+    ];
+    openModal('<h3>Copy for portal</h3><p style="margin:0 0 8px;color:var(--muted);font-size:.88rem">Claim #'+c.serial+' &middot; '+esc(c.vendorName)+'. Tap <b>Copy</b>, then paste into the portal field.</p>'+
+      '<div class="cpl">'+F.map(function(f, i){
+        var has = String(f.v || "") !== "";
+        return '<div class="cpr"><div class="cpt"><small>'+f.l+'</small>'+
+          (has ? '<span>'+esc(f.v)+'</span>' : (f.note ? '<span style="color:var(--muted)">Not applicable</span><small>'+f.note+'</small>' : '<span style="color:#a33">Missing</span><small>'+(f.miss === "vendor" ? 'Ask Master to add it in the Vendor list.' : 'Tap Edit claim to add it.')+'</small>'))+'</div>'+
+          (has ? '<button class="btn ghost small" data-cpi="'+i+'" type="button">Copy</button>' : '')+'</div>';
+      }).join("")+'</div>'+
+      '<div class="row"><button class="btn ghost" id="cpEdit" type="button">Edit claim</button><button class="btn" id="mNo" type="button">Done</button></div>');
+    $("mNo").onclick = closeModal;
+    $("cpEdit").onclick = function(){ closeModal(); claimForm(c); };
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cpi]"), function(b){
+      b.onclick = function(){
+        var f = F[+b.getAttribute("data-cpi")];
+        copyText(String(f.v), function(){ b.textContent = "Copied \u2713"; b.classList.remove("ghost"); });
+      };
+    });
+  }
+
   function claimForm(c){
-    var isNew = !c, d = c || { id: uid(), date: today(), type: "", typeName: "", vendorId: "", desc: "", qty: "", status: "Not applied", remarks: "" };
+    var isNew = !c, d = c || { id: uid(), date: today(), type: "", typeName: "", vendorId: "", desc: "", qty: "", status: "Not applied", remarks: "", invNo: "", invDate: "", amount: "" };
     var nextNo = claimsData.claims.reduce(function(m, x){ return Math.max(m, x.serial); }, 0) + 1;
     openModal('<h3>'+(isNew ? 'Add claim' : 'Edit claim #'+d.serial)+'</h3>'+
       '<div class="field"><label>Sl. no.</label><input type="text" value="'+(isNew ? nextNo+' (automatic)' : d.serial)+'" disabled></div>'+
@@ -3823,6 +3865,9 @@
       '<div class="field" id="clNameF"><label for="clName">Name for this claim</label><input type="text" id="clName" maxlength="60" placeholder="e.g. Tour advance, Diwali cleaning" value="'+esc(d.typeName)+'"></div>'+
       '<div class="field"><label for="clVen">Vendor</label><select id="clVen">'+vendorOptions(d.vendorId)+'</select>'+
         '<small id="clVenInfo" style="display:block;color:var(--muted);margin-top:4px">'+(claimsData.vendors.length ? vendorInfo(vendorById(d.vendorId)) : 'Loading vendors…')+'</small></div>'+
+      '<div class="field"><label for="clInv">Invoice no.</label><input type="text" id="clInv" maxlength="40" value="'+esc(d.invNo||"")+'"></div>'+
+      '<div class="field"><label for="clInvD">Invoice date</label><input type="date" id="clInvD" value="'+esc(d.invDate||"")+'"></div>'+
+      '<div class="field"><label for="clAmt">Amount (&#8377;)</label><input type="number" id="clAmt" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="'+esc(d.amount||"")+'"></div>'+
       '<div class="field"><label for="clDesc">Material description</label><textarea id="clDesc" maxlength="500">'+esc(d.desc)+'</textarea></div>'+
       '<div class="field"><label for="clQty">Quantity</label><input type="text" id="clQty" maxlength="30" placeholder="e.g. 5 nos" value="'+esc(d.qty)+'"></div>'+
       '<div class="field"><label for="clStat">Settlement status</label><select id="clStat">'+
@@ -3845,7 +3890,8 @@
       if(!v){ er.textContent = "Select a vendor."; return; }
       if(!desc){ er.textContent = "Enter the material description."; return; }
       if(!qty){ er.textContent = "Enter the quantity."; return; }
-      var item = { id: d.id, serial: isNew ? nextNo : d.serial, date: date, type: type, typeName: CLAIM_NAMED.indexOf(type) >= 0 ? name : "", vendorId: v.id, vendorName: v.name,
+      var amt = $("clAmt").value.trim(); if(amt !== "" && !(Number(amt) >= 0)){ er.textContent = "Enter a valid amount."; return; }
+      var item = { id: d.id, serial: isNew ? nextNo : d.serial, invNo: $("clInv").value.trim(), invDate: $("clInvD").value, amount: amt === "" ? "" : Number(amt).toFixed(2), date: date, type: type, typeName: CLAIM_NAMED.indexOf(type) >= 0 ? name : "", vendorId: v.id, vendorName: v.name,
                    desc: desc, qty: qty, status: $("clStat").value, remarks: $("clRem").value.trim(), created: d.created || Date.now() };
       claimsData.claims = claimsData.claims.filter(function(x){ return x.id !== item.id; }).concat([item]);
       closeModal(); render();                               // shown at once; saved in the background
@@ -3854,18 +3900,18 @@
   }
 
   /* ---------- Vendor list <-> Excel (Master) ---------- */
-  var VN_COLS = ["Vendor name","GST registration","GST number","Type of business","Phone no.","Address"];
+  var VN_COLS = ["Vendor name","GST registration","GST number","Type of business","Phone no.","Address","City"];
   function vendorExcelDownload(err){
     loadXLSX(function(){
       var X = window.XLSX, rows = [VN_COLS];
-      claimsData.vendors.forEach(function(v){ rows.push([v.name, v.registered, v.gst, v.business, v.phone, v.address]); });
-      var ws = X.utils.aoa_to_sheet(rows); ws["!cols"] = [30,18,18,20,16,44].map(function(w){ return { wch: w }; });
+      claimsData.vendors.forEach(function(v){ rows.push([v.name, v.registered, v.gst, v.business, v.phone, v.address, v.city || ""]); });
+      var ws = X.utils.aoa_to_sheet(rows); ws["!cols"] = [30,18,18,20,16,44,18].map(function(w){ return { wch: w }; });
       var help = X.utils.aoa_to_sheet([["How to fill this sheet"],
         ["Keep the first row of the Vendors sheet (the headings) as it is. One vendor per row."],
         ["Vendor name: required. A name that is already in the list is updated instead of added again."],
         ["GST registration: Registered or Non registered. If left blank, it is taken as Registered when a GST number is given."],
         ["GST number: required (15 characters) for Registered vendors; ignored for Non registered."],
-        ["Type of business, Phone no., Address: optional."],
+        ["Type of business, Phone no., Address, City: optional, but Address and City are copied into the portal, so please fill them."],
         ["Upload the file with the Upload Excel button on the Vendor list screen. You see a preview before anything is saved."]]);
       help["!cols"] = [{ wch: 110 }];
       var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Vendors"); X.utils.book_append_sheet(wb, help, "How to fill");
@@ -3880,7 +3926,7 @@
     if(!sn) throw new Error("The file has no sheet.");
     var data = X.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: "", raw: false, blankrows: false });
     var ALIAS = { name: ["vendorname","name","vendor"], reg: ["gstregistration","registration","registered","gstregistered","gststatus"], gst: ["gstnumber","gstno","gstin","gst"],
-                  business: ["typeofbusiness","business","businesstype","type"], phone: ["phoneno","phone","phonenumber","mobile","mobileno","contact","contactno"], address: ["address"] };
+                  business: ["typeofbusiness","business","businesstype","type"], phone: ["phoneno","phone","phonenumber","mobile","mobileno","contact","contactno"], address: ["address"], city: ["city","town","place"] };
     var hr = -1, col = {};
     for(var r = 0; r < Math.min(data.length, 6) && hr < 0; r++){
       var m = {}; data[r].forEach(function(c, i){ var k = vnKey(c); Object.keys(ALIAS).forEach(function(f){ if(m[f] === undefined && ALIAS[f].indexOf(k) >= 0) m[f] = i; }); });
@@ -3904,7 +3950,7 @@
       var ex = existing[name.toLowerCase()];
       if(ex) nUpd++; else nNew++;
       items.push({ id: ex ? ex.id : uid(), name: name.slice(0, 100), registered: reg, gst: reg === "Registered" ? gst : "", business: cell(row, "business").slice(0, 60),
-                   phone: cell(row, "phone").slice(0, 25), address: cell(row, "address").slice(0, 300) });
+                   phone: cell(row, "phone").slice(0, 25), address: cell(row, "address").slice(0, 300), city: cell(row, "city").slice(0, 60) });
     }
     return { items: items, errors: errors, nNew: nNew, nUpd: nUpd };
   }
@@ -3943,7 +3989,7 @@
     else if(!L.length) h += '<div class="empty">'+(q ? 'No vendor matches your search.' : 'No vendors yet. Add the vendors employees can pick in their Claims.')+'</div>';
     else h += L.map(function(v){
       return '<div class="clm"><div class="clm-top"><b>'+esc(v.name)+'</b><span class="clm-type">'+(v.registered === "Registered" ? "Registered" : "Non registered")+'</span></div>'+
-        '<div class="clm-d" style="margin-top:6px">'+vendorInfo(v)+'</div>'+(v.address ? '<div class="clm-rem">'+esc(v.address)+'</div>' : '')+
+        '<div class="clm-d" style="margin-top:6px">'+vendorInfo(v)+'</div>'+((v.address || v.city) ? '<div class="clm-rem">'+esc(v.address)+(v.address && v.city ? ", " : "")+esc(v.city||"")+'</div>' : '')+
         '<div class="clm-act"><button class="btn ghost small" data-vned="'+esc(v.id)+'" type="button">Edit</button><button class="btn ghost small" data-vndel="'+esc(v.id)+'" type="button">Delete</button></div></div>';
     }).join("");
     p.innerHTML = h; gpBind("menu");
@@ -3961,7 +4007,7 @@
     });
   }
   function vendorForm(v){
-    var isNew = !v, d = v || { id: uid(), name: "", registered: "Registered", gst: "", address: "", phone: "", business: "" };
+    var isNew = !v, d = v || { id: uid(), name: "", registered: "Registered", gst: "", address: "", city: "", phone: "", business: "" };
     var biz = BUSINESS.slice(); claimsData.vendors.forEach(function(x){ if(x.business && biz.indexOf(x.business) < 0) biz.push(x.business); });
     openModal('<h3>'+(isNew ? 'Add vendor' : 'Edit vendor')+'</h3>'+
       '<div class="field"><label for="vnName">Vendor name</label><input type="text" id="vnName" maxlength="100" value="'+esc(d.name)+'"></div>'+
@@ -3970,6 +4016,7 @@
       '<div class="field"><label for="vnBiz">Type of business</label><input type="text" id="vnBiz" list="vnBizList" maxlength="60" placeholder="e.g. Electrical" value="'+esc(d.business)+'"><datalist id="vnBizList">'+biz.map(function(b){ return '<option value="'+esc(b)+'">'; }).join("")+'</datalist></div>'+
       '<div class="field"><label for="vnPh">Phone no.</label><input type="tel" id="vnPh" maxlength="25" value="'+esc(d.phone)+'"></div>'+
       '<div class="field"><label for="vnAd">Address</label><textarea id="vnAd" maxlength="300">'+esc(d.address)+'</textarea></div>'+
+      '<div class="field"><label for="vnCity">City</label><input type="text" id="vnCity" maxlength="60" value="'+esc(d.city||"")+'"></div>'+
       '<p class="error" id="vnErr"></p>'+
       '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
     function gstShow(){ $("vnGstF").style.display = $("vnReg").value === "Registered" ? "" : "none"; }
@@ -3980,7 +4027,7 @@
       if(!name){ er.textContent = "Enter the vendor name."; return; }
       if(reg === "Registered" && !/^[0-9A-Z]{15}$/.test(gst)){ er.textContent = "Enter the 15 character GST number."; return; }
       if(claimsData.vendors.some(function(x){ return x.id !== d.id && x.name.trim().toLowerCase() === name.toLowerCase(); })){ er.textContent = "A vendor with this name already exists."; return; }
-      var item = { id: d.id, name: name, registered: reg, gst: reg === "Registered" ? gst : "", address: $("vnAd").value.trim(), phone: $("vnPh").value.trim(), business: $("vnBiz").value.trim() };
+      var item = { id: d.id, name: name, registered: reg, gst: reg === "Registered" ? gst : "", address: $("vnAd").value.trim(), city: $("vnCity").value.trim(), phone: $("vnPh").value.trim(), business: $("vnBiz").value.trim() };
       claimsData.vendors = claimsData.vendors.filter(function(x){ return x.id !== item.id; }).concat([item]).sort(function(a,b){ return a.name.localeCompare(b.name); });
       closeModal(); render(); claimSend({ action: "vendorPut", item: item });
     };
