@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KOZHIKODE SS – POWERGRID</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f3a52">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KOZHIKODE SS">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
   :root{
     --ink:#16212b; --muted:#5d6b78; --line:#d5dce2; --bg:#eef1f4; --panel:#ffffff;
@@ -151,6 +159,16 @@
   textarea{width:100%;padding:10px 12px;border:1px solid #b9c3cc;border-radius:4px;font:inherit;resize:vertical;min-height:84px;background:#fff;color:var(--ink)}
   tr.done{background:#f6fbf8}
   .doneat{display:block;font-size:.78rem;color:var(--green);text-decoration:none}
+  [data-install]{display:none !important}
+  html.can-install [data-install]{display:inline-block !important}
+  .xin{border:1px solid #e3c76a;background:var(--amber-bg);border-radius:8px;padding:6px 12px;margin:0 0 10px}
+  .xin .xr{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:6px 0}
+  .xin .xr + .xr{border-top:1px solid #ecd98f}
+  .xin .xt{flex:1 1 220px;font-size:.92rem}
+  .xin .xt small{display:block;color:var(--muted)}
+  .xnote{display:block;font-size:.78rem;color:var(--steel)}
+  .xnote.no{color:#a33}
+  .xhint{font-size:.85rem;color:var(--muted);margin:-2px 0 8px}
   .moved{display:block;font-size:.78rem;color:#8a6500;text-decoration:none}
   .empty{padding:28px 10px;text-align:center;color:var(--muted)}
 
@@ -171,6 +189,8 @@
   .audcard{border:1px solid var(--line);background:#fff;border-radius:6px;padding:12px 14px;margin-bottom:10px}
   .audcard h4{margin:0 0 2px}
   .doclink{word-break:break-all}
+  .oilb{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.78rem;font-weight:700;white-space:nowrap}
+  .oilb.od{background:#fde7e5;color:#b3261e}.oilb.ds{background:#fff1cc;color:#8a5a00}.oilb.ok{background:#dff3e4;color:#1a7f37}.oilb.nr{background:#e9edf1;color:#5d6b78}
   .pbar{display:inline-block;width:90px;height:8px;background:#e3e8ec;border-radius:99px;overflow:hidden;vertical-align:middle;margin-right:6px}
   .pbar i{display:block;height:100%;background:var(--green)}
   h3.sec{margin:26px 0 10px;padding-top:16px;border-top:1px solid var(--line);font-size:1.1rem}
@@ -396,6 +416,7 @@
       <button class="btn wide" id="loginBtn" type="button">Sign in</button>
       <p id="verLine" style="text-align:center;font-size:.75rem;color:var(--muted);margin:10px 0 0">Page</p>
       <button class="linkbtn" id="forgotBtn" type="button">Forgot / change password?</button>
+      <button class="linkbtn" data-install type="button">&#8681; Install app on this phone</button>
       <p class="mode-note" id="modeNote"></p>
     </div>
   </div>
@@ -434,7 +455,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.5";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.19";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -443,7 +464,7 @@
 
   /* ---------- State ---------- */
   var KEY = "kozhikode_ss_daily_work_v1";
-  var state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], amcDaily: [], amcTemp: [], amcHours: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } };
+  var state = { employees: [], xfers: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], sched: [], amcDaily: [], amcTemp: [], amcHours: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } };
   var assignFilter = "all", assignTo = "", lastBy = "";
   var empView = "work";         // inside an employee tab: "work" or "cal"
   var dashPeriod = "today";     // dashboard range
@@ -597,9 +618,11 @@
       if(map[w.empId]) map[w.empId].works.push({
         id: w.id, text: w.text, date: w.date, done: !!w.done, doneAt: w.doneAt || null,
         movedFrom: w.movedFrom || "", comment: w.comment || "", created: w.created || 0,
-        priority: (w.priority === "high" || w.priority === "urgent") ? w.priority : "normal"
+        priority: (w.priority === "high" || w.priority === "urgent") ? w.priority : "normal",
+        xferFrom: w.xferFrom || ""
       });
     });
+    state.xfers = d.xfers || [];
     state.users = (d.users || []).map(function(id){ return typeof id === "object" ? id : { id: id }; });
     state.events = d.events || [];
     state.assignments = d.assignments || [];
@@ -642,7 +665,7 @@
     el.className = "sync "+kind; el.textContent = text;
   }
 
-  var KEEP = ["fuText","fuRem","prDesc","prQty","prUnit","prSt","prPoNo","prPoDt","prRem","exFrom","exTo","exStat","rgFrom","rgTo","rgQ","rgSt","wText","wPri","audName","apDesc","apDept","apLink","aWork","aRem","aBy","aTo","aDate","aPri","mpPlan","mpDesc","mpDue","mpComp","mpStat"];
+  var KEEP = ["dioQ","inDate","inParty","inVeh","inBy","inPh","inRem","audLQ","audDQ","fuText","fuRem","prDesc","prQty","prUnit","prSt","prPoNo","prPoDt","prRem","exFrom","exTo","exStat","rgFrom","rgTo","rgQ","rgSt","wText","wPri","gpTo","gpFrom","gpVeh","gpTrans","gpOther","gpRecv","gpPhone","gpRem","gpQ","giDesc","giQty","audName","oilName","otType","otLast","otFreq","otUnit","apDesc","apDept","apLink","aWork","aRem","aBy","aTo","aDate","aPri","mpPlan","mpDesc","mpDue","mpComp","mpStat"];
   function softRender(){
     var saved = {}, ae = document.activeElement, focusId = ae && ae.id, pos = 0;
     KEEP.forEach(function(id){ var n = $(id); if(n) saved[id] = n.value; });
@@ -710,9 +733,9 @@
     if(!SYNC || !auth || ampBusy || isSupport()) return;
     api({ action: "ampList" }).then(function(r){
       if(ampBusy || r.text === ampText) return;
-      ampText = r.text; state.amp = r.json.amp || []; state.sched = r.json.sched || state.sched || []; state.fu = r.json.fu || state.fu || []; state.pr = r.json.pr || state.pr || []; state.audits = r.json.audits || state.audits || []; state.audPts = r.json.audPts || state.audPts || [];
+      ampText = r.text; state.amp = r.json.amp || []; state.sched = r.json.sched || state.sched || []; state.fu = r.json.fu || state.fu || []; state.pr = r.json.pr || state.pr || []; state.audits = r.json.audits || state.audits || []; state.audPts = r.json.audPts || state.audPts || []; state.oilEquip = r.json.oilEquip || state.oilEquip || []; state.oilTests = r.json.oilTests || state.oilTests || []; state.calib = r.json.calib || state.calib || []; state.fext = r.json.fext || state.fext || []; state.rlyBays = r.json.relayBays || state.rlyBays || []; state.rly = r.json.relays || state.rly || []; state.maintPerm = r.json.maintPerm || state.maintPerm || null; state.gatePasses = r.json.gatePasses || state.gatePasses || []; state.gateItems = r.json.gateItems || state.gateItems || []; state.inwards = r.json.inwards || state.inwards || []; state.inwardItems = r.json.inwardItems || state.inwardItems || [];
       if(modalOpen()) return;
-      if(activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home") softRender(); else renderTabs();
+      if(activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home" || activeTab === "misc") softRender(); else renderTabs();
     }).catch(function(err){ if(err && err.server && err.message === "auth") onSyncError(err); });
   }
   function ampSend(body){
@@ -721,7 +744,7 @@
     ampBusy++; setStatus("saving");
     var failed = false;
     ampChain = ampChain.then(function(){ return api(body); }).then(function(r){
-      if(ampBusy === 1){ state.amp = r.json.amp || state.amp; if(r.json.sched) state.sched = r.json.sched; if(r.json.fu) state.fu = r.json.fu; if(r.json.pr) state.pr = r.json.pr; if(r.json.audits) state.audits = r.json.audits; if(r.json.audPts) state.audPts = r.json.audPts; ampText = r.text; }
+      if(ampBusy === 1){ state.amp = r.json.amp || state.amp; if(r.json.sched) state.sched = r.json.sched; if(r.json.fu) state.fu = r.json.fu; if(r.json.pr) state.pr = r.json.pr; if(r.json.audits) state.audits = r.json.audits; if(r.json.audPts) state.audPts = r.json.audPts; if(r.json.oilEquip) state.oilEquip = r.json.oilEquip; if(r.json.oilTests) state.oilTests = r.json.oilTests; if(r.json.calib) state.calib = r.json.calib; if(r.json.fext) state.fext = r.json.fext; if(r.json.relayBays) state.rlyBays = r.json.relayBays; if(r.json.relays) state.rly = r.json.relays; if(r.json.maintPerm) state.maintPerm = r.json.maintPerm; if(r.json.gatePasses) state.gatePasses = r.json.gatePasses; if(r.json.gateItems) state.gateItems = r.json.gateItems; if(r.json.inwards) state.inwards = r.json.inwards; if(r.json.inwardItems) state.inwardItems = r.json.inwardItems; ampText = r.text; }
       setStatus("ok");
     }).catch(function(err){
       failed = true; ampText = "";
@@ -731,7 +754,7 @@
       ampBusy--;
       if(ampBusy) return;
       if(failed) ampFetch();
-      else if(!modalOpen() && (activeTab === "maint" || activeTab === "follow" || activeTab === "proc")) softRender();
+      else if(!modalOpen() && (activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "misc")) softRender();
     });
   }
 
@@ -739,7 +762,7 @@
   function wput(e,w){
     return { t: "work.put", work: { id: w.id, empId: e.id, date: w.date, text: w.text, done: !!w.done,
              doneAt: w.doneAt || null, movedFrom: w.movedFrom || "", comment: w.comment || "", created: w.created,
-             priority: wpri(w) } };
+             priority: wpri(w), xferFrom: w.xferFrom || "" } };
   }
   /* priority of a daily work: normal (black) | high (yellow) | urgent (red) */
   function wpri(w){ return (w && (w.priority === "high" || w.priority === "urgent")) ? w.priority : "normal"; }
@@ -752,6 +775,29 @@
   function wpriPrint(w){   // coloured work text for the PDF exports
     var p = wpri(w); return p === "normal" ? "" : ' style="color:'+WP_PRINT[p]+';font-weight:700"';
   }
+
+  /* ---------- Transfer of a work to ANOTHER employee: pending -> accepted / declined ---------- */
+  function xfersIn(empId){ return (state.xfers||[]).filter(function(x){ return x.status === "pending" && x.toEmp === empId; }); }
+  function xferOut(wId){ return (state.xfers||[]).find(function(x){ return x.status === "pending" && x.workId === wId; }); }
+  function xferDeclined(wId){ var c = Date.now() - 3*86400000; return (state.xfers||[]).find(function(x){ return x.status === "declined" && x.workId === wId && (x.resolved||0) >= c; }); }
+  function xferSend(e, w, toEmp, date){
+    var to = emp(toEmp); if(!to) return;
+    var x = { id: uid(), workId: w.id, fromEmp: e.id, fromName: e.name, toEmp: toEmp, toName: to.name, text: w.text, priority: wpri(w),
+              fromDate: w.date, date: date, status: "pending", created: Date.now(), resolved: 0 };
+    state.xfers = (state.xfers||[]).concat([x]);
+    commit([{ t: "xfer.req", id: x.id, workId: w.id, toEmp: toEmp, date: date }]); render();
+  }
+  function xferAccept(x){
+    var rec = emp(x.toEmp); if(!rec) return;
+    var snd = emp(x.fromEmp), nid = uid();
+    if(snd) snd.works = snd.works.filter(function(w){ return w.id !== x.workId; });
+    rec.works.push({ id: nid, text: x.text, date: x.date, done: false, doneAt: null, movedFrom: "", comment: "", created: Date.now(), priority: x.priority, xferFrom: x.fromName });
+    x.status = "accepted"; x.resolved = Date.now();
+    commit([{ t: "xfer.accept", id: x.id, newId: nid }]);
+    viewDate = x.date; filter = "all"; render();
+  }
+  function xferDecline(x){ x.status = "declined"; x.resolved = Date.now(); commit([{ t: "xfer.decline", id: x.id }]); render(); }
+  function xferCancel(x){ state.xfers = state.xfers.filter(function(r){ return r.id !== x.id; }); commit([{ t: "xfer.cancel", id: x.id }]); render(); }
 
   /* ---------- Login session: 30 minutes, renewed by activity, shown in the header ---------- */
   var SESSION_MIN = 30, SESSION_MS = SESSION_MIN * 60000, sessExp = 0, sessTick = null, sessLastBump = 0;
@@ -915,7 +961,7 @@
     try{ sessionStorage.removeItem("kss_auth"); }catch(e){}
     closeModal();
     ampBusy = 0; ampText = ""; ampChain = Promise.resolve();
-    noticeShown = null; if(SYNC){ state = { employees: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], amcStaff: [], amcTransfers: [], amcEmployees: [], amcDaily: [], amcTemp: [], amcHours: [], amcAssignees: [], mandays: [], minWage: [], sched: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } }; lastText = ""; }
+    noticeShown = null; if(SYNC){ state = { employees: [], xfers: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], amcStaff: [], amcTransfers: [], amcEmployees: [], amcDaily: [], amcTemp: [], amcHours: [], amcAssignees: [], mandays: [], minWage: [], sched: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } }; lastText = ""; }
     amcDraft = {}; amcTempDraft = {}; amcFilter = "all"; supView = "home"; amcDate = today();   /* nothing of the previous login (drafts, temporary labour) may reach the next login */
     $("appView").classList.add("hidden");
     noticeShown = null;
@@ -1142,12 +1188,12 @@
     var evN = state.events.filter(function(ev){ return ev.scope === "office" && (ev.date||"").slice(0,7) === mk; }).length;
     var notes = allNoticeItems();
 
-    var h = '<div class="hero"><h3>'+greet+', '+esc(meName)+'</h3><span class="sub">User ID: '+esc(me)+' &middot; '+esc(dayLabel(t))+'</span></div>';
+    var h = '<div class="hero"><h3>'+greet+', '+esc(meName)+'</h3><span class="sub">User ID: '+esc(me)+' &middot; '+esc(dayLabel(t))+'</span> <button class="btn ghost small" data-install type="button" style="margin-left:8px">Install app</button></div>';
     var myE = emp(myEmpId());
     if(myE){
       var myTot = 0, myDone = 0; myE.works.forEach(function(w){ if(w.date === t){ myTot++; if(w.done) myDone++; } });
       h += '<div style="margin:0 0 14px"><button class="btn" id="goMyWorks" type="button" style="width:100%">Go to daily works</button>'+
-           '<div style="margin-top:6px;font-size:.9rem;color:var(--muted)">Your works today: '+(myTot ? (myTot-myDone)+' pending of '+myTot : 'none entered')+' &middot; '+availChip(myE.id)+'</div></div>';
+           '<div style="margin-top:6px;font-size:.9rem;color:var(--muted)">Your works today: '+(myTot ? (myTot-myDone)+' pending of '+myTot : 'none entered')+' &middot; '+availChip(myE.id)+(xfersIn(myE.id).length ? ' &middot; <b style="color:#8a6500">'+xfersIn(myE.id).length+' transfer request'+(xfersIn(myE.id).length>1?'s':'')+' waiting</b>' : '')+'</div></div>';
     }
     if(notes.length || isMaster()){
       h += '<div class="nboard"><div class="nh"><h4>&#9670; Notice board</h4>'+
@@ -1588,7 +1634,8 @@
       var v = parseFloat($("haHrs").value), sign = +$("haType").value, dt = $("haDate").value;
       if(!(v > 0) || v > 1000){ $("haErr").textContent = "Enter the hours to adjust."; return; }
       if(!dt){ $("haErr").textContent = "Select the date."; return; }
-      closeModal(); amcCall({ action:"amcHoursAdjust", staffId:s.id, hours:r2(sign*v), date:dt, note:$("haNote").value.trim() });
+      var note = $("haNote").value.trim();       // read before closeModal() clears the dialog
+      closeModal(); amcCall({ action:"amcHoursAdjust", staffId:s.id, hours:r2(sign*v), date:dt, note:note });
     };
   }
   function renderHoursPanel(){
@@ -1716,12 +1763,12 @@
   function render(){ renderNotice(); renderTabs(); renderPanel(); paintOnline(); }
 
   function renderTabs(){
-    var html = '<button type="button" class="tab active" data-tab="home">Home</button>';
+    var html = '<button type="button" class="tab active" data-tab="home">Home</button>', inN = myEmpId() ? xfersIn(myEmpId()).length : 0;
     if(isSupport()){
       html += '<button type="button" class="tab'+(activeTab==="assign"?" active":"")+'" data-tab="assign">Assignments</button>';
     } else {
       html += '<button type="button" class="tab'+(activeTab==="dash"?" active":"")+'" data-tab="dash">Dashboard</button>'+
-              '<button type="button" class="tab'+(activeTab==="works"?" active":"")+'" data-tab="works">Daily Works</button>'+
+              '<button type="button" class="tab'+(activeTab==="works"?" active":"")+'" data-tab="works">Daily Works'+(inN?'<span class="cnt">'+inN+'</span>':'')+'</button>'+
               '<button type="button" class="tab'+(activeTab==="assign"?" active":"")+'" data-tab="assign">Assignments</button>'+
               '<button type="button" class="tab'+(activeTab==="maint"?" active":"")+'" data-tab="maint">Maintenance Status</button>'+
               '<button type="button" class="tab'+(activeTab==="follow"?" active":"")+'" data-tab="follow">Follow-up</button>'+
@@ -1732,7 +1779,7 @@
     $("tabs").innerHTML = html;
     Array.prototype.forEach.call($("tabs").querySelectorAll("[data-tab]"),function(b){
       b.classList.toggle("active", b.getAttribute("data-tab") === activeTab);
-      b.onclick = function(){ activeTab = b.getAttribute("data-tab"); filter = "all"; empView = "work"; if(activeTab === "maint") maintView = "menu"; render(); if(activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home") ampFetch(); };
+      b.onclick = function(){ activeTab = b.getAttribute("data-tab"); filter = "all"; empView = "work"; if(activeTab === "maint") maintView = "menu"; if(activeTab === "misc") miscView = "menu"; render(); if(activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home" || activeTab === "misc") ampFetch(); };
     });
   }
 
@@ -2595,10 +2642,18 @@
   function bindBack(){ var b = $("mBack"); if(b) b.onclick = function(){ maintView = "menu"; render(); }; }
   var BACKBTN = '<div style="margin-bottom:10px"><button class="btn ghost small" id="mBack" type="button">&lsaquo; Maintenance status</button></div>';
 
-  function renderMaint(){
+  function renderMaint(){ renderMaintInner(); lockMaintInputs(); }
+  function renderMaintInner(){
+    if(maintView === "calib"){ renderCalibList(); return; }
+    if(maintView === "fext"){ renderFextList(); return; }
+    if(maintView === "rly"){ renderRelayBays(); return; }
+    if(maintView === "rlyDet"){ renderRelayDetail(); return; }
+    if(maintView === "perm" && isMaster()){ renderMaintPerm(); return; }
     if(maintView === "amp"){ renderAmp(); return; }
     if(maintView === "sched" || maintView === "other"){ renderSched(maintView); return; }
     if(maintView === "summary"){ renderMaintSummary(); return; }
+    if(maintView === "oil"){ renderOilList(); return; }
+    if(maintView === "oilDet"){ renderOilDetail(); return; }
     if(maintView === "audit"){ renderAuditList(); return; }
     if(maintView === "auditDet"){ renderAuditDetail(); return; }
     ampMigrate();
@@ -2610,9 +2665,14 @@
       { go:"amp",     ic:"amp",   cls:"",      t:"AMP", s: mAmp.length ? sa.done+" of "+mAmp.length+" ODR_CLSD this month" : "No plans due this month" },
       { go:"sched",   ic:"cal",   cls:"green", t:"Scheduled maintenance", s: sS.length+" activities, "+dn(sS)+" due" },
       { go:"other",   ic:"works", cls:"amber", t:"Other scheduled activities", s: sO.length+" activities, "+dn(sO)+" due" },
+      { go:"oil",     ic:"dash",  cls:"",      t:"Oil Sampling Schedule", s: oilSummaryText() },
       { go:"audit",   ic:"assign",cls:"",      t:"Audit Compliance", s: audSummaryText() },
+      { go:"calib",   ic:"cal",   cls:"green", t:"Testing Instrument Calibration", s: calibSummaryText() },
+      { go:"fext",    ic:"assign",cls:"amber", t:"Fire Extinguishers", s: fextSummaryText() },
+      { go:"rly",     ic:"dash",  cls:"",      t:"Relay Test Due", s: rlySummaryText() },
       { go:"summary", ic:"notice",cls:"grey",  t:"Summary", s: maintDue().length+" due till today" }
     ];
+    if(isMaster()) cards.push({ go:"perm", ic:"users", cls:"grey", t:"Status update access", s: maintPermText() });
     p.innerHTML = '<div class="panel-head"><h3>Maintenance status</h3></div><div class="hgrid">'+cards.map(function(c){
       return '<button type="button" class="hcard '+c.cls+'" data-mv="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
     }).join("")+'</div>';
@@ -2622,10 +2682,542 @@
   }
 
 
+
+  /* ---------- Who may update the Maintenance status tabs (set by Master) ---------- */
+  function maintPermGet(){ var m = state.maintPerm; return (m && m.mode === "selected") ? { mode:"selected", ids:(m.ids || []).slice() } : { mode:"all", ids:[] }; }
+  function canMaintUpdate(){
+    if(isMaster()) return true;
+    var m = maintPermGet(); if(m.mode !== "selected") return true;
+    var me = myEmpId(); return !!me && m.ids.indexOf(me) >= 0;
+  }
+  function maintPermText(){ var m = maintPermGet(); return m.mode === "selected" ? m.ids.length+" employee"+(m.ids.length===1?"":"s")+" selected to update status" : "Everyone can update status"; }
+  /* a login that is not allowed sees every status / date control of the Maintenance status tabs as read-only (the server enforces the same rule) */
+  function lockMaintInputs(){
+    if(canMaintUpdate()) return;
+    var p = $("panel"); if(!p) return;
+    Array.prototype.forEach.call(p.querySelectorAll("[data-astat],[data-amtr],[data-scomp],[data-odone],[data-apst],[data-aplk],[data-cdone],[data-fxr],[data-fxt],[data-rlyd]"),function(el){ el.disabled = true; el.title = "Only the employees selected by Master can update the status"; });
+    if(maintView !== "menu" && p.firstElementChild && !$("mLockNote")) p.firstElementChild.insertAdjacentHTML("afterend", '<p id="mLockNote" style="margin:0 0 12px;padding:10px 12px;background:#fff6e0;border:1px solid #f0d58a;border-radius:6px;color:#6b4e00;font-size:.9rem">You can view this page, but only the employees selected by Master can update the status or dates.</p>');
+  }
+  function renderMaintPerm(){
+    var p = $("panel"), m = maintPermGet();
+    var emps = (state.employees || []).slice().sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+    var h = BACKBTN+'<div class="panel-head"><h3>Status update access</h3></div>'+
+      '<p style="margin:0 0 12px;color:var(--muted);font-size:.9rem">Choose who can change the status or date in the Maintenance status tabs: AMP, Scheduled maintenance, Other scheduled activities, Oil Sampling, Audit Compliance, Testing Instrument Calibration, Fire Extinguishers and Relay Test Due. Master can always update. Everyone else can still view.</p>'+
+      '<div class="assign-form"><label style="display:block;margin-bottom:6px"><input type="radio" name="mpMode" value="all"'+(m.mode==="all"?' checked':'')+'> All employees can update</label>'+
+      '<label style="display:block;margin-bottom:10px"><input type="radio" name="mpMode" value="selected"'+(m.mode==="selected"?' checked':'')+'> Only the employees selected below can update</label>'+
+      '<div id="mpList" style="display:grid;gap:6px;max-height:340px;overflow:auto;padding:8px 10px;border:1px solid var(--line);border-radius:6px">'+
+      (emps.length ? emps.map(function(e){ return '<label><input type="checkbox" data-mpe="'+esc(e.id)+'"'+(m.ids.indexOf(e.id)>=0?' checked':'')+'> '+esc(e.name)+(e.desig ? ' <small style="color:var(--muted)">'+esc(e.desig)+'</small>' : '')+'</label>'; }).join("") : '<span style="color:var(--muted)">No employees added yet.</span>')+'</div>'+
+      '<p class="error" id="mpErr"></p><div class="row"><button class="btn" id="mpSave" type="button">Save</button></div><p id="mpOk" style="margin:8px 0 0;color:#1a7f37;font-size:.9rem"></p></div>';
+    p.innerHTML = h; bindBack();
+    function sync(){ var sel = document.querySelector('input[name="mpMode"]:checked').value === "selected"; Array.prototype.forEach.call(p.querySelectorAll("[data-mpe]"),function(c){ c.disabled = !sel; }); $("mpList").style.opacity = sel ? "1" : ".55"; }
+    Array.prototype.forEach.call(p.querySelectorAll('input[name="mpMode"]'),function(r){ r.onchange = sync; }); sync();
+    $("mpSave").onclick = function(){
+      var sel = document.querySelector('input[name="mpMode"]:checked').value === "selected", ids = [];
+      Array.prototype.forEach.call(p.querySelectorAll("[data-mpe]"),function(c){ if(c.checked) ids.push(c.getAttribute("data-mpe")); });
+      $("mpErr").textContent = "";
+      state.maintPerm = { mode: sel ? "selected" : "all", ids: sel ? ids : [] };
+      ampSend({ action:"maintPermPut", mode: state.maintPerm.mode, ids: state.maintPerm.ids });
+      $("mpOk").textContent = sel ? (ids.length ? "Saved. Only the "+ids.length+" selected employee"+(ids.length===1?"":"s")+" (and Master) can update the status." : "Saved. No employee is selected, so only Master can update the status.") : "Saved. All employees can update the status.";
+    };
+  }
+
+  /* ---------- Testing Instrument Calibration (inside Maintenance status) ---------- */
+  function calibFreqLabel(m){ m = +m || 0; return m === 1 ? "Monthly" : m === 12 ? "Yearly" : (m % 12 === 0 ? "Every "+(m/12)+" years" : "Every "+m+" months"); }
+  var CALIB_FREQ = [1,3,6,12,18,24,36,60];
+  function calibNext(c){ return c.lastDone ? addMonths(c.lastDone, +c.freq || 12) : ""; }
+  function calibState(c){
+    var n = calibNext(c); if(!n) return { k:"nr", label:"Not recorded", next:"" };
+    var d = daysBetween(today(), n);
+    if(d < 0) return { k:"od", label:"Overdue by "+(-d)+" day"+(d===-1?"":"s"), next:n };
+    if(d <= 30) return { k:"ds", label: d === 0 ? "Due today" : "Due in "+d+" day"+(d===1?"":"s"), next:n };
+    return { k:"ok", label:"OK", next:n };
+  }
+  function calibSummaryText(){
+    var l = state.calib || []; if(!l.length) return "No instruments yet";
+    var od = l.filter(function(c){ return calibState(c).k === "od"; }).length, ds = l.filter(function(c){ return calibState(c).k === "ds"; }).length;
+    return od ? od+" overdue" : (ds ? ds+" due within 30 days" : l.length+" instruments, none due");
+  }
+  function calibWho(){ return session ? (session.displayName || session.id) : ""; }
+  function calibObj(c){ return { id:c.id, name:c.name, lastDone:c.lastDone||"", freq:c.freq, remarks:c.remarks||"", created:c.created }; }
+  function calibFields(c){
+    c = c || { name:"", lastDone:"", freq:12, remarks:"" };
+    return '<div class="field span2"><label for="ciName">Instrument name</label><input type="text" id="ciName" maxlength="150" placeholder="e.g. Digital Multimeter" value="'+esc(c.name)+'"></div>'+
+      '<div class="field"><label for="ciLast">Last calibration date</label><input type="date" id="ciLast" max="'+today()+'" value="'+esc(c.lastDone||"")+'"></div>'+
+      '<div class="field"><label for="ciFreq">Frequency</label><select id="ciFreq">'+CALIB_FREQ.map(function(m){ return '<option value="'+m+'"'+(+c.freq===m?' selected':'')+'>'+calibFreqLabel(m)+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field span2"><label for="ciRem">Remarks</label><input type="text" id="ciRem" maxlength="300" placeholder="Optional" value="'+esc(c.remarks||"")+'"></div>';
+  }
+  function calibRead(errId){
+    var n = $("ciName").value.replace(/\s+/g," ").trim(), ld = $("ciLast").value, er = $(errId);
+    if(!n){ er.textContent = "Enter the instrument name."; return null; }
+    if(ld && ld > today()){ er.textContent = "The calibration date cannot be in the future."; return null; }
+    return { name:n, lastDone:ld, freq:+$("ciFreq").value, remarks:$("ciRem").value.trim() };
+  }
+  function renderCalibList(){
+    var p = $("panel"), master = isMaster(), l = (state.calib = state.calib || []).slice().sort(function(a,b){ return (a.created||0)-(b.created||0); });
+    var cnt = { od:0, ds:0, ok:0, nr:0 }; l.forEach(function(c){ cnt[calibState(c).k]++; });
+    var h = BACKBTN+'<div class="panel-head"><h3>Testing Instrument Calibration</h3></div>';
+    if(l.length) h += '<div class="audcard"><div class="stats"><span>Instruments <b>'+l.length+'</b></span><span>Overdue <b style="color:#b3261e">'+cnt.od+'</b></span><span>Due in 30 days <b style="color:#8a5a00">'+cnt.ds+'</b></span><span>OK <b style="color:#1a7f37">'+cnt.ok+'</b></span><span>Not recorded <b>'+cnt.nr+'</b></span></div></div>';
+    if(master) h += '<div class="assign-form"><h4>Add instrument</h4><div class="agrid">'+calibFields()+'</div><p class="error" id="ciErr"></p><button class="btn" id="ciAdd" type="button">Add instrument</button></div>';
+    else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add instruments. The last calibration date can be updated by the employees Master has selected; next due date updates automatically.</p>';
+    if(!l.length) h += '<div class="empty">No instruments added yet.'+(master ? ' Add the first one above.' : '')+'</div>';
+    else {
+      h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Instrument name</th><th>Last calibration date</th><th>Frequency</th><th>Next due date</th><th>Status</th><th>Remarks</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
+      l.forEach(function(c,i){
+        var st = calibState(c);
+        h += '<tr><td data-label="#">'+(i+1)+'</td><td data-label="Instrument name"><b>'+esc(c.name)+'</b></td>'+
+          '<td data-label="Last calibration date"><input type="date" data-cdone="'+esc(c.id)+'" max="'+today()+'" value="'+esc(c.lastDone||"")+'" aria-label="Last calibration date">'+
+            (c.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(c.updatedBy)+(c.updated ? ', '+esc(fmtStamp(c.updated)) : '')+'</small>' : '')+'</td>'+
+          '<td data-label="Frequency">'+esc(calibFreqLabel(c.freq))+'</td>'+
+          '<td data-label="Next due date">'+(st.next ? '<b>'+esc(fmtDate(st.next))+'</b>' : '&ndash;')+'</td><td data-label="Status"><span class="oilb '+st.k+'">'+esc(st.label)+'</span></td>'+
+          '<td data-label="Remarks">'+(c.remarks ? esc(c.remarks) : '&ndash;')+'</td>'+
+          (master ? '<td class="act"><button class="btn ghost small" data-cied="'+esc(c.id)+'" type="button">Edit</button> <button class="btn danger small" data-cidel="'+esc(c.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    p.innerHTML = h; bindBack();
+    function find(id){ return (state.calib || []).find(function(x){ return x.id === id; }); }
+    if(master) $("ciAdd").onclick = function(){
+      var v = calibRead("ciErr"); if(!v) return;
+      var c = { id:uid(), name:v.name, lastDone:v.lastDone, freq:v.freq, remarks:v.remarks, created:Date.now(), updated:Date.now(), updatedBy:calibWho() };
+      state.calib.push(c); ampSend({ action:"calibPut", item:calibObj(c) }); render();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-cdone]"),function(inp){
+      inp.onchange = function(){
+        var c = find(inp.getAttribute("data-cdone")); if(!c) return; var v = inp.value;
+        if(!v){ inp.value = c.lastDone || ""; return; }
+        if(v > today()){ alert("The calibration date cannot be in the future."); inp.value = c.lastDone || ""; return; }
+        c.lastDone = v; c.updated = Date.now(); c.updatedBy = calibWho();
+        ampSend({ action:"calibDone", id:c.id, lastDone:v }); render();
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-cied]"),function(b){
+      b.onclick = function(){ var c = find(b.getAttribute("data-cied")); if(!c) return;
+        openModal('<h3>Edit instrument</h3><div class="agrid">'+calibFields(c)+'</div><p class="error" id="ceErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
+        $("mNo").onclick = closeModal;
+        $("mOk").onclick = function(){ var v = calibRead("ceErr"); if(!v) return;
+          c.name = v.name; c.lastDone = v.lastDone; c.freq = v.freq; c.remarks = v.remarks; c.updated = Date.now(); c.updatedBy = calibWho();
+          closeModal(); ampSend({ action:"calibPut", item:calibObj(c) }); render(); };
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-cidel]"),function(b){
+      b.onclick = function(){ var id = b.getAttribute("data-cidel"), c = find(id); if(!c) return;
+        confirmModal("Delete \u201c"+c.name+"\u201d?", function(){ state.calib = state.calib.filter(function(x){ return x.id !== id; }); ampSend({ action:"calibDel", id:id }); render(); }); };
+    });
+  }
+
+  /* ---------- Fire Extinguishers: refill + pressure test due dates (inside Maintenance status) ---------- */
+  var FX_TYPES = ["CO2","FOAM","DCP","WATER","WATER CO2","CLEAN AGENT","ABC POWDER","OTHER"];
+  var FX_FREQ = [1,3,6,12,18,24,36,48,60,120];
+  function fxDue(last, freq){
+    if(!last) return { k:"nr", label:"Not recorded", next:"", days:null };
+    var n = addMonths(last, +freq || 12), d = daysBetween(today(), n);
+    if(d < 0) return { k:"od", label:"Overdue by "+(-d)+" day"+(d===-1?"":"s"), next:n, days:d };
+    if(d === 0) return { k:"ds", label:"Due today", next:n, days:d };
+    return { k: d <= 30 ? "ds" : "ok", label: d+" day"+(d===1?"":"s"), next:n, days:d };
+  }
+  function fxBadge(st){ return '<span class="oilb '+st.k+'">'+esc(st.label)+'</span>'; }
+  function fextSummaryText(){
+    var l = state.fext || []; if(!l.length) return "No extinguishers yet";
+    var od = 0, ds = 0; l.forEach(function(x){ [fxDue(x.lastRefill, x.refillFreq), fxDue(x.lastTest, x.testFreq)].forEach(function(s){ if(s.k === "od") od++; else if(s.k === "ds") ds++; }); });
+    return od ? od+" overdue" : (ds ? ds+" due within 30 days" : l.length+" extinguishers, none due");
+  }
+  function fxObj(x){ return { id:x.id, description:x.description, type:x.type, weight:x.weight, lastRefill:x.lastRefill||"", refillFreq:x.refillFreq, lastTest:x.lastTest||"", testFreq:x.testFreq, created:x.created }; }
+  function fxFreqOpts(sel){ return FX_FREQ.map(function(m){ return '<option value="'+m+'"'+(+sel===m?' selected':'')+'>'+calibFreqLabel(m)+'</option>'; }).join(""); }
+  function fxFields(x){
+    x = x || { description:"", type:"", weight:"", lastRefill:"", refillFreq:12, lastTest:"", testFreq:60 };
+    return '<div class="field span2"><label for="fxDesc">Description</label><input type="text" id="fxDesc" maxlength="200" placeholder="e.g. Control room, near panel C-3" value="'+esc(x.description)+'"></div>'+
+      '<div class="field"><label for="fxType">Type</label><select id="fxType"><option value="">Select</option>'+FX_TYPES.map(function(t){ return '<option value="'+esc(t)+'"'+(x.type===t?' selected':'')+'>'+esc(t)+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="fxWt">Weight (kg)</label><input type="number" id="fxWt" min="0.1" max="999" step="0.1" inputmode="decimal" value="'+esc(x.weight)+'"></div>'+
+      '<div class="field"><label for="fxLr">Last refill date</label><input type="date" id="fxLr" max="'+today()+'" value="'+esc(x.lastRefill||"")+'"></div>'+
+      '<div class="field"><label for="fxRf">Refill frequency</label><select id="fxRf">'+fxFreqOpts(x.refillFreq)+'</select></div>'+
+      '<div class="field"><label for="fxLt">Last pressure test date</label><input type="date" id="fxLt" max="'+today()+'" value="'+esc(x.lastTest||"")+'"></div>'+
+      '<div class="field"><label for="fxTf">Pressure test frequency</label><select id="fxTf">'+fxFreqOpts(x.testFreq)+'</select></div>';
+  }
+  function fxRead(errId){
+    var er = $(errId), d = $("fxDesc").value.replace(/\s+/g," ").trim(), ty = $("fxType").value, wt = Number($("fxWt").value), lr = $("fxLr").value, lt = $("fxLt").value;
+    if(!d){ er.textContent = "Enter the description."; return null; }
+    if(!ty){ er.textContent = "Select the type."; return null; }
+    if(!(wt > 0 && wt <= 999)){ er.textContent = "Enter the weight in kg."; return null; }
+    if((lr && lr > today()) || (lt && lt > today())){ er.textContent = "A done date cannot be in the future."; return null; }
+    return { description:d, type:ty, weight:String(Math.round(wt*100)/100), lastRefill:lr, refillFreq:+$("fxRf").value, lastTest:lt, testFreq:+$("fxTf").value };
+  }
+  function renderFextList(){
+    var p = $("panel"), master = isMaster(), l = (state.fext = state.fext || []).slice().sort(function(a,b){ return (a.created||0)-(b.created||0); });
+    var c = { od:0, ds:0, ok:0, nr:0 }; l.forEach(function(x){ [fxDue(x.lastRefill, x.refillFreq), fxDue(x.lastTest, x.testFreq)].forEach(function(s){ c[s.k]++; }); });
+    var h = BACKBTN+'<div class="panel-head"><h3>Fire Extinguishers</h3></div>';
+    if(l.length) h += '<div class="audcard"><div class="stats"><span>Extinguishers <b>'+l.length+'</b></span><span>Overdue <b style="color:#b3261e">'+c.od+'</b></span><span>Due in 30 days <b style="color:#8a5a00">'+c.ds+'</b></span><span>OK <b style="color:#1a7f37">'+c.ok+'</b></span><span>Not recorded <b>'+c.nr+'</b></span></div><small style="color:var(--muted)">Counts include both refill and pressure test dates.</small></div>';
+    if(master) h += '<div class="assign-form"><h4>Add fire extinguisher</h4><div class="agrid">'+fxFields()+'</div><p class="error" id="fxErr"></p><button class="btn" id="fxAdd" type="button">Add fire extinguisher</button></div>';
+    else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add or edit fire extinguishers. The last refill and last pressure test dates can be updated by the employees Master has selected; next due dates and due-in days update automatically.</p>';
+    if(!l.length) h += '<div class="empty">No fire extinguishers added yet.'+(master ? ' Add the first one above.' : '')+'</div>';
+    else {
+      h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>Sl. No.</th><th>Description</th><th>Type</th><th>Weight (kg)</th><th>Last refill</th><th>Refill frequency</th><th>Next refill date</th><th>Refill due in</th>'+
+        '<th>Last pressure test</th><th>Test frequency</th><th>Next pressure test due</th><th>Test due in</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
+      l.forEach(function(x,i){
+        var r = fxDue(x.lastRefill, x.refillFreq), t = fxDue(x.lastTest, x.testFreq), by = x.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(x.updatedBy)+(x.updated ? ', '+esc(fmtStamp(x.updated)) : '')+'</small>' : '';
+        h += '<tr><td data-label="Sl. No.">'+(i+1)+'</td><td data-label="Description"><b>'+esc(x.description)+'</b></td><td data-label="Type">'+esc(x.type)+'</td><td data-label="Weight (kg)">'+esc(x.weight)+'</td>'+
+          '<td data-label="Last refill"><input type="date" data-fxr="'+esc(x.id)+'" max="'+today()+'" value="'+esc(x.lastRefill||"")+'" aria-label="Last refill date"></td>'+
+          '<td data-label="Refill frequency">'+esc(calibFreqLabel(x.refillFreq))+'</td><td data-label="Next refill date">'+(r.next ? '<b>'+esc(fmtDate(r.next))+'</b>' : '&ndash;')+'</td><td data-label="Refill due in">'+fxBadge(r)+'</td>'+
+          '<td data-label="Last pressure test"><input type="date" data-fxt="'+esc(x.id)+'" max="'+today()+'" value="'+esc(x.lastTest||"")+'" aria-label="Last pressure test date">'+by+'</td>'+
+          '<td data-label="Test frequency">'+esc(calibFreqLabel(x.testFreq))+'</td><td data-label="Next pressure test due">'+(t.next ? '<b>'+esc(fmtDate(t.next))+'</b>' : '&ndash;')+'</td><td data-label="Test due in">'+fxBadge(t)+'</td>'+
+          (master ? '<td class="act"><button class="btn ghost small" data-fxed="'+esc(x.id)+'" type="button">Edit</button> <button class="btn danger small" data-fxdel="'+esc(x.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    p.innerHTML = h; bindBack();
+    function find(id){ return (state.fext || []).find(function(x){ return x.id === id; }); }
+    if(master) $("fxAdd").onclick = function(){
+      var v = fxRead("fxErr"); if(!v) return;
+      var x = { id:uid(), description:v.description, type:v.type, weight:v.weight, lastRefill:v.lastRefill, refillFreq:v.refillFreq, lastTest:v.lastTest, testFreq:v.testFreq, created:Date.now(), updated:Date.now(), updatedBy:calibWho() };
+      state.fext.push(x); ampSend({ action:"fextPut", item:fxObj(x) }); render();
+    };
+    [["data-fxr","refill","lastRefill"],["data-fxt","test","lastTest"]].forEach(function(cfg){
+      Array.prototype.forEach.call(p.querySelectorAll("["+cfg[0]+"]"),function(inp){
+        inp.onchange = function(){
+          var x = find(inp.getAttribute(cfg[0])); if(!x) return; var v = inp.value;
+          if(!v){ inp.value = x[cfg[2]] || ""; return; }
+          if(v > today()){ alert("The date cannot be in the future."); inp.value = x[cfg[2]] || ""; return; }
+          x[cfg[2]] = v; x.updated = Date.now(); x.updatedBy = calibWho();
+          ampSend({ action:"fextDone", id:x.id, kind:cfg[1], lastDone:v }); render();
+        };
+      });
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-fxed]"),function(b){
+      b.onclick = function(){ var x = find(b.getAttribute("data-fxed")); if(!x) return;
+        openModal('<h3>Edit fire extinguisher</h3><div class="agrid">'+fxFields(x)+'</div><p class="error" id="fxeErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
+        $("mNo").onclick = closeModal;
+        $("mOk").onclick = function(){ var v = fxRead("fxeErr"); if(!v) return;
+          Object.keys(v).forEach(function(f){ x[f] = v[f]; }); x.updated = Date.now(); x.updatedBy = calibWho();
+          closeModal(); ampSend({ action:"fextPut", item:fxObj(x) }); render(); };
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-fxdel]"),function(b){
+      b.onclick = function(){ var id = b.getAttribute("data-fxdel"), x = find(id); if(!x) return;
+        confirmModal("Delete \u201c"+x.description+"\u201d?", function(){ state.fext = state.fext.filter(function(y){ return y.id !== id; }); ampSend({ action:"fextDel", id:id }); render(); }); };
+    });
+  }
+
+  /* ---------- Relay Test Due: bays / equipment / lines and their relays (inside Maintenance status) ---------- */
+  var RLY_TYPES = ["OVER CURRENT","EARTH FAULT","DIFFERENTIAL","OVERFLUX","REF","DISTANCE","DIRECTIONAL","BUS BAR PROTECTION","LBB (BREAKER FAILURE)","UNDER VOLTAGE","OVER VOLTAGE","TRIP CIRCUIT SUPERVISION","SYNCH CHECK"];
+  var rlySel = "";
+  function rlyOf(bayId){ return (state.rly || []).filter(function(x){ return x.bayId === bayId; }).sort(function(a,b){ return (a.created||0)-(b.created||0); }); }
+  function rlyCount(list){ var c = { total:list.length, od:0, ds:0, ok:0, nr:0 }; list.forEach(function(x){ c[fxDue(x.lastTest, x.freq).k]++; }); return c; }
+  function rlySummaryText(){
+    var b = (state.rlyBays || []).length; if(!b) return "No bays yet";
+    var c = rlyCount(state.rly || []);
+    return c.od ? c.od+" overdue" : (c.ds ? c.ds+" due within 30 days" : b+" bay"+(b===1?"":"s")+", "+c.total+" relays, none due");
+  }
+  function rlyStatsHTML(c){ return '<div class="stats"><span>Relays <b>'+c.total+'</b></span><span>Overdue <b style="color:#b3261e">'+c.od+'</b></span><span>Due in 30 days <b style="color:#8a5a00">'+c.ds+'</b></span><span>OK <b style="color:#1a7f37">'+c.ok+'</b></span><span>Not recorded <b>'+c.nr+'</b></span></div>'; }
+  function rlyObj(x){ return { id:x.id, bayId:x.bayId, type:x.type, lastTest:x.lastTest||"", freq:x.freq, created:x.created }; }
+  function rlyFields(x){
+    x = x || { type:"", lastTest:"", freq:12 };
+    return '<div class="field"><label for="rlType">Type of relay</label><input type="text" id="rlType" list="rlList" maxlength="100" placeholder="e.g. OVER CURRENT" value="'+esc(x.type)+'" autocomplete="off">'+
+        '<datalist id="rlList">'+RLY_TYPES.map(function(t){ return '<option value="'+esc(t)+'">'; }).join("")+'</datalist></div>'+
+      '<div class="field"><label for="rlLast">Last test date</label><input type="date" id="rlLast" max="'+today()+'" value="'+esc(x.lastTest||"")+'"></div>'+
+      '<div class="field"><label for="rlFreq">Frequency</label><select id="rlFreq">'+fxFreqOpts(x.freq)+'</select></div>';
+  }
+  function rlyRead(errId){
+    var er = $(errId), t = $("rlType").value.replace(/\s+/g," ").trim().toUpperCase(), ld = $("rlLast").value;
+    if(!t){ er.textContent = "Enter the type of relay."; return null; }
+    if(ld && ld > today()){ er.textContent = "The test date cannot be in the future."; return null; }
+    return { type:t, lastTest:ld, freq:+$("rlFreq").value };
+  }
+  function renderRelayBays(){
+    var p = $("panel"), master = isMaster(), bays = (state.rlyBays = state.rlyBays || []).slice().sort(function(a,b){ return (a.created||0)-(b.created||0); });
+    state.rly = state.rly || [];
+    var h = BACKBTN+'<div class="panel-head"><h3>Relay Test Due</h3><div class="stats"><span>Bays <b>'+bays.length+'</b></span></div></div>';
+    if(bays.length) h += '<div class="audcard">'+rlyStatsHTML(rlyCount(state.rly))+'</div>';
+    if(master) h += '<div class="assign-form"><h4>Add bay / equipment / line</h4><div class="agrid"><div class="field span2"><label for="rbName">Name</label><input type="text" id="rbName" maxlength="100" placeholder="e.g. 400 kV KOZHIKODE-ARECODE LINE 1"></div></div><p class="error" id="rbErr"></p><button class="btn" id="rbAdd" type="button">Add bay</button></div>';
+    else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add bays and relays. Open a bay to see its relays; the last test date can be updated by the employees Master has selected.</p>';
+    if(!bays.length) h += '<div class="empty">No bays added yet.</div>';
+    else bays.forEach(function(b){
+      h += '<div class="audcard"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h4>'+esc(b.name)+'</h4><div><button class="btn small" data-rbopen="'+esc(b.id)+'" type="button">Open</button>'+
+        (master ? ' <button class="btn ghost small" data-rbren="'+esc(b.id)+'" type="button">Rename</button> <button class="btn danger small" data-rbdel="'+esc(b.id)+'" type="button">Delete</button>' : '')+'</div></div>'+rlyStatsHTML(rlyCount(rlyOf(b.id)))+'</div>';
+    });
+    p.innerHTML = h; bindBack();
+    function findB(id){ return (state.rlyBays || []).find(function(x){ return x.id === id; }); }
+    if(master) $("rbAdd").onclick = function(){
+      var n = $("rbName").value.replace(/\s+/g," ").trim(); if(!n){ $("rbErr").textContent = "Enter the name."; return; }
+      var b = { id:uid(), name:n.toUpperCase(), created:Date.now() }; state.rlyBays.push(b); ampSend({ action:"rlyBayPut", item:{ id:b.id, name:b.name, created:b.created } }); render();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-rbopen]"),function(b){ b.onclick = function(){ rlySel = b.getAttribute("data-rbopen"); maintView = "rlyDet"; render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-rbren]"),function(btn){
+      btn.onclick = function(){ var b = findB(btn.getAttribute("data-rbren")); if(!b) return;
+        openModal('<h3>Rename bay</h3><div class="field"><label for="rrName">Name</label><input type="text" id="rrName" maxlength="100" value="'+esc(b.name)+'"></div><p class="error" id="rrErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+        $("mNo").onclick = closeModal;
+        $("mOk").onclick = function(){ var n = $("rrName").value.replace(/\s+/g," ").trim(); if(!n){ $("rrErr").textContent = "Enter the name."; return; } b.name = n.toUpperCase(); closeModal(); ampSend({ action:"rlyBayPut", item:{ id:b.id, name:b.name, created:b.created } }); render(); };
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-rbdel]"),function(btn){
+      btn.onclick = function(){ var id = btn.getAttribute("data-rbdel"), b = findB(id); if(!b) return;
+        confirmModal("Delete \u201c"+b.name+"\u201d and all its relays?", function(){ state.rlyBays = state.rlyBays.filter(function(x){ return x.id !== id; }); state.rly = state.rly.filter(function(x){ return x.bayId !== id; }); ampSend({ action:"rlyBayDel", id:id }); render(); }); };
+    });
+  }
+  function renderRelayDetail(){
+    var p = $("panel"), master = isMaster(), b = (state.rlyBays || []).find(function(x){ return x.id === rlySel; });
+    if(!b){ maintView = "rly"; renderRelayBays(); return; }
+    var l = rlyOf(b.id);
+    var h = '<div style="margin-bottom:10px"><button class="btn ghost small" id="rdBack" type="button">&lsaquo; Relay Test Due</button></div><div class="panel-head"><h3>'+esc(b.name)+'</h3></div><div class="audcard">'+rlyStatsHTML(rlyCount(l))+'</div>';
+    if(master) h += '<div class="assign-form"><h4>Add relay</h4><div class="agrid">'+rlyFields()+'</div><p class="error" id="rlErr"></p><button class="btn" id="rlAdd" type="button">Add relay</button></div>';
+    if(!l.length) h += '<div class="empty">No relays added yet.'+(master ? ' Add the first one above.' : '')+'</div>';
+    else {
+      h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Type of relay</th><th>Last test date</th><th>Frequency</th><th>Next due date</th><th>Balance days</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
+      l.forEach(function(x,i){
+        var st = fxDue(x.lastTest, x.freq);
+        h += '<tr><td data-label="#">'+(i+1)+'</td><td data-label="Type of relay"><b>'+esc(x.type)+'</b></td>'+
+          '<td data-label="Last test date"><input type="date" data-rlyd="'+esc(x.id)+'" max="'+today()+'" value="'+esc(x.lastTest||"")+'" aria-label="Last test date">'+
+            (x.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(x.updatedBy)+(x.updated ? ', '+esc(fmtStamp(x.updated)) : '')+'</small>' : '')+'</td>'+
+          '<td data-label="Frequency">'+esc(calibFreqLabel(x.freq))+'</td><td data-label="Next due date">'+(st.next ? '<b>'+esc(fmtDate(st.next))+'</b>' : '&ndash;')+'</td><td data-label="Balance days">'+fxBadge(st)+'</td>'+
+          (master ? '<td class="act"><button class="btn ghost small" data-rled="'+esc(x.id)+'" type="button">Edit</button> <button class="btn danger small" data-rldel="'+esc(x.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    p.innerHTML = h;
+    $("rdBack").onclick = function(){ maintView = "rly"; render(); };
+    function find(id){ return (state.rly || []).find(function(x){ return x.id === id; }); }
+    if(master) $("rlAdd").onclick = function(){
+      var v = rlyRead("rlErr"); if(!v) return;
+      var x = { id:uid(), bayId:b.id, type:v.type, lastTest:v.lastTest, freq:v.freq, created:Date.now(), updated:Date.now(), updatedBy:calibWho() };
+      state.rly.push(x); ampSend({ action:"rlyPut", item:rlyObj(x) }); render();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-rlyd]"),function(inp){
+      inp.onchange = function(){
+        var x = find(inp.getAttribute("data-rlyd")); if(!x) return; var v = inp.value;
+        if(!v){ inp.value = x.lastTest || ""; return; }
+        if(v > today()){ alert("The test date cannot be in the future."); inp.value = x.lastTest || ""; return; }
+        x.lastTest = v; x.updated = Date.now(); x.updatedBy = calibWho();
+        ampSend({ action:"rlyDone", id:x.id, lastTest:v }); render();
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-rled]"),function(btn){
+      btn.onclick = function(){ var x = find(btn.getAttribute("data-rled")); if(!x) return;
+        openModal('<h3>Edit relay</h3><div class="agrid">'+rlyFields(x)+'</div><p class="error" id="rleErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
+        $("mNo").onclick = closeModal;
+        $("mOk").onclick = function(){ var v = rlyRead("rleErr"); if(!v) return; x.type = v.type; x.lastTest = v.lastTest; x.freq = v.freq; x.updated = Date.now(); x.updatedBy = calibWho(); closeModal(); ampSend({ action:"rlyPut", item:rlyObj(x) }); render(); };
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-rldel]"),function(btn){
+      btn.onclick = function(){ var id = btn.getAttribute("data-rldel"); confirmModal("Delete this relay?", function(){ state.rly = state.rly.filter(function(y){ return y.id !== id; }); ampSend({ action:"rlyDel", id:id }); render(); }); };
+    });
+  }
+
+  /* ---------- Oil Sampling Schedule (inside Maintenance status) ---------- */
+  var OIL_UNIT = { d:"Days", m:"Months", y:"Years" };
+  var OIL_TESTS = ["DGA","BDV","PARTICLE COUNT","MOISTURE (PPM)","FURAN","TAN DELTA","ACIDITY","INTERFACIAL TENSION","FLASH POINT","RESISTIVITY","DDF"];
+  var oilSel = "";
+  function oilTestsOf(id){ return (state.oilTests || []).filter(function(t){ return t.equipId === id; }); }
+  function oilAdd(iso, n, unit){            // iso + n days/months/years (month end is respected)
+    var p = iso.split("-").map(Number), y = p[0], m = p[1]-1, d = p[2];
+    if(unit === "d") return toISO(new Date(y, m, d+n));
+    var tot = m + (unit === "y" ? n*12 : n), ny = y + Math.floor(tot/12), nm = ((tot%12)+12)%12;
+    var last = new Date(ny, nm+1, 0).getDate();
+    return toISO(new Date(ny, nm, Math.min(d, last)));
+  }
+  function oilNext(t){ return t.lastDone ? oilAdd(t.lastDone, t.freq, t.unit) : ""; }
+  function oilDays(iso){ var a = parseISO(today()), b = parseISO(iso); return Math.round((b - a)/86400000); }
+  function oilState(t){
+    var n = oilNext(t);
+    if(!n) return { k:"nr", label:"Not recorded", rank:0, next:"" };
+    var d = oilDays(n);
+    if(d < 0) return { k:"od", label:"Overdue by "+(-d)+" day"+(d===-1?"":"s"), rank:1, next:n };
+    if(d <= 30) return { k:"ds", label: d === 0 ? "Due today" : "Due in "+d+" day"+(d===1?"":"s"), rank:2, next:n };
+    return { k:"ok", label:"OK", rank:3, next:n };
+  }
+  function oilFreq(t){ return "Every "+t.freq+" "+(t.freq === 1 ? OIL_UNIT[t.unit].replace(/s$/,"") : OIL_UNIT[t.unit]).toLowerCase(); }
+  function oilCount(list){
+    var c = { total:list.length, od:0, ds:0, ok:0, nr:0 };
+    list.forEach(function(t){ c[oilState(t).k]++; }); return c;
+  }
+  function oilSummaryText(){
+    var c = oilCount(state.oilTests || []), e = (state.oilEquip || []).length;
+    if(!e) return "No equipment yet";
+    return c.od ? c.od+" overdue" : (c.ds ? c.ds+" due within 30 days" : e+" equipment, none due");
+  }
+  function oilBadge(t){ var s = oilState(t); return '<span class="oilb '+s.k+'">'+esc(s.label)+'</span>'; }
+  function oilSummaryHTML(c){
+    return '<div class="stats"><span>Tests <b>'+c.total+'</b></span><span>Overdue <b style="color:#b3261e">'+c.od+'</b></span><span>Due in 30 days <b style="color:#8a5a00">'+c.ds+'</b></span><span>OK <b style="color:#1a7f37">'+c.ok+'</b></span><span>Not recorded <b>'+c.nr+'</b></span></div>';
+  }
+  function oilObj(t){ return { id:t.id, equipId:t.equipId, test:t.test, lastDone:t.lastDone||"", freq:t.freq, unit:t.unit, created:t.created }; }
+  function oilSaveE(e){ ampSend({ action:"oilPut", item:{ id:e.id, name:e.name, created:e.created } }); }
+  function oilSaveT(t){ ampSend({ action:"oilTestPut", item: oilObj(t) }); }
+  function oilWho(){ return session ? (session.displayName || session.id) : ""; }
+
+  function oilExport(onlyId){
+    var eq = (state.oilEquip || []).slice().sort(function(a,b){ return (a.created||0)-(b.created||0); });
+    if(onlyId) eq = eq.filter(function(e){ return e.id === onlyId; });
+    if(!eq.length){ alert("There is no equipment to export."); return; }
+    var all = []; eq.forEach(function(e){ all = all.concat(oilTestsOf(e.id)); });
+    var c = oilCount(all), COL = { od:"#b3261e", ds:"#8a5a00", ok:"#1a7f37", nr:"#5d6b78" };
+    var body = docHead('KOZHIKODE SS &ndash; Oil Sampling Schedule', (onlyId ? esc(eq[0].name) : 'All equipment ('+eq.length+')')+' &nbsp;|&nbsp; As on '+esc(fmtDate(today())))+
+      '<p class="sm">Tests: <b>'+c.total+'</b> &nbsp;|&nbsp; Overdue: <b style="color:#b3261e">'+c.od+'</b> &nbsp;|&nbsp; Due within 30 days: <b style="color:#8a5a00">'+c.ds+'</b> &nbsp;|&nbsp; OK: <b style="color:#1a7f37">'+c.ok+'</b> &nbsp;|&nbsp; Not recorded: <b>'+c.nr+'</b></p>';
+    eq.forEach(function(e, ei){
+      var ts = oilTestsOf(e.id).sort(function(x,y){ return (x.created||0)-(y.created||0); });
+      body += '<div class="oe"><h2>'+(ei+1)+'. '+esc(e.name)+'</h2>';
+      if(!ts.length) body += '<p class="sm">No tests added.</p></div>';
+      else body += '<table><thead><tr><th style="width:5%">#</th><th>Test type</th><th style="width:15%">Last done</th><th style="width:15%">Frequency</th><th style="width:15%">Next due</th><th style="width:20%">Status</th></tr></thead><tbody>'+
+        ts.map(function(t,i){ var s = oilState(t);
+          return '<tr><td>'+(i+1)+'</td><td class="l"><b>'+esc(t.test)+'</b></td><td>'+(t.lastDone ? esc(fmtDate(t.lastDone)) : '&ndash;')+'</td><td>'+esc(oilFreq(t))+'</td><td>'+(s.next ? esc(fmtDate(s.next)) : '&ndash;')+
+            '</td><td style="color:'+COL[s.k]+';font-weight:700">'+esc(s.label)+'</td></tr>'; }).join("")+'</tbody></table></div>';
+    });
+    body += docFoot();
+    printDoc("Oil_Sampling_"+(onlyId ? eq[0].name.replace(/[^A-Za-z0-9]+/g,"_") : "All")+"_"+today(), listCss(false)+'.oe h2{margin:14px 0 4px;font-size:12pt;color:#1f3a52}tr{page-break-inside:avoid}', body);
+  }
+
+  function renderOilList(){
+    var p = $("panel"), master = isMaster(), eq = (state.oilEquip = state.oilEquip || []);
+    state.oilTests = state.oilTests || [];
+    var h = BACKBTN+'<div class="panel-head"><h3>Oil Sampling Schedule</h3><div class="stats"><span>Equipment <b>'+eq.length+'</b></span></div></div>';
+    if(eq.length) h += '<div class="audcard">'+oilSummaryHTML(oilCount(state.oilTests))+'<div style="margin-top:8px"><button class="btn small" id="oilExpAll" type="button">Export schedule (PDF)</button></div></div>';
+    if(master) h += '<div class="assign-form"><h4>Add equipment</h4><div class="agrid"><div class="field span2"><label for="oilName">Equipment name</label>'+
+      '<input type="text" id="oilName" maxlength="100" placeholder="e.g. ICT-1"></div></div><p class="error" id="oilErr"></p><button class="btn" id="oilAdd" type="button">Add equipment</button></div>';
+    else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add equipment and tests. Open an equipment to update the date a test was done.</p>';
+    if(!eq.length) h += '<div class="empty">No equipment added yet.</div>';
+    else eq.slice().sort(function(a,b){ return (a.created||0)-(b.created||0); }).forEach(function(e){
+      h += '<div class="audcard"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h4>'+esc(e.name)+'</h4><div>'+
+        '<button class="btn small" data-oopen="'+esc(e.id)+'" type="button">Open</button>'+
+        (master ? ' <button class="btn ghost small" data-oren="'+esc(e.id)+'" type="button">Rename</button> <button class="btn danger small" data-odel="'+esc(e.id)+'" type="button">Delete</button>' : '')+
+        '</div></div>'+oilSummaryHTML(oilCount(oilTestsOf(e.id)))+'</div>';
+    });
+    p.innerHTML = h; bindBack();
+    if($("oilExpAll")) $("oilExpAll").onclick = function(){ oilExport(null); };
+    function findE(id){ return eq.find(function(x){ return x.id === id; }); }
+    if(master) $("oilAdd").onclick = function(){
+      var n = $("oilName").value.trim(); if(!n){ $("oilErr").textContent = "Enter the equipment name."; return; }
+      var e = { id:uid(), name:n.toUpperCase(), created:Date.now() }; eq.push(e); oilSaveE(e); render();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-oopen]"),function(b){ b.onclick = function(){ oilSel = b.getAttribute("data-oopen"); maintView = "oilDet"; render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-oren]"),function(b){
+      b.onclick = function(){ var e = findE(b.getAttribute("data-oren")); if(!e) return;
+        openModal('<h3>Rename equipment</h3><div class="field"><label for="orName">Equipment name</label><input type="text" id="orName" maxlength="100" value="'+esc(e.name)+'"></div>'+
+          '<p class="error" id="orErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+        $("mNo").onclick = closeModal;
+        $("mOk").onclick = function(){ var n = $("orName").value.trim(); if(!n){ $("orErr").textContent = "Enter the equipment name."; return; } e.name = n.toUpperCase(); closeModal(); oilSaveE(e); render(); };
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-odel]"),function(b){
+      b.onclick = function(){ var id = b.getAttribute("data-odel"), e = findE(id); if(!e) return;
+        confirmModal("Delete “"+e.name+"” and all its oil tests?", function(){
+          state.oilEquip = state.oilEquip.filter(function(x){ return x.id !== id; }); state.oilTests = state.oilTests.filter(function(x){ return x.equipId !== id; });
+          ampSend({ action:"oilDel", id:id }); render(); });
+      };
+    });
+  }
+
+  function oilFormFields(t){
+    t = t || { test:"", lastDone:"", freq:6, unit:"m" };
+    return '<div class="field"><label for="otType">Test type</label><input type="text" id="otType" list="otList" maxlength="100" placeholder="e.g. DGA" value="'+esc(t.test)+'" autocomplete="off">'+
+        '<datalist id="otList">'+OIL_TESTS.map(function(x){ return '<option value="'+esc(x)+'">'; }).join("")+'</datalist></div>'+
+      '<div class="field"><label for="otLast">Last done date</label><input type="date" id="otLast" max="'+today()+'" value="'+esc(t.lastDone||"")+'"></div>'+
+      '<div class="field"><label for="otFreq">Frequency &ndash; every</label><div style="display:flex;gap:8px"><input type="number" id="otFreq" min="1" max="999" step="1" inputmode="numeric" value="'+esc(t.freq)+'" style="flex:1">'+
+        '<select id="otUnit" style="flex:1">'+Object.keys(OIL_UNIT).map(function(k){ return '<option value="'+k+'"'+(t.unit===k?' selected':'')+'>'+OIL_UNIT[k]+'</option>'; }).join("")+'</select></div></div>';
+  }
+  function oilReadForm(errId){
+    var n = $("otType").value.replace(/\s+/g," ").trim().toUpperCase(), ld = $("otLast").value, fq = Math.floor(Number($("otFreq").value)), un = $("otUnit").value, er = $(errId);
+    if(!n){ er.textContent = "Enter the test type."; return null; }
+    if(!(fq >= 1 && fq <= 999)){ er.textContent = "Enter the frequency (1 to 999)."; return null; }
+    if(ld && ld > today()){ er.textContent = "The last done date cannot be in the future."; return null; }
+    return { test:n, lastDone:ld, freq:fq, unit:un };
+  }
+
+  function renderOilDetail(){
+    var p = $("panel"), master = isMaster(), e = (state.oilEquip || []).find(function(x){ return x.id === oilSel; });
+    if(!e){ maintView = "oil"; renderOilList(); return; }
+    var ts = oilTestsOf(e.id).sort(function(x,y){ return (x.created||0)-(y.created||0); });
+    var h = '<div style="margin-bottom:10px"><button class="btn ghost small" id="oBack" type="button">&lsaquo; Oil Sampling Schedule</button></div>'+
+      '<div class="panel-head"><h3>'+esc(e.name)+'</h3></div><div class="audcard">'+oilSummaryHTML(oilCount(ts))+
+      '<div style="margin-top:8px"><button class="btn small" id="oilExp" type="button">Export (PDF)</button></div></div>';
+    if(master) h += '<div class="assign-form"><h4>Add test</h4><div class="agrid">'+oilFormFields()+'</div><p class="error" id="otErr"></p><button class="btn" id="otAdd" type="button">Add test</button></div>';
+    if(!ts.length) h += '<div class="empty">No tests added yet.'+(master ? ' Add the first one above.' : '')+'</div>';
+    else {
+      h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Test type</th><th>Last done</th><th>Frequency</th><th>Next due</th><th>Status</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
+      ts.forEach(function(t,i){
+        var s = oilState(t);
+        h += '<tr><td data-label="#">'+(i+1)+'</td><td data-label="Test type"><b>'+esc(t.test)+'</b></td>'+
+          '<td data-label="Last done"><input type="date" data-odone="'+esc(t.id)+'" max="'+today()+'" value="'+esc(t.lastDone||"")+'" aria-label="Last done date">'+
+            (t.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(t.updatedBy)+(t.updated ? ', '+esc(fmtStamp(t.updated)) : '')+'</small>' : '')+'</td>'+
+          '<td data-label="Frequency">'+esc(oilFreq(t))+'</td>'+
+          '<td data-label="Next due">'+(s.next ? '<b>'+esc(fmtDate(s.next))+'</b>' : '–')+'</td><td data-label="Status">'+oilBadge(t)+'</td>'+
+          (master ? '<td class="act"><button class="btn ghost small" data-oted="'+esc(t.id)+'" type="button">Edit</button> <button class="btn danger small" data-otdel="'+esc(t.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+    p.innerHTML = h;
+    $("oBack").onclick = function(){ maintView = "oil"; render(); };
+    $("oilExp").onclick = function(){ oilExport(e.id); };
+    function findT(id){ return (state.oilTests || []).find(function(x){ return x.id === id; }); }
+    if(master) $("otAdd").onclick = function(){
+      var v = oilReadForm("otErr"); if(!v) return;
+      var t = { id:uid(), equipId:e.id, test:v.test, lastDone:v.lastDone, freq:v.freq, unit:v.unit, created:Date.now(), updated:Date.now(), updatedBy:oilWho() };
+      state.oilTests.push(t); oilSaveT(t); render();
+    };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-odone]"),function(inp){
+      inp.onchange = function(){
+        var t = findT(inp.getAttribute("data-odone")); if(!t) return;
+        var v = inp.value;
+        if(!v){ inp.value = t.lastDone || ""; return; }
+        if(v > today()){ alert("The done date cannot be in the future."); inp.value = t.lastDone || ""; return; }
+        t.lastDone = v; t.updated = Date.now(); t.updatedBy = oilWho();
+        ampSend({ action:"oilTestDone", id:t.id, lastDone:v }); render();
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-oted]"),function(b){
+      b.onclick = function(){ var t = findT(b.getAttribute("data-oted")); if(!t) return;
+        openModal('<h3>Edit test</h3>'+oilFormFields(t)+'<p class="error" id="oeErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
+        $("mNo").onclick = closeModal;
+        $("mOk").onclick = function(){ var v = oilReadForm("oeErr"); if(!v) return;
+          t.test = v.test; t.lastDone = v.lastDone; t.freq = v.freq; t.unit = v.unit; t.updated = Date.now(); t.updatedBy = oilWho();
+          closeModal(); oilSaveT(t); render(); };
+      };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-otdel]"),function(b){
+      b.onclick = function(){ var id = b.getAttribute("data-otdel");
+        confirmModal("Delete this test?", function(){ state.oilTests = state.oilTests.filter(function(x){ return x.id !== id; }); ampSend({ action:"oilTestDel", id:id }); render(); }); };
+    });
+  }
+
   /* ---------- Audit Compliance (inside Maintenance status) ---------- */
   var AUD_ST = { open:"OPEN", progress:"UNDER PROGRESS", closed:"CLOSED" };
   var AUD_DEPTS = BRANCHES;
-  var audSel = "";
+  var audSel = "", audLF = { q:"", st:"" }, audDF = { q:"", dept:"", st:"" };
+  function audMatch(a, f){
+    var pts = audPts(a.id);
+    if(f.st && !pts.some(function(x){ return x.status === f.st; })) return false;
+    return !f.q || dioHas(a.name+" "+pts.map(function(x){ return x.desc+" "+x.dept; }).join(" "), f.q);
+  }
+  function audDMatch(x){
+    var f = audDF;
+    if(f.dept && x.dept !== f.dept) return false;
+    if(f.st && x.status !== f.st) return false;
+    return !f.q || dioHas(x.desc+" "+x.dept+" "+(AUD_ST[x.status]||"")+" "+(x.updatedBy||""), f.q);
+  }
+  function audDActive(){ return !!(audDF.q.trim() || audDF.dept || audDF.st); }
+  function audStOpts(sel){ return '<option value="">All statuses</option>'+Object.keys(AUD_ST).map(function(k){ return '<option value="'+k+'"'+(k === sel ? ' selected' : '')+'>'+AUD_ST[k]+'</option>'; }).join(""); }
+  function audKeepFocus(id, fn){ var q = $(id), pos = q ? q.selectionStart : 0; fn(); var n = $(id); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } }
+  function audListBar(shown, total){
+    return '<div class="rgbar"><div class="field grow"><label for="audLQ">Search audits</label><input type="text" id="audLQ" maxlength="60" placeholder="Audit name, point, department…" value="'+esc(audLF.q)+'"></div>'+
+      '<div class="field"><label for="audLSt">Has points that are</label><select id="audLSt">'+audStOpts(audLF.st)+'</select></div>'+
+      '<div class="field"><button class="btn ghost small" id="audLClr" type="button">Clear</button></div></div>'+
+      ((audLF.q.trim() || audLF.st) ? '<p style="margin:0 0 8px;color:var(--muted);font-size:.85rem">Showing '+shown+' of '+total+' audits.</p>' : '');
+  }
+  function audListBind(){
+    var q = $("audLQ"); if(!q) return;
+    q.oninput = function(){ audLF.q = q.value; audKeepFocus("audLQ", renderAuditList); };
+    $("audLSt").onchange = function(){ audLF.st = this.value; renderAuditList(); };
+    $("audLClr").onclick = function(){ audLF.q = ""; audLF.st = ""; renderAuditList(); };
+  }
+  function audDetBar(total, shown){
+    return '<div class="rgbar"><div class="field grow"><label for="audDQ">Search points</label><input type="text" id="audDQ" maxlength="60" placeholder="Description, department, updated by…" value="'+esc(audDF.q)+'"></div>'+
+      '<div class="field"><label for="audDDept">Department</label><select id="audDDept"><option value="">All departments</option>'+AUD_DEPTS.map(function(d){ return '<option'+(d === audDF.dept ? ' selected' : '')+'>'+esc(d)+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="audDSt">Status</label><select id="audDSt">'+audStOpts(audDF.st)+'</select></div>'+
+      '<div class="field"><button class="btn ghost small" id="audDClr" type="button">Clear</button></div></div>'+
+      (audDActive() ? '<p style="margin:0 0 8px;color:var(--muted);font-size:.85rem">Showing '+shown+' of '+total+' points. The PDF export uses this filter.</p>' : '');
+  }
+  function audDetBind(){
+    var q = $("audDQ"); if(!q) return;
+    q.oninput = function(){ audDF.q = q.value; audKeepFocus("audDQ", renderAuditDetail); };
+    $("audDDept").onchange = function(){ audDF.dept = this.value; renderAuditDetail(); };
+    $("audDSt").onchange = function(){ audDF.st = this.value; renderAuditDetail(); };
+    $("audDClr").onclick = function(){ audDF.q = ""; audDF.dept = ""; audDF.st = ""; renderAuditDetail(); };
+  }
   function audPts(id){ return (state.audPts || []).filter(function(x){ return x.auditId === id; }); }
   function audCount(list){
     var c = { open:0, progress:0, closed:0, total:list.length };
@@ -2652,30 +3244,70 @@
   function okLink(l){ return /^https?:\/\/[^\s]+$/i.test(String(l||"").trim()); }
   function bindAudBack(to){ var b = $("aBack"); if(b) b.onclick = function(){ maintView = to; render(); }; }
 
+
+  function auditExport(onlyId, fl){
+    function aPts(a){ var l = audPts(a.id); return fl ? l.filter(fl) : l; }
+    var audits = (state.audits || []).slice().sort(function(a,b){ return (a.created||0)-(b.created||0); });
+    if(onlyId) audits = audits.filter(function(a){ return a.id === onlyId; });
+    if(!audits.length){ alert("There is no audit to export."); return; }
+    var allPts = []; audits.forEach(function(a){ allPts = allPts.concat(aPts(a)); });
+    var tot = audCount(allPts);
+    var STC = { open:"#b3261e", progress:"#9a6b00", closed:"#1a7f37" };
+    function bar(c){
+      var pc = c.total ? c.closed*100/c.total : 0, pp = c.total ? c.progress*100/c.total : 0;
+      return '<div class="pb"><i style="width:'+pc+'%;background:#1a7f37"></i><i style="width:'+pp+'%;background:#e0a100"></i></div>';
+    }
+    var body = docHead('KOZHIKODE SS &ndash; Audit Compliance Report', (onlyId ? esc(audits[0].name) : 'All audits ('+audits.length+')')+(fl ? ' (filtered)' : '')+' &nbsp;|&nbsp; '+esc(fmtDate(today())))+
+      '<p class="sm">Overall compliance: <b>'+tot.pct+'% closed</b> &nbsp;|&nbsp; Total points: <b>'+tot.total+'</b> &nbsp;|&nbsp; Open: <b>'+tot.open+'</b> &nbsp;|&nbsp; Under progress: <b>'+tot.progress+'</b> &nbsp;|&nbsp; Closed: <b>'+tot.closed+'</b></p>'+bar(tot);
+    audits.forEach(function(a, ai){
+      var pts = aPts(a).sort(function(x,y){ return (x.created||0)-(y.created||0); }), c = audCount(pts);
+      body += '<div class="au'+(ai ? ' brk' : '')+'"><h2>'+(ai+1)+'. '+esc(a.name)+'</h2>'+
+        '<p class="sm">Progress: <b>'+c.pct+'% closed</b> &nbsp;|&nbsp; Points: <b>'+c.total+'</b> &nbsp;|&nbsp; Open: <b>'+c.open+'</b> &nbsp;|&nbsp; Under progress: <b>'+c.progress+'</b> &nbsp;|&nbsp; Closed: <b>'+c.closed+'</b></p>'+bar(c);
+      if(!pts.length) body += '<p class="sm">No audit points.</p></div>';
+      else {
+        body += '<table><thead><tr><th style="width:4%">#</th><th>Audit point</th><th style="width:13%">Department</th><th style="width:12%">Status</th><th style="width:26%">Document</th><th style="width:15%">Last updated</th></tr></thead><tbody>'+
+          pts.map(function(x,i){
+            return '<tr><td>'+(i+1)+'</td><td class="l" style="white-space:pre-wrap">'+esc(x.desc)+'</td><td>'+esc(x.dept)+'</td>'+
+              '<td style="color:'+(STC[x.status]||"#000")+';font-weight:700">'+esc(AUD_ST[x.status] || x.status)+'</td>'+
+              '<td class="l lk">'+(okLink(x.link) ? '<a href="'+esc(x.link)+'">'+esc(x.link)+'</a>' : '&ndash;')+'</td>'+
+              '<td><small>'+(x.updatedBy ? esc(x.updatedBy)+'<br>' : '')+(x.updated ? esc(fmtStamp(x.updated)) : '')+'</small></td></tr>';
+          }).join("")+'</tbody></table></div>';
+      }
+    });
+    body += '<div class="sg"><div>Prepared by</div><div>Verified by</div></div>'+docFoot();
+    printDoc("Audit_Report_"+(onlyId ? audits[0].name.replace(/[^A-Za-z0-9]+/g,"_") : "All")+"_"+today(),
+      listCss(true)+'.au h2{margin:14px 0 4px;font-size:12pt;color:#1f3a52}.brk{page-break-before:always}.pb{display:flex;height:9px;background:#e3e8ec;border-radius:9px;overflow:hidden;margin:2px 0 8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.pb i{display:block;height:100%}'+
+      '.lk{font-size:8pt;word-break:break-all}.lk a{color:#0b5cad}tr{page-break-inside:avoid}', body);
+  }
+
   function renderAuditList(){
     var p = $("panel"), master = isMaster(), audits = (state.audits = state.audits || []);
     state.audPts = state.audPts || [];
     var all = audCount(state.audPts);
     var h = BACKBTN+'<div class="panel-head"><h3>Audit Compliance</h3><div class="stats"><span>Audits <b>'+audits.length+'</b></span></div></div>';
-    if(audits.length) h += '<div class="audcard">'+audProgressHTML(all, "Overall compliance")+'</div>';
+    if(audits.length) h += '<div class="audcard">'+audProgressHTML(all, "Overall compliance")+'<div style="margin-top:8px"><button class="btn small" id="audExpAll" type="button">Export report (PDF)</button></div></div>';
     if(master) h += '<div class="assign-form"><h4>Add audit</h4><div class="agrid"><div class="field span2"><label for="audName">Audit name</label>'+
       '<input type="text" id="audName" maxlength="200" placeholder="e.g. Internal Safety Audit 2026"></div></div>'+
       '<p class="error" id="audErr"></p><button class="btn" id="audAdd" type="button">Add audit</button></div>';
     else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add audits and audit points. Open an audit to update the status or document link of any point.</p>';
+    var shown = audits.filter(function(a){ return audMatch(a, audLF); });
+    if(audits.length) h += audListBar(shown.length, audits.length);
     if(!audits.length) h += '<div class="empty">No audits added yet.</div>';
-    else audits.slice().sort(function(a,b){ return (a.created||0)-(b.created||0); }).forEach(function(a){
+    else if(!shown.length) h += '<div class="empty">No audit matches the filter.</div>';
+    else shown.sort(function(a,b){ return (a.created||0)-(b.created||0); }).forEach(function(a){
       h += '<div class="audcard"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h4>'+esc(a.name)+'</h4><div>'+
         '<button class="btn small" data-aopen="'+esc(a.id)+'" type="button">Open</button>'+
         (master ? ' <button class="btn ghost small" data-aren="'+esc(a.id)+'" type="button">Rename</button> <button class="btn danger small" data-adel="'+esc(a.id)+'" type="button">Delete</button>' : '')+
         '</div></div>'+audProgressHTML(audCount(audPts(a.id)))+'</div>';
     });
-    p.innerHTML = h; bindAudBack("menu");
+    p.innerHTML = h; bindBack(); audListBind();
+    if($("audExpAll")) $("audExpAll").onclick = function(){ auditExport(null); };
     function findA(id){ return audits.find(function(x){ return x.id === id; }); }
     if(master) $("audAdd").onclick = function(){
       var n = $("audName").value.trim(); if(!n){ $("audErr").textContent = "Enter the audit name."; return; }
       var a = { id:uid(), name:n, created:Date.now() }; audits.push(a); audSave(a); render();
     };
-    Array.prototype.forEach.call(p.querySelectorAll("[data-aopen]"),function(b){ b.onclick = function(){ audSel = b.getAttribute("data-aopen"); maintView = "auditDet"; render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-aopen]"),function(b){ b.onclick = function(){ audSel = b.getAttribute("data-aopen"); audDF = { q:"", dept:"", st:"" }; maintView = "auditDet"; render(); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-aren]"),function(b){
       b.onclick = function(){ var a = findA(b.getAttribute("data-aren")); if(!a) return;
         openModal('<h3>Rename audit</h3><div class="field"><label for="arName">Audit name</label><input type="text" id="arName" maxlength="200" value="'+esc(a.name)+'"></div>'+
@@ -2698,16 +3330,20 @@
     if(!a){ maintView = "audit"; renderAuditList(); return; }
     var pts = audPts(a.id).sort(function(x,y){ return (x.created||0)-(y.created||0); });
     var h = '<div style="margin-bottom:10px"><button class="btn ghost small" id="aBack" type="button">&lsaquo; Audit Compliance</button></div>'+
-      '<div class="panel-head"><h3>'+esc(a.name)+'</h3></div><div class="audcard">'+audProgressHTML(audCount(pts), "Audit progress")+'</div>';
+      '<div class="panel-head"><h3>'+esc(a.name)+'</h3></div><div class="audcard">'+audProgressHTML(audCount(pts), "Audit progress")+'<div style="margin-top:8px"><button class="btn small" id="audExp" type="button">Export report (PDF)</button></div></div>';
     if(master) h += '<div class="assign-form"><h4>Add audit point</h4><div class="agrid">'+
       '<div class="field span2"><label for="apDesc">Description</label><textarea id="apDesc" maxlength="1000" placeholder="Audit observation / point to be complied"></textarea></div>'+
       '<div class="field"><label for="apDept">Department</label><select id="apDept"><option value="">Select department</option>'+AUD_DEPTS.map(function(d){ return '<option>'+esc(d)+'</option>'; }).join("")+'</select></div>'+
       '<div class="field"><label for="apLink">Document link (SharePoint / OneDrive, optional)</label><input type="url" id="apLink" maxlength="1000" placeholder="https://…sharepoint.com/…"></div></div>'+
       '<p class="error" id="apErr"></p><button class="btn" id="apAdd" type="button">Add audit point</button></div>';
+    var fpts = pts.filter(audDMatch);
+    if(pts.length) h += audDetBar(pts.length, fpts.length);
     if(!pts.length) h += '<div class="empty">No audit points yet.'+(master ? ' Add the first one above.' : '')+'</div>';
+    else if(!fpts.length) h += '<div class="empty">No audit point matches the filter.</div>';
     else {
       h += '<table class="atable"><thead><tr><th>#</th><th>Description</th><th>Department</th><th>Status</th><th>Document</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
-      pts.forEach(function(x,i){
+      fpts.forEach(function(x){
+        var i = pts.indexOf(x);
         h += '<tr class="'+(x.status==="closed"?"done":"")+'"><td data-label="#">'+(i+1)+'</td>'+
           '<td data-label="Description"><span class="wt" style="white-space:pre-wrap">'+esc(x.desc)+'</span></td>'+
           '<td data-label="Department">'+esc(x.dept)+'</td>'+
@@ -2719,7 +3355,8 @@
       });
       h += '</tbody></table>';
     }
-    p.innerHTML = h; bindAudBack("audit");
+    p.innerHTML = h; bindAudBack("audit"); audDetBind();
+    $("audExp").onclick = function(){ auditExport(a.id, audDActive() ? audDMatch : null); };
     function findP(id){ return (state.audPts || []).find(function(x){ return x.id === id; }); }
     if(master) $("apAdd").onclick = function(){
       var d = $("apDesc").value.trim(), dp = $("apDept").value, lk = $("apLink").value.trim(), err = $("apErr");
@@ -2956,13 +3593,13 @@
         h += '<tr class="rgday"><td colspan="'+(forPrint?5:4)+'">'+esc(dayLabel(w.date))+' &nbsp;<small>('+n+' work'+(n>1?'s':'')+')</small></td></tr>';
       }
       if(forPrint){
-        h += '<tr><td>'+(i+1)+'</td><td class="l"><span'+wpriPrint(w)+'>'+hl(w.text,words)+'</span>'+(w.movedFrom ? '<br><small>Transferred from '+esc(fmtDate(w.movedFrom))+'</small>' : '')+'</td>'+
+        h += '<tr><td>'+(i+1)+'</td><td class="l"><span'+wpriPrint(w)+'>'+hl(w.text,words)+'</span>'+(w.movedFrom ? '<br><small>Transferred from '+esc(fmtDate(w.movedFrom))+'</small>' : '')+(w.xferFrom ? '<br><small>Transferred from '+esc(w.xferFrom)+'</small>' : '')+'</td>'+
           '<td class="'+(w.done?'ok':'')+'">'+(w.done?'Done':'Pending')+'</td><td>'+(w.done && w.doneAt ? esc(fmtStamp(w.doneAt)) : '–')+'</td>'+
           '<td class="l">'+(w.done && w.comment ? hl(w.comment,words) : '')+'</td></tr>';
       } else {
         h += '<tr class="'+(w.done?"done":"")+'"><td class="chk">'+(w.done?'&#10003;':'')+'</td>'+
           '<td class="txt"><span class="wt wp-'+wpri(w)+'">'+hl(w.text,words)+'</span>'+wpriTag(w)+
-            (w.movedFrom?'<span class="moved">Transferred from '+fmtDate(w.movedFrom)+'</span>':'')+
+            (w.movedFrom?'<span class="moved">Transferred from '+fmtDate(w.movedFrom)+'</span>':'')+(w.xferFrom?'<span class="moved">Transferred from '+esc(w.xferFrom)+'</span>':'')+
             (w.done&&w.doneAt?'<span class="doneat">Completed '+fmtStamp(w.doneAt)+'</span>':'')+
             (w.done&&w.comment?'<span class="cmt">Comment: '+hl(w.comment,words)+'</span>':'')+'</td>'+
           '<td>'+(w.done?'Done':'Pending')+'</td>'+
@@ -3033,14 +3670,888 @@
   }
 
 
+
+  /* ---------- Miscellaneous: menu + Gate Pass ---------- */
+  var miscView = "menu", gpSel = "", gpEditId = "", gpDraft = null, gpFilter = "";
+  var GP_REASONS = ["Repair","Diversion","Scrap","Oil sample","Other"];
+  var GP_MODES = ["Company vehicle","Truck","Courier","By hand"];
+  var GP_UNITS = ["Nos","Set","Kg","Litre","Metre","Box","Pair","Drum","Roll","Lot"];
+  var GP_APPROVER_DESIG = ["Engineer","Assistant Manager","Deputy Manager","Manager","Chief Manager","DGM","Sr. DGM","GM","Sr. GM","CGM"];
+  function renderMisc(){
+    if(miscView === "export"){ renderMiscExport(); return; }
+    if(miscView === "gp"){ renderGateList(); return; }
+    if(miscView === "gpForm"){ renderGateForm(); return; }
+    if(miscView === "gpDet"){ renderGateDetail(); return; }
+    if(miscView === "dio"){ renderDio(); return; }
+    if(miscView === "inForm"){ renderInForm(); return; }
+    if(miscView === "inDet"){ renderInDetail(); return; }
+    var p = $("panel"), n = (state.gatePasses || []).length, nSent = dispRows().filter(function(r){ return r.it.rcv !== "Y"; }).length, nHeld = heldRows().filter(function(r){ return !r.it.ret; }).length;
+    var cards = [
+      { go:"export", ic:"works",  cls:"",     t:"Export employee worklist", s:"Select employee and dates, export PDF" },
+      { go:"gp",     ic:"assign", cls:"",     t:"Gate Pass", s: n ? n+" gate pass"+(n>1?"es":"") : "Create and print material exit gate passes" },
+      { go:"dio",    ic:"works",  cls:"",     t:"Dispatch / Inward entry", s: (nSent || nHeld) ? nSent+" sent, awaiting return · "+nHeld+" held from others" : "Track returnable assets and material received" }
+    ];
+    p.innerHTML = '<div class="panel-head"><h3>Miscellaneous</h3></div><div class="hgrid">'+cards.map(function(c){
+      return '<button type="button" class="hcard '+c.cls+'" data-miv="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
+    }).join("")+'</div>';
+    Array.prototype.forEach.call(p.querySelectorAll("[data-miv]"),function(b){
+      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); };
+    });
+  }
+  function gpMine(g){ return isMaster() || (session && g.createdBy === session.id); }
+  function gpItemsOf(id){ return (state.gateItems || []).filter(function(i){ return i.gpId === id; }).sort(function(a,b){ return (a.created||0)-(b.created||0); }); }
+  function gpReasonText(g){ return g.reason === "Other" ? (g.reasonOther || "Other") : g.reason; }
+  function gpVehicleText(g){
+    if(g.mode === "Company vehicle") return g.vehicle;
+    if(g.mode === "Truck") return g.vehicle+(g.transporter ? " ("+g.transporter+")" : "");
+    return g.mode;
+  }
+  function gpQty(i){
+    var q = Number(i.qty), s = (q === Math.floor(q) && q < 10) ? "0"+q : String(q);
+    return s+" "+String(i.unit||"").toLowerCase();
+  }
+  function gpPhone(p){ var d = String(p||"").replace(/\D/g,""); return d.length === 10 ? "+91-"+d : String(p||""); }
+  function time12(t){ var p = String(t||"").split(":"); if(p.length < 2) return ""; var hh = +p[0], ap = hh >= 12 ? "pm" : "am"; hh = hh % 12 || 12; return hh+":"+p[1]+" "+ap; }
+  function gpStamp(g){ return fmtDate(g.date)+(g.time ? " "+time12(g.time) : ""); }
+  function gpFyOf(date){ var y = +date.slice(0,4), m = +date.slice(5,7), s = m >= 4 ? y : y-1; return s+"-"+String((s+1)%100).padStart(2,"0"); }
+  function gpApprovers(){
+    return (state.employees || []).filter(function(e){ return GP_APPROVER_DESIG.indexOf(e.desig) >= 0; }).sort(function(a,b){ return a.name.localeCompare(b.name); });
+  }
+  function gpBackBtn(to, label){ return '<div style="margin-bottom:10px"><button class="btn ghost small" id="gBack" type="button">&lsaquo; '+label+'</button></div>'; }
+  function gpBind(to){ var b = $("gBack"); if(b) b.onclick = function(){ miscView = to; render(); }; }
+  function nowHM(){ var d = new Date(); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+
+  /* ---------- Gate pass list -> Excel (date range) ---------- */
+  var gpX = { from:"", to:"" };
+  function gpExcelExport(from, to, err){
+    var list = (state.gatePasses || []).filter(function(g){ return g.date >= from && g.date <= to; })
+      .sort(function(a,b){ return (a.date === b.date ? (a.created||0)-(b.created||0) : (a.date < b.date ? -1 : 1)); });
+    if(!list.length){ err("No gate pass found between "+fmtDate(from)+" and "+fmtDate(to)+"."); return; }
+    loadXLSX(function(){
+      var X = window.XLSX, rows = [["Sl. No.","Gate Pass No.","Date","Time","Type","From","To","Purpose","Mode","Vehicle No.","Transporter","Receiver Name","Receiver Mobile","No. of Items","Items","Remarks","Authorised By","Designation","Emp No.","Prepared By"]], irows = [["Gate Pass No.","Date","Type","To","Sl. No.","Description","Quantity","Unit","Received Back On"]];
+      list.forEach(function(g, k){
+        var its = gpItemsOf(g.id);
+        rows.push([k+1, g.number||"", fmtDate(g.date), g.time ? time12(g.time) : "", g.type === "RETURNABLE" ? "Returnable" : "Non Returnable", g.fromStn||"", g.toStn||"", gpReasonText(g)||"", g.mode||"", g.vehicle||"", g.transporter||"", g.receiverName||"", gpPhone(g.receiverPhone), its.length,
+          its.map(function(i, n){ return (n+1)+". "+i.desc+" - "+gpQty(i); }).join("\n"), g.remarks||"", g.approverName||"", g.approverDesig||"", g.approverEmpNo||"", g.createdByName||""]);
+        its.forEach(function(i, n){ irows.push([g.number||"", fmtDate(g.date), g.type === "RETURNABLE" ? "Returnable" : "Non Returnable", g.toStn||"", n+1, i.desc, Number(i.qty), i.unit||"", i.rcvDate ? fmtDate(i.rcvDate) : ""]); });
+      });
+      var wb = X.utils.book_new(), w1 = X.utils.aoa_to_sheet(rows), w2 = X.utils.aoa_to_sheet(irows);
+      w1["!cols"] = [6,16,12,10,15,24,28,18,15,14,20,20,16,8,48,24,20,16,10,20].map(function(w){ return { wch:w }; });
+      w2["!cols"] = [16,12,15,28,6,40,10,10,16].map(function(w){ return { wch:w }; });
+      X.utils.book_append_sheet(wb, w1, "Gate Passes"); X.utils.book_append_sheet(wb, w2, "Items");
+      X.writeFile(wb, "Gate_Passes_"+fmtDate(from)+"_to_"+fmtDate(to)+".xlsx");
+      err("");
+    }, function(){ err("Could not load the Excel library. Check your internet connection and try again."); });
+  }
+
+  function renderGateList(){
+    var p = $("panel"), list = (state.gatePasses || []).slice().sort(function(a,b){ return (b.created||0)-(a.created||0); });
+    if(!gpX.from) gpX.from = today().slice(0,8)+"01";
+    if(!gpX.to) gpX.to = today();
+    var q = gpFilter.trim().toLowerCase();
+    if(q) list = list.filter(function(g){ return (g.number+" "+g.toStn+" "+g.receiverName+" "+g.createdByName+" "+gpReasonText(g)).toLowerCase().indexOf(q) >= 0 || gpItemsOf(g.id).some(function(i){ return i.desc.toLowerCase().indexOf(q) >= 0; }); });
+    var MAX = 100, total = list.length;
+    var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Gate Pass</h3><button class="btn" id="gpNew" type="button">New gate pass</button></div>'+
+      '<div class="filters"><input type="text" id="gpQ" maxlength="60" placeholder="Search number, station, receiver, item…" value="'+esc(gpFilter)+'" aria-label="Search gate passes"></div>'+
+      '<div class="assign-form" style="margin:0 0 12px"><h4>Download list as Excel</h4><div class="agrid"><div class="field"><label for="gxFrom">From date</label><input type="date" id="gxFrom" value="'+esc(gpX.from)+'"></div>'+
+      '<div class="field"><label for="gxTo">To date</label><input type="date" id="gxTo" value="'+esc(gpX.to)+'"></div></div>'+
+      '<div class="row"><button class="btn" id="gxGo" type="button">Download Excel</button></div><p id="gxErr" style="margin:8px 0 0;color:#c0392b;font-size:.9rem" role="alert"></p></div>';
+    if(!total) h += '<div class="empty">'+(q ? 'No gate pass matches your search.' : 'No gate pass created yet.')+'</div>';
+    else list.slice(0, MAX).forEach(function(g){
+      var n = gpItemsOf(g.id).length;
+      h += '<div class="audcard"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h4>'+(g.number ? esc(g.number) : 'Assigning number…')+
+        ' <span class="oilb '+(g.type === "RETURNABLE" ? "ds" : "nr")+'">'+esc(g.type)+'</span></h4><button class="btn small" data-gopen="'+esc(g.id)+'" type="button">Open</button></div>'+
+        '<p style="margin:4px 0 0;font-size:.9rem">'+esc(fmtDate(g.date))+' &middot; To <b>'+esc(g.toStn)+'</b> &middot; '+esc(gpReasonText(g))+'</p>'+
+        '<small style="color:var(--muted)">'+n+' item'+(n===1?'':'s')+' &middot; Prepared by '+esc(g.createdByName)+'</small></div>';
+    });
+    if(total > MAX) h += '<p style="color:var(--muted);font-size:.85rem">Showing the latest '+MAX+' of '+total+'. Use search to find older ones.</p>';
+    p.innerHTML = h; gpBind("menu");
+    $("gpNew").onclick = function(){ gpEditId = ""; gpDraft = null; miscView = "gpForm"; render(); };
+    $("gxFrom").onchange = function(){ gpX.from = this.value; };
+    $("gxTo").onchange = function(){ gpX.to = this.value; };
+    $("gxGo").onclick = function(){
+      var er = $("gxErr"), f = $("gxFrom").value, t = $("gxTo").value; gpX.from = f; gpX.to = t;
+      if(!f || !t){ er.textContent = "Select both the from and to dates."; return; }
+      if(f > t){ er.textContent = "The from date cannot be after the to date."; return; }
+      er.textContent = ""; gpExcelExport(f, t, function(m){ er.textContent = m; });
+    };
+    var qi = $("gpQ"); qi.oninput = function(){ gpFilter = qi.value; var pos = qi.selectionStart; renderGateList(); var n = $("gpQ"); n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-gopen]"),function(b){ b.onclick = function(){ gpSel = b.getAttribute("data-gopen"); gpRet = "gp"; miscView = "gpDet"; render(); }; });
+  }
+
+  function gpNewDraft(){
+    return { date:today(), time:nowHM(), asset:"", type:"", fromStn:"KOZHIKODE SUBSTATION", toStn:"", reason:"", reasonOther:"", mode:"", vehicle:"", transporter:"",
+             approverId:"", receiverName:"", receiverPhone:"", remarks:"", inEntry:"", inPick:{} };
+  }
+  function renderGateForm(){
+    var p = $("panel"), edit = gpEditId ? (state.gatePasses || []).find(function(x){ return x.id === gpEditId; }) : null;
+    if(gpEditId && !edit){ miscView = "gp"; renderGateList(); return; }
+    if(edit && !isMaster()){ gpEditId = ""; gpSel = edit.id; miscView = "gpDet"; renderGateDetail(); return; }   // a made gate pass can be modified by Master only
+    if(!gpDraft) gpDraft = edit ? Object.assign({}, edit) : gpNewDraft();
+    var d = gpDraft, aps = gpApprovers();
+    function sel(id, label, opts, cur, ph){ return '<div class="field"><label for="'+id+'">'+label+'</label><select id="'+id+'"><option value="">'+ph+'</option>'+opts.map(function(o){
+      return '<option value="'+esc(o[0])+'"'+(o[0]===cur?' selected':'')+'>'+esc(o[1])+'</option>'; }).join("")+'</select></div>'; }
+    var needVeh = d.mode === "Company vehicle" || d.mode === "Truck";
+    var h = gpBackBtn("", edit ? "Gate pass" : "Gate Pass")+'<div class="panel-head"><h3>'+(edit ? 'Edit gate pass '+esc(edit.number) : 'New gate pass')+'</h3></div>'+
+      gpInBlock(d, edit)+'<div class="assign-form"><div class="agrid">'+
+      '<div class="field"><label>Gate pass no.</label><input type="text" value="'+(edit ? esc(edit.number) : 'Auto-generated on save (serial/financial year)')+'" disabled></div>'+
+      '<div class="field"><label for="gpDate">Date</label><input type="date" id="gpDate" value="'+esc(d.date)+'"></div>'+
+      sel("gpAsset","Is it an asset of Kozhikode SS? (not printed)",[["YES","Yes"],["NO","No"]],d.asset,"Select")+
+      sel("gpType","Type of diversion",[["RETURNABLE","Returnable"],["NON RETURNABLE","Non returnable"]],d.type,"Select")+
+      '<div class="field"><label for="gpFrom">From station</label><input type="text" id="gpFrom" maxlength="100" value="'+esc(d.fromStn)+'"></div>'+
+      '<div class="field"><label for="gpTo">To station / firm</label><input type="text" id="gpTo" maxlength="150" value="'+esc(d.toStn)+'"></div>'+
+      sel("gpReason","Reason for movement",GP_REASONS.map(function(x){ return [x,x]; }),d.reason,"Select")+
+      (d.reason === "Other" ? '<div class="field"><label for="gpOther">Specify reason</label><input type="text" id="gpOther" maxlength="100" value="'+esc(d.reasonOther)+'"></div>' : '')+
+      sel("gpMode","Mode of transport",GP_MODES.map(function(x){ return [x,x]; }),d.mode,"Select")+
+      (needVeh ? '<div class="field"><label for="gpVeh">Vehicle number</label><input type="text" id="gpVeh" maxlength="30" placeholder="e.g. KL09 AZ 2327" value="'+esc(d.vehicle)+'"></div>' : '')+
+      (d.mode === "Truck" ? '<div class="field"><label for="gpTrans">Transporter name</label><input type="text" id="gpTrans" maxlength="100" value="'+esc(d.transporter)+'"></div>' : '')+
+      sel("gpAppr","Approver (Engineer and above)",aps.map(function(e){ return [e.id, e.name+" ("+e.desig+")"]; }),d.approverId,aps.length ? "Select approver" : "No Engineer-level employee found")+
+      '<div class="field"><label for="gpRecv">Receiver name</label><input type="text" id="gpRecv" maxlength="100" value="'+esc(d.receiverName)+'"></div>'+
+      '<div class="field"><label for="gpPhone">Receiver contact no.</label><input type="tel" id="gpPhone" maxlength="20" inputmode="tel" value="'+esc(d.receiverPhone)+'"></div>'+
+      '<div class="field span2"><label for="gpRem">Remarks (optional)</label><input type="text" id="gpRem" maxlength="200" value="'+esc(d.remarks)+'"></div>'+
+      '</div><p class="error" id="gpErr"></p><button class="btn" id="gpSave" type="button">'+(edit ? 'Save changes' : 'Save &amp; add items')+'</button></div>';
+    p.innerHTML = h;
+    $("gBack").onclick = function(){ gpDraft = null; miscView = edit ? "gpDet" : "gp"; render(); };
+    function grab(){
+      function v(id){ var n = $(id); return n ? n.value : ""; }
+      d.date = v("gpDate"); d.asset = v("gpAsset"); d.type = v("gpType"); d.fromStn = v("gpFrom"); d.toStn = v("gpTo"); d.reason = v("gpReason"); d.reasonOther = v("gpOther");
+      d.mode = v("gpMode"); d.vehicle = v("gpVeh"); d.transporter = v("gpTrans"); d.approverId = v("gpAppr"); d.receiverName = v("gpRecv"); d.receiverPhone = v("gpPhone"); d.remarks = v("gpRem");
+    }
+    ["gpDate","gpAsset","gpType","gpFrom","gpTo","gpOther","gpVeh","gpTrans","gpAppr","gpRecv","gpPhone","gpRem"].forEach(function(id){ var n = $(id); if(n){ n.addEventListener("input", grab); n.addEventListener("change", grab); } });
+    $("gpAsset").addEventListener("change", function(){ grab(); if(d.asset === "YES"){ d.type = "RETURNABLE"; renderGateForm(); } });   // asset of the substation: returnable
+    ["gpReason","gpMode"].forEach(function(id){ $(id).addEventListener("change", function(){ grab(); renderGateForm(); }); });   // show / hide the dependent fields
+    var ie = $("gpInEntry");
+    if(ie) ie.addEventListener("change", function(){ grab(); var en = inFind(ie.value); d.inEntry = en ? en.id : ""; d.inPick = {}; if(en) applyInDraft(d, en, null); renderGateForm(); });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-gpinpick]"), function(cb){ cb.onchange = function(){ d.inPick[cb.getAttribute("data-gpinpick")] = cb.checked; }; });
+    $("gpSave").onclick = function(){
+      grab(); var er = $("gpErr"), c = d;
+      var pickIds = Object.keys(c.inPick || {}).filter(function(k){ return c.inPick[k]; });
+      if(!edit && c.inEntry){
+        if(c.asset === "YES"){ er.textContent = "Material of another station / firm cannot be marked as a Kozhikode SS asset."; return; }
+        if(!pickIds.length){ er.textContent = "Tick at least one item to return, or choose “Not from an inward entry”."; return; }
+      }
+      if(!c.date){ er.textContent = "Select the date."; return; }
+      if(!c.asset){ er.textContent = "Select whether it is an asset of Kozhikode SS."; return; }
+      if(!c.type){ er.textContent = "Select the type of diversion."; return; }
+      if(!c.fromStn.trim()){ er.textContent = "Enter the From station."; return; }
+      if(!c.toStn.trim()){ er.textContent = "Enter the To station / firm."; return; }
+      if(!c.reason){ er.textContent = "Select the reason for movement."; return; }
+      if(c.reason === "Other" && !c.reasonOther.trim()){ er.textContent = "Specify the reason for movement."; return; }
+      if(!c.mode){ er.textContent = "Select the mode of transport."; return; }
+      if((c.mode === "Company vehicle" || c.mode === "Truck") && !c.vehicle.trim()){ er.textContent = "Enter the vehicle number."; return; }
+      if(c.mode === "Truck" && !c.transporter.trim()){ er.textContent = "Enter the transporter name."; return; }
+      if(!c.approverId){ er.textContent = "Select the approver."; return; }
+      if(!c.receiverName.trim()){ er.textContent = "Enter the receiver name."; return; }
+      if(String(c.receiverPhone).replace(/\D/g,"").length < 10){ er.textContent = "Enter a valid receiver contact number (10 digits)."; return; }
+      var ap = emp(c.approverId);
+      var rec = { id: edit ? edit.id : uid(), date:c.date, time: edit ? edit.time : nowHM(), asset:c.asset, type:c.type, fromStn:c.fromStn.trim(), toStn:c.toStn.trim(), reason:c.reason,
+        reasonOther: c.reason === "Other" ? c.reasonOther.trim() : "", mode:c.mode, vehicle: (c.mode === "Company vehicle" || c.mode === "Truck") ? c.vehicle.trim().toUpperCase() : "",
+        transporter: c.mode === "Truck" ? c.transporter.trim() : "", approverId:c.approverId, approverName: ap ? ap.name : "", approverDesig: ap ? ap.desig : "", approverEmpNo: ap ? (ap.userId||"") : "",
+        receiverName:c.receiverName.trim(), receiverPhone:c.receiverPhone.trim(), remarks:c.remarks.trim() };
+      state.gatePasses = state.gatePasses || [];
+      if(edit){
+        var fyChanged = gpFyOf(rec.date) !== edit.fy; Object.assign(edit, rec); if(fyChanged){ edit.number = ""; }
+      } else {
+        rec.createdBy = session ? session.id : ""; rec.createdByName = session ? (session.displayName || session.id) : ""; rec.createdEmpNo = "";
+        rec.fy = gpFyOf(rec.date); rec.created = Date.now(); rec.updated = rec.created; rec.number = "";
+        if(!SYNC){ var mx = 0; state.gatePasses.forEach(function(g){ if(g.fy === rec.fy && g.serial > mx) mx = g.serial; }); rec.serial = mx+1; rec.number = (rec.serial < 10 ? "0"+rec.serial : String(rec.serial))+"/"+rec.fy; }
+        state.gatePasses.push(rec);
+      }
+      ampSend({ action:"gpPut", item: rec });
+      if(!edit && c.inEntry) inAttach(rec, pickIds);
+      gpSel = rec.id; gpDraft = null; miscView = "gpDet"; render();
+    };
+  }
+
+  /* ---- Hindi equivalents (documents are printed bilingual: Hindi + English) ---- */
+  var GP_HI_TYPE = { "RETURNABLE":"वापसी योग्य", "NON RETURNABLE":"गैर-वापसी योग्य" };
+  var GP_HI_REASON = { "Repair":"मरम्मत", "Diversion":"डायवर्जन", "Scrap":"स्क्रैप", "Oil sample":"तेल नमूना" };
+  var GP_HI_UNIT = { "Nos":"नग", "Set":"सेट", "Kg":"किग्रा", "Litre":"लीटर", "Metre":"मीटर", "Box":"डिब्बा", "Pair":"जोड़ी", "Drum":"ड्रम", "Roll":"रोल", "Lot":"लॉट" };
+  var GP_HI_MODE = { "Courier":"कूरियर", "By hand":"हाथ से" };
+  function typeBi(g){ return (g.type === "RETURNABLE" ? "Returnable" : "Non Returnable")+" / "+GP_HI_TYPE[g.type]; }
+  function reasonHi(g){ return g.reason === "Other" ? (g.reasonOther || "") : (GP_HI_REASON[g.reason] || g.reason); }
+  function reasonBi(g){ return g.reason === "Other" ? esc(g.reasonOther || "Other") : esc(g.reason)+'<br><span class="hn">'+esc(reasonHi(g))+'</span>'; }
+  function qtyBi(i){ return esc(gpQty(i))+' <span class="hn">('+esc(GP_HI_UNIT[i.unit] || "")+')</span>'; }
+  function vehicleBi(g){
+    if(g.mode === "Company vehicle" || g.mode === "Truck") return esc(gpVehicleText(g));
+    return esc(g.mode)+'<br><span class="hn">'+esc(GP_HI_MODE[g.mode] || "")+'</span>';
+  }
+  function bi(en, hi){ return en+'<span class="hn">'+hi+'</span>'; }          // label with the Hindi underneath
+  function bl(en, hi){ return en+' / '+hi; }                                    // inline label "English / हिन्दी"
+
+  function gpExport(g){
+    var items = gpItemsOf(g.id);
+    if(!items.length){ alert("Add at least one item before exporting the gate pass."); return; }
+    var logo = (document.querySelector(".login-logo") || {}).src || "";
+    var rows = items.length, tr = "";   // one row per item, no blank rows
+    for(var i = 0; i < rows; i++){
+      var it = items[i];
+      tr += '<tr class="ir"><td>'+(i+1)+'.</td><td class="l">'+esc(it.desc)+'</td><td>'+qtyBi(it)+'</td>'+
+        (i === 0 ? '<td rowspan="'+rows+'" class="m">'+esc(g.fromStn)+'</td><td rowspan="'+rows+'" class="m">'+esc(g.toStn)+'</td><td rowspan="'+rows+'" class="m">'+vehicleBi(g)+'</td>'+
+                   '<td rowspan="'+rows+'" class="m">'+reasonBi(g)+'</td><td rowspan="'+rows+'" class="m">'+esc(g.remarks||"")+'</td>' : '')+'</tr>';
+    }
+    var body = '<table class="gp"><colgroup><col style="width:6%"><col style="width:26%"><col style="width:11%"><col style="width:12%"><col style="width:13%"><col style="width:12%"><col style="width:11%"><col style="width:9%"></colgroup>'+
+      '<tr><td colspan="2" rowspan="2" class="logo">'+(logo ? '<img src="'+esc(logo)+'" alt="POWERGRID">' : '<b>POWERGRID</b>')+'</td>'+
+        '<td colspan="6" class="hi">पावरग्रिड कॉर्पोरेशन ऑफ इंडिया लिमिटेड, 400/220 केवी सबस्टेशन, कोझिकोड</td></tr>'+
+      '<tr class="sub"><td colspan="6">POWER GRID CORPORATION OF INDIA LIMITED, 400/220kV Substation, Kozhikode</td></tr>'+
+      '<tr class="ttl"><td colspan="8">Material Exit Gate Pass<span class="bar">|</span><span class="tn">सामग्री निकास गेट पास</span></td></tr>'+
+      '<tr class="typ"><td colspan="8"><b>'+bl("Type of Diversion","डायवर्जन का प्रकार")+': <span class="rd">'+esc(typeBi(g))+'</span></b></td></tr>'+
+      '<tr><td class="lb">'+bi("Date:","दिनांक")+'</td><td class="rd">'+esc(gpStamp(g))+'</td><td colspan="2"></td><td colspan="2" class="r lb">'+bl("Gate Pass No.","गेट पास सं.")+'</td><td colspan="2" class="rd l">'+esc(g.number)+'</td></tr>'+
+      '<tr class="hd2"><td>'+bi("Item No.","क्रम सं.")+'</td><td>'+bi("Material Description","सामग्री का विवरण")+'</td><td>'+bi("Quantity","मात्रा")+'</td><td>'+bi("From Station","प्रेषक स्टेशन")+
+        '</td><td>'+bi("To Station/ Firm","प्राप्तकर्ता स्टेशन/ फर्म")+'</td><td>'+bi("Vehicle Details","वाहन विवरण")+'</td><td>'+bi("Reason for movement","भेजने का कारण")+'</td><td>'+bi("Remarks","टिप्पणी")+'</td></tr>'+tr+'</table>'+
+      '<div class="rv"><div>'+bl("Receiver","प्राप्तकर्ता")+'</div><div>'+bl("Receiver Name","प्राप्तकर्ता का नाम")+': '+esc(g.receiverName)+'</div><div>'+bl("Receiver Mobile No.","प्राप्तकर्ता का मोबाइल नं.")+': '+esc(gpPhone(g.receiverPhone))+'</div></div>'+
+      '<table class="sg3"><tr>'+
+        '<td><div class="sl">'+bl("Signature","हस्ताक्षर")+'</div><div><b>'+bl("Prepared By","तैयारकर्ता")+':</b> '+esc(g.createdByName)+'</div>'+(g.createdEmpNo ? '<div>'+bl("Emp No.","कर्मचारी सं.")+': '+esc(g.createdEmpNo)+'</div>' : '')+'<div>'+bl("Date &amp; Time","दिनांक एवं समय")+': '+esc(gpStamp(g))+'</div></td>'+
+        '<td><div class="sl">'+bl("Signature","हस्ताक्षर")+'</div><div><b>'+bl("Authorized By","प्राधिकृत कर्ता")+':</b> '+esc(g.approverName)+(g.approverDesig ? ' ('+esc(g.approverDesig)+')' : '')+'</div>'+(g.approverEmpNo ? '<div>'+bl("Emp No.","कर्मचारी सं.")+': '+esc(g.approverEmpNo)+'</div>' : '')+'</td>'+
+        '<td><div class="sl">'+bl("Signature","हस्ताक्षर")+'</div><div><b>'+bl("Security Guard","सुरक्षा गार्ड")+':</b></div><div>'+bl("Date &amp; Time","दिनांक एवं समय")+':</div></td></tr></table>'+
+      '<p class="sy">*This is a system generated Gate pass. / *यह सिस्टम द्वारा तैयार किया गया गेट पास है।</p>';
+    var css = '@page{size:A4 landscape;margin:12mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+      'body{font-family:"Segoe UI",Calibri,Arial,"Nirmala UI","Mangal","Noto Sans Devanagari",sans-serif;color:#16212b;font-size:10pt;margin:0}'+
+      'table.gp{width:100%;border-collapse:collapse;table-layout:fixed;border:1.8px solid #1f3a52}'+
+      'table.gp td{border:1px solid #7b8c9c;padding:6px 8px;text-align:center;vertical-align:middle;word-break:break-word}'+
+      'table.gp td.l{text-align:left}table.gp td.r{text-align:right}'+
+      '.hn{display:block;font-size:8.5pt;font-weight:500;color:#44515e;letter-spacing:0;text-transform:none;margin-top:1px}'+
+      'td.logo{padding:10px 14px;background:#fff}td.logo img{height:56px;width:auto}'+
+      'td.hi{font-size:11.5pt;font-weight:600;color:#1f3a52;padding:8px}'+
+      'tr.sub td{font-size:9.5pt;letter-spacing:.3px;color:#33414e;background:#f7f9fb}'+
+      'tr.ttl td{background:#1f3a52;color:#fff;font-size:12.5pt;font-weight:700;letter-spacing:3px;text-transform:uppercase;padding:8px;border-color:#1f3a52}'+
+      'tr.ttl .bar{margin:0 16px;font-weight:300;opacity:.6}tr.ttl .tn{letter-spacing:.5px;text-transform:none;font-size:13pt}'+
+      'tr.typ td{background:#f1f5f9;font-size:10.5pt;padding:7px}'+
+      'td.lb{font-weight:700;color:#1f3a52;background:#f7f9fb}td.lb .hn{font-weight:600;color:#1f3a52}'+
+      'tr.hd2 td{background:#e3eaf1;font-weight:700;color:#1f3a52;font-size:9pt;text-transform:uppercase;letter-spacing:.6px;padding:7px 4px}tr.hd2 .hn{color:#1f3a52;font-weight:600;font-size:8.5pt}'+
+      '.rd{color:#b3261e;font-weight:700}tr.ir td{height:30px;border-color:#a9b8c6}tr.ir td:first-child{color:#5d6b78}tr.ir .hn{display:inline;font-size:9pt}'+
+      'td.m{font-weight:600;font-size:10.5pt;border-color:#7b8c9c}td.m .hn{font-weight:500}'+
+      '.rv{margin:16px 2px 4px;font-size:10pt;line-height:1.55}.rv div:first-child{font-size:8.5pt;letter-spacing:.6px;text-transform:uppercase;color:#5d6b78;margin-bottom:2px}.rv div+div{font-weight:600}'+
+      '.sg3{width:100%;border-collapse:collapse;margin-top:6px}.sg3 td{vertical-align:top;width:33.3%;font-size:9.5pt;line-height:1.5;padding:0 14px 0 2px}'+
+      '.sl{border-top:1.2px solid #1f3a52;margin-top:34px;padding-top:4px;font-size:8.5pt;letter-spacing:.6px;text-transform:uppercase;color:#5d6b78}'+
+      '.sg3 b{color:#1f3a52}.sy{margin:28px 0 0;padding-top:6px;border-top:1px solid #c5ced7;font-size:8.5pt;font-style:italic;color:#5d6b78;text-align:center}';
+    printDoc("Gate_Pass_"+String(g.number).replace(/[^A-Za-z0-9]+/g,"_"), css, body);
+  }
+
+  /* "To whomsoever it may concern" certificate, filled from the gate pass */
+  var GP_CERT_FOOT = [
+    'सब-स्टेशन: 400/220 केवी कोझिकोड सबस्टेशन, अरीकोड, चेमरकट्टूर (पो स्ट), मलप्पुरम जिला, केरला - 673639। फोन नं: 0483-2854920',
+    'Sub-station: 400/220 kV Kozhikode Substation, Areekode, Chemrakatoor (Post), Malappuram (Dist.), Kerala- 673639. Tel: 0483-2854920',
+    'कॉर्पोरेट कार्यालय: “सौदामिनी”, प्लॉट नं. 2, सेक्टर-29, गुरुग्राम-122001, (हरियाणा) टेल: 0124-2571700-179',
+    'Corporate Office: “Saudamini”, Plot No. 2, Sector-29, Gurugram- 122001, (Haryana) Tel: 0124-2571700-179',
+    'पंजीकृत कार्यालय: बी-9, कुतुब इंस्टीट्यूशनल एरिया, कटवारिया सराय, नई दिल्ली-110016, दूरभाष: 011-26560112, 26564812, 26564892, CIN: L40101DL1989GOI038121',
+    'Registered Office: B-9, Qutab Institutional Area, Katwaria Sarai, New Delhi- 110 016, tel.011-26560112, 26564812, 26564892, CIN: L40101DL1989GOI038121 Website: www.powergridindia.com'
+  ];
+  function gpCertExport(g){
+    var items = gpItemsOf(g.id);
+    if(!items.length){ alert("Add at least one item before downloading the certificate."); return; }
+    var logo = (document.querySelector(".login-logo") || {}).src || "";
+    var defFrom = String(g.fromStn||"").trim().toUpperCase() === "KOZHIKODE SUBSTATION";
+    var from = defFrom ? "POWERGRID Kozhikode SS" : g.fromStn, fromHi = defFrom ? "पावरग्रिड कोझिकोड एसएस" : g.fromStn;
+    var nb = function(s){ return '<span class="nb">'+esc(s)+'</span>'; };            // keeps a vehicle number on one line
+    var isVeh = (g.mode === "Company vehicle" || g.mode === "Truck");
+    var viaEn = isVeh ? " through "+nb(g.vehicle) : (g.mode === "Courier" ? " through Courier" : " by hand");
+    var viaHi = isVeh ? " वाहन सं. "+nb(g.vehicle)+" द्वारा" : (g.mode === "Courier" ? " कूरियर द्वारा" : " हाथ से");
+    var typEn = g.type === "RETURNABLE" ? "Returnable" : "Non Returnable";
+    var B = function(s){ return '<b>'+s+'</b>'; };
+
+    /* items table */
+    var tr = "";
+    items.forEach(function(it, i){
+      tr += '<tr><td class="n">'+(i+1)+'</td><td class="d">'+esc(it.desc)+'</td><td class="q">'+qtyBi(it)+'</td>'+
+        (i === 0 ? '<td rowspan="'+items.length+'" class="rm">'+esc(g.remarks||"")+'</td>' : '')+'</tr>';
+    });
+
+    /* two-column bilingual text: Hindi (left) | English (right), one paragraph per row so both sides line up */
+    var pair = function(hi, en){ return '<tr><td class="hc">'+hi+'</td><td class="ec">'+en+'</td></tr>'; };
+    var para1 = pair(
+      'यह प्रमाणित किया जाता है कि निम्नलिखित सामग्री '+B(esc(fromHi))+' से '+B(esc(g.toStn))+' तक'+viaHi+' '+B(esc(GP_HI_TYPE[g.type]))+' आधार पर '+B(esc(reasonHi(g)))+' के प्रयोजन से भेजी जा रही है।',
+      'This is to certify that the following materials are being transported from '+B(esc(from))+' to '+B(esc(g.toStn))+viaEn+' on '+B(esc(typEn))+' basis for '+B(esc(gpReasonText(g)))+' purpose.');
+    var para2 = pair(
+      'उपर्युक्त सामग्री पावर ग्रिड कॉर्पोरेशन ऑफ इंडिया लिमिटेड की एकमात्र संपत्ति है तथा इस लेन-देन में कोई बिक्री शामिल नहीं है। सभी संबंधित व्यक्तियों से अनुरोध है कि कृपया सहयोग करें।',
+      'The above materials are the Sole Property of Powergrid Corporation of India LTD. and there is no sale involved in this transaction. All concerned are requested to kindly cooperate.');
+
+    /* receiver / transport details */
+    var kv = function(en, hi, v){ return '<tr><td class="k">'+bi(en,hi)+'</td><td class="v">'+v+'</td></tr>'; };
+    var rcv = '<table class="kv">'+
+      (g.mode === "Truck" && g.transporter ? kv("Transporter","ट्रांसपोर्टर", esc(g.transporter)) : '')+
+      kv("Transporter / Receiver Name","ट्रांसपोर्टर / प्राप्तकर्ता का नाम", esc(g.receiverName))+
+      kv("Receiver Mobile No.","प्राप्तकर्ता का मोबाइल नं.", esc(gpPhone(g.receiverPhone)))+'</table>';
+
+    /* footer addresses, paired Hindi | English */
+    var ft = '';
+    for(var f = 0; f + 1 < GP_CERT_FOOT.length; f += 2) ft += '<tr><td>'+esc(GP_CERT_FOOT[f])+'</td><td>'+esc(GP_CERT_FOOT[f+1])+'</td></tr>';
+
+    var body =
+      '<table class="lh"><tr><td class="lgo">'+(logo ? '<img src="'+esc(logo)+'" alt="POWERGRID">' : '<b>POWERGRID</b>')+'</td>'+
+        '<td class="org"><div class="hi">पावर ग्रिड कॉर्पोरेशन ऑफ इंडिया लिमिटेड</div><div class="hs">(भारत सरकार का उद्यम)</div>'+
+        '<div class="en">POWER GRID CORPORATION OF INDIA LIMITED</div><div class="es">(A Government of India Enterprise)</div></td></tr></table>'+
+      '<div class="rule"></div>'+
+      '<table class="meta"><tr><td class="ml">'+bl("Ref: Gate Pass No.","संदर्भ: गेट पास सं.")+'<b>'+esc(g.number)+'</b></td>'+
+        '<td class="mr">'+bl("Date","दिनांक")+'<b>'+esc(gpStamp(g))+'</b></td></tr></table>'+
+      '<div class="ttl"><h1>TO WHOMSOEVER IT MAY CONCERN</h1><div class="h1h">जिस किसी से भी संबंधित हो</div><div class="bar"></div></div>'+
+      '<table class="bil">'+para1+'</table>'+
+      '<table class="ct"><colgroup><col style="width:9%"><col style="width:41%"><col style="width:26%"><col style="width:24%"></colgroup>'+
+        '<tr><th>'+bi("No.","क्र.सं.")+'</th><th>'+bi("Description","विवरण")+'</th><th>'+bi("Quantity","मात्रा")+'</th><th>'+bi("Remarks","टिप्पणी")+'</th></tr>'+tr+'</table>'+
+      rcv+
+      '<table class="bil">'+para2+'</table>'+
+      '<table class="sgn"><tr><td class="seal"><div class="box">'+bi("Office seal","कार्यालय मुहर")+'</div></td>'+
+        '<td class="sgc"><div class="fr">For POWER GRID CORPORATION OF INDIA LTD.<span class="hn">कृते पावर ग्रिड कॉर्पोरेशन ऑफ इंडिया लिमिटेड</span></div>'+
+        '<div class="sl">'+bl("Signature","हस्ताक्षर")+'</div>'+
+        '<div class="sd"><b>'+bl("Authorized By","प्राधिकृत कर्ता")+':</b> '+esc(g.approverName)+(g.approverDesig ? ' ('+esc(g.approverDesig)+')' : '')+
+        (g.approverEmpNo ? '<br>'+bl("Emp No.","कर्मचारी सं.")+': '+esc(g.approverEmpNo) : '')+
+        '<br>'+bl("Date and Time","दिनांक एवं समय")+': '+esc(gpStamp(g))+'</div></td></tr></table>'+
+      '<div class="rule r2"></div><table class="ft">'+ft+'</table>';
+
+    var css = '@page{size:A4 portrait;margin:11mm 15mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}'+
+      'body{font-family:"Segoe UI",Calibri,Arial,"Nirmala UI","Mangal","Noto Sans Devanagari",sans-serif;color:#16212b;font-size:10.5pt;margin:0;line-height:1.5}'+
+      'table{width:100%;border-collapse:collapse;table-layout:fixed}tr{page-break-inside:avoid}'+
+      '.hn{display:block;font-size:8.5pt;font-weight:500;color:#5d6b78;margin-top:1px}'+
+      /* letterhead */
+      'table.lh td{vertical-align:middle;padding:0 0 7px}td.lgo{width:36%}td.lgo img{height:62px;width:auto}td.org{text-align:right}'+
+      '.hi{color:#2f8f3a;font-weight:700;font-size:14pt;line-height:1.3}.hs{color:#5d6b78;font-size:8.5pt;margin-bottom:3px}.en{color:#1f3a8a;font-weight:700;font-size:11.5pt;letter-spacing:.3px}.es{color:#5d6b78;font-size:8.5pt}'+
+      '.rule{height:4px;background:linear-gradient(90deg,#2f8f3a 0,#2f8f3a 30%,#1f3a8a 30%,#1f3a8a 100%);border-radius:2px}.rule.r2{margin:8px 0 5px}'+
+      /* reference / date strip */
+      'table.meta{margin-top:8px;border-bottom:1px solid #c5ced7}table.meta td{padding:3px 0 6px;font-size:10pt;color:#33414e}table.meta b{color:#12263f;margin-left:5px}td.ml{text-align:left}td.mr{text-align:right}'+
+      /* title */
+      '.ttl{text-align:center;margin:20px 0 16px}.ttl h1{margin:0;font-size:17pt;letter-spacing:1.6px;color:#12263f;line-height:1.25}'+
+      '.ttl .h1h{font-size:13.5pt;font-weight:600;color:#2c3a47;margin-top:3px}.ttl .bar{width:46mm;height:3px;margin:9px auto 0;background:linear-gradient(90deg,#2f8f3a 0,#2f8f3a 50%,#1f3a8a 50%,#1f3a8a 100%);border-radius:2px}'+
+      /* bilingual text: Hindi | English */
+      'table.bil{margin:0 0 12px}table.bil td{vertical-align:top;width:50%;text-align:left;word-break:normal;hyphens:manual;line-height:1.6;font-size:10.5pt}'+
+      'td.hc{padding:0 5mm 0 0;border-right:1.2px solid #c5ced7;color:#2c3a47}td.ec{padding:0 0 0 5mm}table.bil b{color:#12263f}.nb{white-space:nowrap}'+
+            /* items */
+      'table.ct{margin:2px 0 10px;border:1.6px solid #1f3a52}'+
+      'table.ct th{background:#1f3a52;color:#fff;padding:6px 6px;font-size:10pt;letter-spacing:.6px;border:1px solid #1f3a52;text-align:center}th .hn{color:#dfe7ef;letter-spacing:0}'+
+      'table.ct td{border:1px solid #8fa1b3;padding:5px 8px;height:27px;vertical-align:middle;word-break:break-word}table.ct tr:nth-child(even) td{background:#f7f9fb}'+
+      'td.n{text-align:center;color:#5d6b78}td.d{text-align:left}td.q{text-align:center;white-space:nowrap}td.rm{vertical-align:top;background:#fff!important}table.ct td .hn{display:inline;font-size:9pt}'+
+      /* receiver details */
+      'table.kv{margin:0 0 14px;border:1px solid #c5ced7}table.kv td{padding:5px 10px;border-bottom:1px solid #e1e7ed;vertical-align:middle}table.kv tr:last-child td{border-bottom:0}'+
+      'td.k{width:46%;background:#f1f5f9;color:#1f3a52;font-weight:700;font-size:10pt}td.k .hn{color:#44515e;font-weight:600}td.v{font-weight:600;color:#12263f}'+
+      /* signature */
+      'table.sgn{margin:6px 0 4px;page-break-inside:avoid}table.sgn td{vertical-align:top}td.seal{width:42%;padding-top:4px}'+
+      '.box{width:44mm;height:26mm;border:1.2px dashed #a9b8c6;color:#8795a1;font-size:8.5pt;text-align:center;padding-top:9mm}.box .hn{color:#8795a1}'+
+      'td.sgc{text-align:right;font-size:10pt;line-height:1.5}.fr{font-weight:700;color:#12263f}.fr .hn{font-size:9.5pt;font-weight:500}'+
+      '.sl{display:block;width:62mm;margin:24px 0 4px auto;border-top:1.2px solid #1f3a52;padding-top:3px;font-size:8.5pt;letter-spacing:.5px;text-transform:uppercase;color:#5d6b78;text-align:right}'+
+      '.sd b{color:#1f3a52}'+
+      /* footer addresses */
+      'table.ft td{width:50%;vertical-align:top;font-size:7pt;line-height:1.3;color:#44515e;padding:2px 0}table.ft td:first-child{padding-right:4mm;border-right:1px solid #dfe5ea}table.ft td:last-child{padding-left:4mm}';
+    printDoc("To_Whomsoever_"+String(g.number).replace(/[^A-Za-z0-9]+/g,"_"), css, body);
+  }
+
+  function renderGateDetail(){
+    var p = $("panel"), g = (state.gatePasses || []).find(function(x){ return x.id === gpSel; });
+    if(!g){ miscView = "gp"; renderGateList(); return; }
+    var mine = gpMine(g), mst = isMaster(), items = gpItemsOf(g.id);   // mine = may add items; mst = may edit / delete
+    function row(l, v){ return '<tr><th style="text-align:left;width:38%">'+l+'</th><td style="text-align:left">'+v+'</td></tr>'; }
+    var h = gpBackBtn(gpRet,gpRet === "dio" ? "Dispatch / Inward entry" : "Gate Pass")+'<div class="panel-head"><h3>Gate pass '+(g.number ? esc(g.number) : '<small>assigning number…</small>')+'</h3></div>'+
+      '<div class="audcard"><div style="overflow-x:auto"><table class="atable"><tbody>'+
+      row("Date", esc(gpStamp(g)))+row("Asset of Kozhikode SS <small>(not printed)</small>", g.asset === "YES" ? "Yes" : "No")+row("Type of diversion", esc(g.type))+
+      row("From station", esc(g.fromStn))+row("To station / firm", esc(g.toStn))+row("Reason for movement", esc(gpReasonText(g)))+
+      row("Mode of transport", esc(g.mode)+(g.vehicle ? " &ndash; "+esc(g.vehicle) : "")+(g.transporter ? " ("+esc(g.transporter)+")" : ""))+
+      row("Approver", esc(g.approverName)+(g.approverDesig ? " ("+esc(g.approverDesig)+")" : ""))+
+      row("Receiver", esc(g.receiverName)+" &middot; "+esc(g.receiverPhone))+(g.remarks ? row("Remarks", esc(g.remarks)) : "")+row("Prepared by", esc(g.createdByName))+
+      '</tbody></table></div>'+
+      (mst ? '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="gpEdit" type="button">Edit details</button><button class="btn danger" id="gpDel" type="button">Delete</button></div>' : '')+'</div>'+
+      '<h3 class="sec">Items</h3>';
+    if(mine && !mst) h += '<p style="margin:0 0 10px;color:var(--muted);font-size:.9rem">You can add items. Editing or deleting this gate pass or its items can be done by Master only.</p>';
+    if(mine) h += '<div class="assign-form"><h4>Add item</h4><div class="agrid">'+
+      '<div class="field span2"><label for="giDesc">Description</label><input type="text" id="giDesc" maxlength="200" placeholder="e.g. DCRM kit with accessories"></div>'+
+      '<div class="field"><label for="giQty">Quantity</label><input type="number" id="giQty" min="0" step="any" inputmode="decimal"></div>'+
+      '<div class="field"><label for="giUnit">Unit</label><select id="giUnit">'+GP_UNITS.map(function(u){ return '<option>'+u+'</option>'; }).join("")+'</select></div></div>'+
+      '<p class="error" id="giErr"></p><button class="btn" id="giAdd" type="button">Add item</button></div>';
+    else h += '<p style="margin:0 0 12px;color:var(--muted);font-size:.9rem">Only Master can change this gate pass. Anyone can download it once items are added.</p>';
+    if(mine && heldRows().some(function(r){ return !r.it.ret; })) h += '<div style="margin:-6px 0 14px"><button class="btn ghost" id="gpFromIn" type="button">Add from inward entries (other station / firm material)…</button></div>';
+    if(!items.length) h += '<div class="empty">No items added yet.</div>';
+    else h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Description</th><th>Quantity</th>'+(mst?'<th></th>':'')+'</tr></thead><tbody>'+
+      items.map(function(i,n){ return '<tr><td data-label="#">'+(n+1)+'</td><td data-label="Description">'+esc(i.desc)+'</td><td data-label="Quantity">'+esc(gpQty(i))+'</td>'+
+        (mst ? '<td class="act"><button class="btn ghost small" data-gied="'+esc(i.id)+'" type="button">Edit</button> <button class="btn danger small" data-gidel="'+esc(i.id)+'" type="button">Delete</button></td>' : '')+'</tr>'; }).join("")+'</tbody></table></div>';
+    h += '<div class="audcard" style="margin-top:16px"><h4 style="margin:0 0 8px">Download</h4>'+
+      (items.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="gpExp" type="button">Download gate pass (PDF)</button><button class="btn" id="gpCert" type="button">Download &ldquo;To whomsoever it may concern&rdquo; (PDF)</button></div>'
+                    : '<p style="margin:0;color:var(--muted);font-size:.9rem">Add at least one item to download the gate pass and the certificate.</p>')+'</div>';
+    p.innerHTML = h; gpBind(gpRet);
+    if($("gpExp")) $("gpExp").onclick = function(){ gpExport(g); };
+    if($("gpCert")) $("gpCert").onclick = function(){ gpCertExport(g); };
+    if(mine){
+      if($("gpEdit")) $("gpEdit").onclick = function(){ gpEditId = g.id; gpDraft = null; miscView = "gpForm"; render(); };
+      if($("gpFromIn")) $("gpFromIn").onclick = function(){ gpPickInward(g); };
+      if($("gpDel")) $("gpDel").onclick = function(){ confirmModal("Delete gate pass "+(g.number||"")+" and all its items?", function(){
+        state.gatePasses = state.gatePasses.filter(function(x){ return x.id !== g.id; }); state.gateItems = (state.gateItems||[]).filter(function(x){ return x.gpId !== g.id; });
+        inRestoreGp(g.id); ampSend({ action:"gpDel", id:g.id }); miscView = "gp"; render(); }); };
+      $("giAdd").onclick = function(){
+        var ds = $("giDesc").value.trim(), q = parseFloat($("giQty").value), er = $("giErr");
+        if(!ds){ er.textContent = "Enter the item description."; return; }
+        if(!(q > 0)){ er.textContent = "Enter the quantity."; return; }
+        if(items.length >= 50){ er.textContent = "Maximum 50 items per gate pass."; return; }
+        var it = { id:uid(), gpId:g.id, desc:ds, qty:Math.round(q*1000)/1000, unit:$("giUnit").value, created:Date.now() };
+        state.gateItems = state.gateItems || []; state.gateItems.push(it); ampSend({ action:"gpItemPut", item: it }); render();
+        var n = $("giDesc"); if(n) n.focus();
+      };
+      Array.prototype.forEach.call(p.querySelectorAll("[data-gied]"),function(b){
+        b.onclick = function(){ var it = (state.gateItems||[]).find(function(x){ return x.id === b.getAttribute("data-gied"); }); if(!it) return;
+          openModal('<h3>Edit item</h3><div class="field"><label for="geDesc">Description</label><input type="text" id="geDesc" maxlength="200" value="'+esc(it.desc)+'"></div>'+
+            '<div class="row"><div><label for="geQty">Quantity</label><input type="number" id="geQty" min="0" step="any" inputmode="decimal" value="'+esc(it.qty)+'"></div>'+
+            '<div><label for="geUnit">Unit</label><select id="geUnit">'+GP_UNITS.map(function(u){ return '<option'+(u===it.unit?' selected':'')+'>'+u+'</option>'; }).join("")+'</select></div></div>'+
+            '<p class="error" id="geErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save changes</button></div>');
+          $("mNo").onclick = closeModal;
+          $("mOk").onclick = function(){ var ds = $("geDesc").value.trim(), q = parseFloat($("geQty").value);
+            if(!ds){ $("geErr").textContent = "Enter the item description."; return; } if(!(q > 0)){ $("geErr").textContent = "Enter the quantity."; return; }
+            it.desc = ds; it.qty = Math.round(q*1000)/1000; it.unit = $("geUnit").value; closeModal(); ampSend({ action:"gpItemPut", item: it }); render(); };
+        };
+      });
+      Array.prototype.forEach.call(p.querySelectorAll("[data-gidel]"),function(b){
+        b.onclick = function(){ var id = b.getAttribute("data-gidel"); confirmModal("Delete this item?", function(){ state.gateItems = state.gateItems.filter(function(x){ return x.id !== id; }); inRestoreItem(id); ampSend({ action:"gpItemDel", id:id }); render(); }); };
+      });
+    }
+  }
+
+  /* ---------- Miscellaneous: Dispatch / Inward entry ---------- */
+  var dioTab = "disp", inSel = "", inEditId = "", inDraft = null, gpRet = "gp";
+  var dioF = { disp:{q:"",sel:"all",from:"",to:""}, inw:{q:"",sel:"all",from:"",to:""}, held:{q:"",sel:"all",from:"",to:""} };
+  var DIO_MAX = 100;
+  function inList(){ return (state.inwards = state.inwards || []); }
+  function inItemsAll(){ return (state.inwardItems = state.inwardItems || []); }
+  function inItemsOf(id){ return inItemsAll().filter(function(i){ return i.inId === id; }).sort(function(a,b){ return (a.created||0)-(b.created||0); }); }
+  function inFind(id){ return inList().find(function(e){ return e.id === id; }); }
+  function gpFind(id){ return (state.gatePasses || []).find(function(g){ return g.id === id; }); }
+  function gpNo(id){ var g = gpFind(id); return g ? (g.number || "") : ""; }
+  function inMine(e){ return isMaster() || (session && e.createdBy === session.id); }
+  function inNo(e){ return e.number || "assigning number…"; }
+  function dioInRange(d, f){ if(f.from && d < f.from) return false; if(f.to && d > f.to) return false; return true; }
+  function dioHas(txt, q){ var w = String(q||"").toLowerCase().split(/\s+/).filter(Boolean), t = String(txt).toLowerCase(); return w.every(function(x){ return t.indexOf(x) >= 0; }); }
+
+  /* list 1: Kozhikode SS assets sent out on a RETURNABLE gate pass (created automatically from the gate passes) */
+  function dispRows(){
+    var gps = {}; (state.gatePasses || []).forEach(function(g){ gps[g.id] = g; });
+    var out = [];
+    (state.gateItems || []).forEach(function(i){ var g = gps[i.gpId]; if(g && g.asset === "YES" && g.type === "RETURNABLE") out.push({ it:i, g:g }); });
+    out.sort(function(a,b){ return (b.g.date||"").localeCompare(a.g.date||"") || (b.g.created||0)-(a.g.created||0) || (a.it.created||0)-(b.it.created||0); });
+    return out;
+  }
+  /* list 2: material of another station / firm received at Kozhikode SS (held until returned on a gate pass) */
+  function heldRows(){
+    var ents = {}; inList().forEach(function(e){ ents[e.id] = e; });
+    var out = [];
+    inItemsAll().forEach(function(i){ var e = ents[i.inId]; if(e && e.asset === "NO") out.push({ it:i, e:e }); });
+    out.sort(function(a,b){ return (b.e.date||"").localeCompare(a.e.date||"") || (b.e.created||0)-(a.e.created||0) || (a.it.created||0)-(b.it.created||0); });
+    return out;
+  }
+  function inRestoreGp(gpId){ inItemsAll().forEach(function(i){ if(i.retGpId === gpId){ i.ret = ""; i.retDate = ""; i.retGpId = ""; i.retGateItemId = ""; } }); }
+  function inRestoreItem(giId){ inItemsAll().forEach(function(i){ if(i.retGateItemId === giId){ i.ret = ""; i.retDate = ""; i.retGpId = ""; i.retGateItemId = ""; } }); }
+  /* adds the chosen inward items to a gate pass and marks them returned */
+  function inAttach(gp, itemIds){
+    var map = [];
+    itemIds.forEach(function(iid){
+      var r = inItemsAll().find(function(x){ return x.id === iid; }); if(!r || r.ret) return;
+      var gid = uid();
+      (state.gateItems = state.gateItems || []).push({ id:gid, gpId:gp.id, desc:r.desc, qty:r.qty, unit:r.unit, created:Date.now()+map.length, rcv:"", rcvDate:"", rcvInId:"" });
+      r.ret = "Y"; r.retDate = gp.date; r.retGpId = gp.id; r.retGateItemId = gid; map.push({ inItemId:iid, gateItemId:gid });
+    });
+    if(map.length) ampSend({ action:"gpAttachIn", gpId:gp.id, map:map });
+    return map.length;
+  }
+  function applyInDraft(d, e, ids){
+    d.inEntry = e.id; d.inPick = {};
+    inItemsOf(e.id).forEach(function(i){ if(!i.ret && (!ids || ids.indexOf(i.id) >= 0)) d.inPick[i.id] = true; });
+    d.asset = "NO"; d.type = "RETURNABLE"; d.toStn = e.party;
+    if(!d.receiverName && e.deliveredBy) d.receiverName = e.deliveredBy;
+    if(!d.receiverPhone && e.deliveredPhone) d.receiverPhone = e.deliveredPhone;
+  }
+  /* gate pass form: "fill from an existing inward entry" block */
+  function gpInBlock(d, edit){
+    if(edit) return "";
+    var pend = heldRows().filter(function(r){ return !r.it.ret; }), by = {}, order = [];
+    pend.forEach(function(r){ if(!by[r.e.id]){ by[r.e.id] = []; order.push(r.e); } by[r.e.id].push(r.it); });
+    if(!order.length) return "";
+    var h = '<div class="assign-form" style="background:#fff"><h4>Return material of another station / firm (optional)</h4><div class="field"><label for="gpInEntry">Fill the gate pass from an inward entry</label><select id="gpInEntry"><option value="">Not from an inward entry</option>'+
+      order.map(function(e){ return '<option value="'+esc(e.id)+'"'+(e.id === d.inEntry ? ' selected' : '')+'>'+esc((e.number||"Inward")+" · "+e.party+" · "+fmtDate(e.date)+" ("+by[e.id].length+" pending)")+'</option>'; }).join("")+'</select></div>';
+    if(d.inEntry && by[d.inEntry]) h += '<div style="margin-top:8px">'+by[d.inEntry].map(function(i){
+      return '<label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:4px 0"><input type="checkbox" data-gpinpick="'+esc(i.id)+'"'+(d.inPick[i.id] ? ' checked' : '')+'> <span>'+esc(i.desc)+' &mdash; '+esc(gpQty(i))+'</span></label>'; }).join("")+
+      '<p style="margin:6px 0 0;color:var(--muted);font-size:.85rem">The ticked items are added to the gate pass and marked as returned when you save it.</p></div>';
+    return h+'</div>';
+  }
+  /* gate pass detail: add items from the inward entries */
+  function gpPickInward(g){
+    var pend = heldRows().filter(function(r){ return !r.it.ret; });
+    if(!pend.length){ alert("No pending material of another station / firm in the inward entries."); return; }
+    var html = '<h3>Add from inward entries</h3><p style="margin-top:0;color:var(--muted);font-size:.9rem">Tick the items being returned. They are added to this gate pass and marked as returned in the inward list.</p><div style="max-height:50vh;overflow:auto">', last = "";
+    pend.forEach(function(r){
+      if(r.e.id !== last){ last = r.e.id; html += '<p style="margin:10px 0 2px;font-weight:700">'+esc(r.e.party)+' <small style="font-weight:400;color:var(--muted)">'+esc(inNo(r.e))+' &middot; '+esc(fmtDate(r.e.date))+'</small></p>'; }
+      html += '<label style="display:flex;gap:8px;align-items:flex-start;margin:3px 0;font-weight:400"><input type="checkbox" data-pik="'+esc(r.it.id)+'"> <span>'+esc(r.it.desc)+' &mdash; '+esc(gpQty(r.it))+'</span></label>';
+    });
+    html += '</div><p class="error" id="piErr"></p><div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Add selected</button></div>';
+    openModal(html);
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var ids = []; Array.prototype.forEach.call(document.querySelectorAll("[data-pik]"), function(c){ if(c.checked) ids.push(c.getAttribute("data-pik")); });
+      if(!ids.length){ $("piErr").textContent = "Tick at least one item."; return; }
+      if(gpItemsOf(g.id).length + ids.length > 50){ $("piErr").textContent = "Maximum 50 items per gate pass."; return; }
+      closeModal(); inAttach(g, ids); render();
+    };
+  }
+
+  /* filter bar shared by the three lists */
+  function dioBar(f, selLabel, selOpts, ph){
+    return '<div class="rgbar"><div class="field grow"><label for="dioQ">Search</label><input type="text" id="dioQ" maxlength="60" placeholder="'+esc(ph)+'" value="'+esc(f.q)+'"></div>'+
+      '<div class="field"><label for="dioSel">'+selLabel+'</label><select id="dioSel">'+selOpts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0] === f.sel ? ' selected' : '')+'>'+o[1]+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="dioFrom">From</label><input type="date" id="dioFrom" value="'+esc(f.from)+'"></div>'+
+      '<div class="field"><label for="dioTo">To</label><input type="date" id="dioTo" value="'+esc(f.to)+'"></div>'+
+      '<div class="field"><button class="btn ghost small" id="dioClr" type="button">Clear</button></div></div>';
+  }
+  function dioBindBar(f){
+    var q = $("dioQ");
+    q.oninput = function(){ f.q = q.value; var pos = q.selectionStart; renderDio(); var n = $("dioQ"); n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} };
+    $("dioSel").onchange = function(){ f.sel = this.value; renderDio(); };
+    $("dioFrom").onchange = function(){ f.from = this.value; renderDio(); };
+    $("dioTo").onchange = function(){ f.to = this.value; renderDio(); };
+    $("dioClr").onclick = function(){ f.q = ""; f.sel = "all"; f.from = ""; f.to = ""; renderDio(); };
+  }
+  function dioShowing(n, total){ return '<p style="margin:0 0 8px;color:var(--muted);font-size:.85rem">Showing '+Math.min(n, DIO_MAX)+' of '+n+(n !== total ? ' (filtered from '+total+')' : '')+(n > DIO_MAX ? ' &ndash; narrow the filter to see the rest' : '')+'.</p>'; }
+
+  function renderDio(){
+    var p = $("panel"), nHeld = heldRows().filter(function(r){ return !r.it.ret; }).length;
+    var tabs = [["disp","Dispatch (Kozhikode SS assets)"],["inw","Inward entries"],["held","Other station / firm assets"+(nHeld ? " ("+nHeld+" held)" : "")]];
+    var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Dispatch / Inward entry</h3><button class="btn" id="inNew" type="button">New inward entry</button></div>'+
+      '<div class="filters" style="flex-wrap:wrap">'+tabs.map(function(t){ return '<button type="button" data-dtab="'+t[0]+'"'+(dioTab === t[0] ? ' class="active"' : '')+'>'+esc(t[1])+'</button>'; }).join("")+'</div>';
+    var f, list, total;
+    if(dioTab === "disp"){
+      f = dioF.disp; var all = dispRows(); total = all.length;
+      list = all.filter(function(r){
+        if(f.sel === "sent" && r.it.rcv === "Y") return false;
+        if(f.sel === "received" && r.it.rcv !== "Y") return false;
+        if(!dioInRange(r.g.date, f)) return false;
+        return !f.q || dioHas(r.it.desc+" "+r.g.number+" "+r.g.toStn+" "+r.g.receiverName, f.q);
+      });
+      var nS = list.filter(function(r){ return r.it.rcv !== "Y"; }).length;
+      h += '<p style="margin:0 0 10px;color:var(--muted);font-size:.9rem">Kozhikode SS assets sent out on a <b>returnable</b> gate pass. Entries are created automatically from the gate passes and turn to <b>Received</b> when the item is booked in through an inward entry.</p>'+
+        dioBar(f, "Status", [["all","All"],["sent","Sent"],["received","Received"]], "Search item, gate pass no., station…")+
+        '<div class="stats" style="margin:0 0 8px"><span>Sent <b>'+nS+'</b></span> <span>Received <b>'+(list.length-nS)+'</b></span></div>';
+      if(!total) h += '<div class="empty">No returnable gate pass of a Kozhikode SS asset yet.</div>';
+      else if(!list.length) h += '<div class="empty">Nothing matches the filter.</div>';
+      else {
+        h += dioShowing(list.length, total)+'<div style="overflow-x:auto"><table class="atable"><thead><tr><th>Date</th><th>Item &amp; quantity</th><th>Gate pass no.</th><th>Sent to</th><th>Status</th></tr></thead><tbody>'+
+          list.slice(0, DIO_MAX).map(function(r){
+            var e = r.it.rcvInId ? inFind(r.it.rcvInId) : null;
+            return '<tr><td data-label="Date">'+esc(fmtDate(r.g.date))+'</td><td data-label="Item &amp; quantity">'+esc(r.it.desc)+' &mdash; <b>'+esc(gpQty(r.it))+'</b></td>'+
+              '<td data-label="Gate pass no."><button class="btn ghost small" data-gpo="'+esc(r.g.id)+'" type="button">'+esc(r.g.number || "…")+'</button></td><td data-label="Sent to">'+esc(r.g.toStn)+'</td>'+
+              '<td data-label="Status">'+(r.it.rcv === "Y" ? '<span class="oilb ok">Received</span><small style="display:block;color:var(--muted)">'+esc(fmtDate(r.it.rcvDate))+(e ? ' &middot; <a href="#" data-ino="'+esc(e.id)+'">'+esc(e.number)+'</a>' : '')+'</small>' : '<span class="oilb ds">Sent</span>')+'</td></tr>';
+          }).join("")+'</tbody></table></div>';
+      }
+    } else if(dioTab === "inw"){
+      f = dioF.inw; var ents = inList().slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||"") || (b.created||0)-(a.created||0); }); total = ents.length;
+      list = ents.filter(function(e){
+        if(f.sel !== "all" && e.asset !== f.sel) return false;
+        if(!dioInRange(e.date, f)) return false;
+        return !f.q || dioHas(e.number+" "+e.party+" "+e.deliveredBy+" "+e.vehicle+" "+gpNo(e.gpId)+" "+inItemsOf(e.id).map(function(i){ return i.desc; }).join(" "), f.q);
+      });
+      h += dioBar(f, "Asset of", [["all","All"],["YES","Kozhikode SS"],["NO","Other station / firm"]], "Search receipt no., party, item, gate pass…");
+      if(!total) h += '<div class="empty">No inward entry yet. Use &ldquo;New inward entry&rdquo; to book in material received.</div>';
+      else if(!list.length) h += '<div class="empty">Nothing matches the filter.</div>';
+      else {
+        h += dioShowing(list.length, total);
+        list.slice(0, DIO_MAX).forEach(function(e){
+          var its = inItemsOf(e.id), nr = its.filter(function(i){ return i.ret; }).length, own = e.asset === "YES";
+          h += '<div class="audcard"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h4>'+esc(inNo(e))+' <span class="oilb '+(own ? "ds" : "nr")+'">'+(own ? "Kozhikode SS asset" : "Other station / firm")+'</span></h4>'+
+            '<button class="btn small" data-inopen="'+esc(e.id)+'" type="button">Open</button></div>'+
+            '<p style="margin:4px 0 0;font-size:.9rem">'+esc(fmtDate(e.date))+' &middot; From <b>'+esc(e.party)+'</b>'+(own && gpNo(e.gpId) ? ' &middot; Gate pass '+esc(gpNo(e.gpId)) : '')+'</p>'+
+            '<small style="color:var(--muted)">'+its.length+' item'+(its.length === 1 ? '' : 's')+(own ? '' : ' &middot; '+nr+' returned')+' &middot; Entered by '+esc(e.createdByName)+'</small></div>';
+        });
+      }
+    } else {
+      f = dioF.held; var rows = heldRows(); total = rows.length;
+      list = rows.filter(function(r){
+        if(f.sel === "held" && r.it.ret) return false;
+        if(f.sel === "returned" && !r.it.ret) return false;
+        if(!dioInRange(r.e.date, f)) return false;
+        return !f.q || dioHas(r.it.desc+" "+r.e.party+" "+r.e.number+" "+gpNo(r.it.retGpId), f.q);
+      });
+      var nH = list.filter(function(r){ return !r.it.ret; }).length;
+      h += '<p style="margin:0 0 10px;color:var(--muted);font-size:.9rem">Material of another station or firm received at Kozhikode SS. An item stays <b>Held</b> until it is added to a gate pass (from the gate pass screen, or with &ldquo;Return via gate pass&rdquo; here); it is then marked <b>Returned</b> automatically.</p>'+
+        dioBar(f, "Status", [["all","All"],["held","Held"],["returned","Returned"]], "Search item, station / firm, receipt no…")+
+        '<div class="stats" style="margin:0 0 8px"><span>Held <b>'+nH+'</b></span> <span>Returned <b>'+(list.length-nH)+'</b></span></div>';
+      if(!total) h += '<div class="empty">No material of another station / firm has been booked in yet.</div>';
+      else if(!list.length) h += '<div class="empty">Nothing matches the filter.</div>';
+      else {
+        h += dioShowing(list.length, total)+'<div style="overflow-x:auto"><table class="atable"><thead><tr><th>Receipt date</th><th>Received from</th><th>Item &amp; quantity</th><th>Inward no.</th><th>Status</th><th></th></tr></thead><tbody>'+
+          list.slice(0, DIO_MAX).map(function(r){
+            var rg = r.it.ret ? gpFind(r.it.retGpId) : null;
+            return '<tr><td data-label="Receipt date">'+esc(fmtDate(r.e.date))+'</td><td data-label="Received from">'+esc(r.e.party)+'</td><td data-label="Item &amp; quantity">'+esc(r.it.desc)+' &mdash; <b>'+esc(gpQty(r.it))+'</b></td>'+
+              '<td data-label="Inward no."><a href="#" data-ino="'+esc(r.e.id)+'">'+esc(r.e.number || "…")+'</a></td>'+
+              '<td data-label="Status">'+(r.it.ret ? '<span class="oilb ok">Returned</span><small style="display:block;color:var(--muted)">'+(rg ? '<a href="#" data-gpo="'+esc(rg.id)+'">GP '+esc(rg.number)+'</a> &middot; '+esc(fmtDate(rg.date)) : esc(fmtDate(r.it.retDate)))+'</small>' : '<span class="oilb ds">Held</span>')+'</td>'+
+              '<td class="act">'+(r.it.ret ? '' : '<button class="btn small" data-hret="'+esc(r.it.id)+'" type="button">Return via gate pass</button>')+'</td></tr>';
+          }).join("")+'</tbody></table></div>';
+      }
+    }
+    p.innerHTML = h; gpBind("menu");
+    $("inNew").onclick = function(){ inEditId = ""; inDraft = null; miscView = "inForm"; render(); };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dtab]"), function(b){ b.onclick = function(){ dioTab = b.getAttribute("data-dtab"); renderDio(); }; });
+    dioBindBar(f);
+    Array.prototype.forEach.call(p.querySelectorAll("[data-gpo]"), function(b){ b.onclick = function(ev){ if(ev) ev.preventDefault(); gpSel = b.getAttribute("data-gpo"); gpRet = "dio"; miscView = "gpDet"; render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-ino],[data-inopen]"), function(b){ b.onclick = function(ev){ if(ev) ev.preventDefault(); inSel = b.getAttribute("data-ino") || b.getAttribute("data-inopen"); miscView = "inDet"; render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-hret]"), function(b){
+      b.onclick = function(){
+        var r = inItemsAll().find(function(x){ return x.id === b.getAttribute("data-hret"); }), e = r ? inFind(r.inId) : null; if(!e) return;
+        gpEditId = ""; gpDraft = gpNewDraft(); applyInDraft(gpDraft, e, [r.id]); miscView = "gpForm"; render();
+      };
+    });
+  }
+
+  /* ---------- inward entry: form ---------- */
+  function inBlankRow(){ return { id:uid(), desc:"", qty:"", unit:"Nos" }; }
+  function inNewDraft(){ return { date:today(), asset:"", gpId:"", party:"", vehicle:"", deliveredBy:"", deliveredPhone:"", approverId:"", remarks:"", pick:{}, rows:[inBlankRow()] }; }
+  function inDraftFrom(e){
+    var d = { date:e.date, asset:e.asset, gpId:e.gpId || "", party:e.party, vehicle:e.vehicle || "", deliveredBy:e.deliveredBy || "", deliveredPhone:e.deliveredPhone || "", approverId:e.approverId || "", remarks:e.remarks || "", pick:{}, rows:[] };
+    inItemsOf(e.id).forEach(function(i){ if(e.asset === "YES") d.pick[i.gateItemId] = true; else d.rows.push({ id:i.id, desc:i.desc, qty:i.qty, unit:i.unit }); });
+    if(!d.rows.length) d.rows.push(inBlankRow());
+    return d;
+  }
+  function inGpChoices(editId){
+    return (state.gatePasses || []).filter(function(g){
+      return g.asset === "YES" && gpItemsOf(g.id).some(function(i){ return i.rcv !== "Y" || (editId && i.rcvInId === editId); });
+    }).sort(function(a,b){ return (b.date||"").localeCompare(a.date||"") || (b.created||0)-(a.created||0); });
+  }
+  function inApplyLocal(rec, items){
+    var prev = {}; inItemsAll().forEach(function(i){ if(i.inId === rec.id) prev[i.id] = i; });
+    state.inwardItems = inItemsAll().filter(function(i){ return i.inId !== rec.id; });
+    items.forEach(function(x, n){
+      var o = prev[x.id];
+      state.inwardItems.push({ id:x.id, inId:rec.id, desc:x.desc, qty:x.qty, unit:x.unit, gateItemId:x.gateItemId || "", ret:o ? o.ret : "", retDate:o ? o.retDate : "", retGpId:o ? o.retGpId : "", retGateItemId:o ? o.retGateItemId : "", created:o ? o.created : Date.now()+n });
+    });
+    var keep = {}; items.forEach(function(x){ if(x.gateItemId) keep[x.gateItemId] = true; });
+    (state.gateItems || []).forEach(function(g){
+      if(keep[g.id]){ g.rcv = "Y"; g.rcvDate = rec.date; g.rcvInId = rec.id; }
+      else if(g.rcvInId === rec.id){ g.rcv = ""; g.rcvDate = ""; g.rcvInId = ""; }
+    });
+    var ents = inList(), k = -1; ents.forEach(function(e, i){ if(e.id === rec.id) k = i; });
+    if(k < 0) ents.push(rec); else Object.assign(ents[k], rec);
+  }
+  function renderInForm(){
+    var p = $("panel"), edit = inEditId ? inFind(inEditId) : null;
+    if(inEditId && !edit){ miscView = "dio"; renderDio(); return; }
+    if(!inDraft) inDraft = edit ? inDraftFrom(edit) : inNewDraft();
+    var d = inDraft, aps = gpApprovers(), gps = inGpChoices(edit ? edit.id : ""), g = d.asset === "YES" ? gpFind(d.gpId) : null;
+    function sel(id, label, opts, cur, ph){ return '<div class="field"><label for="'+id+'">'+label+'</label><select id="'+id+'"><option value="">'+ph+'</option>'+opts.map(function(o){
+      return '<option value="'+esc(o[0])+'"'+(o[0] === cur ? ' selected' : '')+'>'+esc(o[1])+'</option>'; }).join("")+'</select></div>'; }
+    var h = gpBackBtn("", "Dispatch / Inward entry")+'<div class="panel-head"><h3>'+(edit ? 'Edit inward entry '+esc(inNo(edit)) : 'New inward entry')+'</h3></div>'+
+      '<div class="assign-form"><div class="agrid">'+
+      '<div class="field"><label>Receipt no.</label><input type="text" value="'+(edit ? esc(inNo(edit)) : 'Auto-generated on save')+'" disabled></div>'+
+      '<div class="field"><label for="inDate">Receipt date</label><input type="date" id="inDate" value="'+esc(d.date)+'"></div>'+
+      sel("inAsset","Is it an asset of Kozhikode SS?",[["YES","Yes"],["NO","No"]],d.asset,"Select");
+    if(d.asset === "YES"){
+      h += sel("inGp","Choose the gate pass",gps.map(function(x){ return [x.id, x.number+" · "+fmtDate(x.date)+" · "+x.toStn]; }), d.gpId, gps.length ? "Select gate pass" : "No gate pass awaiting return")+
+        '<div class="field"><label>Received from (from the gate pass)</label><input type="text" value="'+esc(g ? g.toStn : "")+'" disabled></div>';
+      if(g) h += '<div class="field span2"><label>Items received (tick what has arrived)</label>'+gpItemsOf(g.id).map(function(i){
+        var done = i.rcv === "Y" && (!edit || i.rcvInId !== edit.id);
+        return '<label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:4px 0;'+(done ? 'opacity:.55' : '')+'"><input type="checkbox" data-inpick="'+esc(i.id)+'"'+(d.pick[i.id] && !done ? ' checked' : '')+(done ? ' disabled' : '')+'> <span>'+esc(i.desc)+' &mdash; '+esc(gpQty(i))+(done ? ' (already received)' : '')+'</span></label>'; }).join("")+'</div>';
+    } else if(d.asset === "NO"){
+      h += '<div class="field span2"><label for="inParty">Received from (station / firm)</label><input type="text" id="inParty" maxlength="150" value="'+esc(d.party)+'"></div>'+
+        '<div class="field span2"><label>Items received</label>'+d.rows.map(function(r, n){
+          return '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center"><input type="text" data-inr="desc" data-n="'+n+'" maxlength="200" placeholder="Item description" value="'+esc(r.desc)+'" style="flex:1 1 200px">'+
+            '<input type="number" data-inr="qty" data-n="'+n+'" min="0" step="any" inputmode="decimal" placeholder="Qty" value="'+esc(r.qty)+'" style="width:84px">'+
+            '<select data-inr="unit" data-n="'+n+'" style="width:92px">'+GP_UNITS.map(function(u){ return '<option'+(u === r.unit ? ' selected' : '')+'>'+u+'</option>'; }).join("")+'</select>'+
+            (d.rows.length > 1 ? '<button class="btn danger small" type="button" data-inrdel="'+n+'">Remove</button>' : '')+'</div>'; }).join("")+
+          '<button class="btn ghost small" id="inAddRow" type="button">+ Add another item</button></div>';
+    }
+    h += '<div class="field"><label for="inVeh">Vehicle / mode of transport (optional)</label><input type="text" id="inVeh" maxlength="60" placeholder="e.g. KL09 AZ 2327 / Courier" value="'+esc(d.vehicle)+'"></div>'+
+      '<div class="field"><label for="inBy">Delivered by (optional)</label><input type="text" id="inBy" maxlength="100" value="'+esc(d.deliveredBy)+'"></div>'+
+      '<div class="field"><label for="inPh">Contact no. (optional)</label><input type="tel" id="inPh" maxlength="20" inputmode="tel" value="'+esc(d.deliveredPhone)+'"></div>'+
+      sel("inAppr","Receiving authority (Engineer and above)",aps.map(function(e){ return [e.id, e.name+" ("+e.desig+")"]; }),d.approverId,aps.length ? "Select" : "No Engineer-level employee found")+
+      '<div class="field span2"><label for="inRem">Remarks (optional)</label><input type="text" id="inRem" maxlength="200" value="'+esc(d.remarks)+'"></div>'+
+      '</div><p class="error" id="inErr"></p><button class="btn" id="inSave" type="button">'+(edit ? 'Save changes' : 'Save inward entry')+'</button></div>';
+    p.innerHTML = h;
+    $("gBack").onclick = function(){ inDraft = null; if(edit){ inSel = edit.id; miscView = "inDet"; } else miscView = "dio"; render(); };
+    function grab(){
+      function set(id, key){ var n = $(id); if(n) d[key] = n.value; }
+      set("inDate","date"); set("inAsset","asset"); set("inGp","gpId"); set("inParty","party"); set("inVeh","vehicle"); set("inBy","deliveredBy"); set("inPh","deliveredPhone"); set("inAppr","approverId"); set("inRem","remarks");
+      Array.prototype.forEach.call(p.querySelectorAll("[data-inr]"), function(n){ var r = d.rows[+n.getAttribute("data-n")]; if(r) r[n.getAttribute("data-inr")] = n.value; });
+    }
+    ["inDate","inParty","inVeh","inBy","inPh","inAppr","inRem"].forEach(function(id){ var n = $(id); if(n){ n.addEventListener("input", grab); n.addEventListener("change", grab); } });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-inr]"), function(n){ n.addEventListener("input", grab); n.addEventListener("change", grab); });
+    $("inAsset").addEventListener("change", function(){ grab(); d.gpId = ""; d.pick = {}; d.party = ""; renderInForm(); });
+    if($("inGp")) $("inGp").addEventListener("change", function(){
+      grab(); d.pick = {}; var x = gpFind(d.gpId);
+      if(x) gpItemsOf(x.id).forEach(function(i){ if(i.rcv !== "Y" || (edit && i.rcvInId === edit.id)) d.pick[i.id] = true; });
+      renderInForm();
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-inpick]"), function(c){ c.onchange = function(){ d.pick[c.getAttribute("data-inpick")] = c.checked; }; });
+    if($("inAddRow")) $("inAddRow").onclick = function(){ grab(); if(d.rows.length >= 50){ $("inErr").textContent = "Maximum 50 items per entry."; return; } d.rows.push(inBlankRow()); renderInForm(); };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-inrdel]"), function(b){ b.onclick = function(){ grab(); d.rows.splice(+b.getAttribute("data-inrdel"), 1); renderInForm(); }; });
+    $("inSave").onclick = function(){
+      grab(); var er = $("inErr"), items = [], party = "", prevItems = edit ? inItemsOf(edit.id) : [];
+      if(!d.date){ er.textContent = "Select the receipt date."; return; }
+      if(!d.asset){ er.textContent = "Select whether it is an asset of Kozhikode SS."; return; }
+      if(d.asset === "YES"){
+        var gp = gpFind(d.gpId); if(!gp){ er.textContent = "Select the gate pass."; return; }
+        party = gp.toStn;
+        gpItemsOf(gp.id).forEach(function(i){
+          if(!d.pick[i.id] || (i.rcv === "Y" && (!edit || i.rcvInId !== edit.id))) return;
+          var ex = prevItems.find(function(x){ return x.gateItemId === i.id; });
+          items.push({ id: ex ? ex.id : uid(), desc:i.desc, qty:i.qty, unit:i.unit, gateItemId:i.id });
+        });
+        if(!items.length){ er.textContent = "Tick at least one item that has been received."; return; }
+      } else {
+        party = d.party.trim(); if(!party){ er.textContent = "Enter the station / firm the material was received from."; return; }
+        for(var n = 0; n < d.rows.length; n++){
+          var r = d.rows[n], ds = String(r.desc).trim(), q = parseFloat(r.qty);
+          if(!ds && !(q > 0)) continue;
+          if(!ds){ er.textContent = "Enter the description of item "+(n+1)+"."; return; }
+          if(!(q > 0)){ er.textContent = "Enter the quantity of item "+(n+1)+"."; return; }
+          items.push({ id:r.id, desc:ds, qty:Math.round(q*1000)/1000, unit:r.unit || "Nos", gateItemId:"" });
+        }
+        if(!items.length){ er.textContent = "Add at least one item."; return; }
+      }
+      for(var m = 0; m < prevItems.length; m++){
+        if(prevItems[m].ret && !items.some(function(x){ return x.id === prevItems[m].id; })){ er.textContent = "“"+prevItems[m].desc+"” was already returned through a gate pass and cannot be removed."; return; }
+      }
+      if(!d.approverId){ er.textContent = "Select the receiving authority."; return; }
+      var ap = emp(d.approverId);
+      var rec = { id: edit ? edit.id : uid(), date:d.date, asset:d.asset, party:party, gpId: d.asset === "YES" ? d.gpId : "", vehicle:d.vehicle.trim(), deliveredBy:d.deliveredBy.trim(), deliveredPhone:d.deliveredPhone.trim(),
+        approverId:d.approverId, approverName: ap ? ap.name : "", approverDesig: ap ? ap.desig : "", approverEmpNo: ap ? (ap.userId || "") : "", remarks:d.remarks.trim(), updated:Date.now() };
+      if(edit){
+        rec.serial = edit.serial; rec.fy = edit.fy; rec.number = edit.number; rec.createdBy = edit.createdBy; rec.createdByName = edit.createdByName; rec.created = edit.created;
+        var fy2 = gpFyOf(rec.date); if(fy2 !== edit.fy){ rec.fy = fy2; rec.number = ""; rec.serial = 0; }
+      } else {
+        rec.createdBy = session ? session.id : ""; rec.createdByName = session ? (session.displayName || session.id) : ""; rec.created = Date.now(); rec.fy = gpFyOf(rec.date); rec.number = ""; rec.serial = 0;
+      }
+      if(!SYNC && !rec.number){ var mx = 0; inList().forEach(function(x){ if(x.fy === rec.fy && x.id !== rec.id && x.serial > mx) mx = x.serial; }); rec.serial = mx+1; rec.number = "MR-"+(rec.serial < 10 ? "0"+rec.serial : String(rec.serial))+"/"+rec.fy; }
+      inApplyLocal(rec, items);
+      ampSend({ action:"inwPut", item: Object.assign({}, rec, { items: items }) });
+      inSel = rec.id; inDraft = null; miscView = "inDet"; render();
+    };
+  }
+
+  /* ---------- inward entry: details ---------- */
+  function renderInDetail(){
+    var p = $("panel"), e = inFind(inSel);
+    if(!e){ miscView = "dio"; renderDio(); return; }
+    var mine = inMine(e), items = inItemsOf(e.id), own = e.asset === "YES", g = own ? gpFind(e.gpId) : null;
+    function row(l, v){ return '<tr><th style="text-align:left;width:38%">'+l+'</th><td style="text-align:left">'+v+'</td></tr>'; }
+    var h = gpBackBtn("dio","Dispatch / Inward entry")+'<div class="panel-head"><h3>Inward entry '+esc(inNo(e))+'</h3></div>'+
+      '<div class="audcard"><div style="overflow-x:auto"><table class="atable"><tbody>'+
+      row("Receipt date", esc(fmtDate(e.date)))+row("Asset of Kozhikode SS", own ? "Yes" : "No")+row("Received from", esc(e.party))+
+      (own ? row("Gate pass", g ? '<button class="btn ghost small" id="inGpLink" type="button">'+esc(g.number)+'</button>' : '<span style="color:var(--muted)">Gate pass deleted</span>') : "")+
+      (e.vehicle ? row("Vehicle / mode", esc(e.vehicle)) : "")+(e.deliveredBy || e.deliveredPhone ? row("Delivered by", esc(e.deliveredBy)+(e.deliveredPhone ? " &middot; "+esc(e.deliveredPhone) : "")) : "")+
+      row("Receiving authority", esc(e.approverName)+(e.approverDesig ? " ("+esc(e.approverDesig)+")" : ""))+(e.remarks ? row("Remarks", esc(e.remarks)) : "")+row("Entered by", esc(e.createdByName))+
+      '</tbody></table></div>'+
+      '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="inLetter" type="button">Download material receipt letter (PDF)</button>'+
+      (mine ? '<button class="btn ghost" id="inEdit" type="button">Edit</button><button class="btn danger" id="inDel" type="button">Delete</button>' : '')+'</div></div>'+
+      '<h3 class="sec">Items</h3>'+
+      '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Description</th><th>Quantity</th><th>Status</th></tr></thead><tbody>'+
+      items.map(function(i, n){
+        var st;
+        if(own) st = '<span class="oilb ok">Received</span>';
+        else { var rg = i.ret ? gpFind(i.retGpId) : null; st = i.ret ? '<span class="oilb ok">Returned</span><small style="display:block;color:var(--muted)">'+(rg ? 'GP '+esc(rg.number)+' &middot; '+esc(fmtDate(rg.date)) : esc(fmtDate(i.retDate)))+'</small>' : '<span class="oilb ds">Held</span>'; }
+        return '<tr><td data-label="#">'+(n+1)+'</td><td data-label="Description">'+esc(i.desc)+'</td><td data-label="Quantity">'+esc(gpQty(i))+'</td><td data-label="Status">'+st+'</td></tr>'; }).join("")+'</tbody></table></div>';
+    p.innerHTML = h; gpBind("dio");
+    $("inLetter").onclick = function(){ inLetterExport(e); };
+    if($("inGpLink")) $("inGpLink").onclick = function(){ gpSel = g.id; gpRet = "dio"; miscView = "gpDet"; render(); };
+    if(mine){
+      $("inEdit").onclick = function(){ inEditId = e.id; inDraft = null; miscView = "inForm"; render(); };
+      $("inDel").onclick = function(){
+        if(items.some(function(i){ return i.ret; })){ alert("Some items of this entry were already returned through a gate pass. Delete that return first."); return; }
+        confirmModal("Delete inward entry "+(e.number||"")+"? Items booked against a gate pass go back to “Sent”.", function(){
+          (state.gateItems || []).forEach(function(x){ if(x.rcvInId === e.id){ x.rcv = ""; x.rcvDate = ""; x.rcvInId = ""; } });
+          state.inwardItems = inItemsAll().filter(function(x){ return x.inId !== e.id; }); state.inwards = inList().filter(function(x){ return x.id !== e.id; });
+          ampSend({ action:"inwDel", id:e.id }); miscView = "dio"; render(); });
+      };
+    }
+  }
+
+  /* ---------- material receipt letter ---------- */
+  var LTR_CSS = '@page{size:A4 portrait;margin:11mm 15mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}'+
+      'body{font-family:"Segoe UI",Calibri,Arial,"Nirmala UI","Mangal","Noto Sans Devanagari",sans-serif;color:#16212b;font-size:10.5pt;margin:0;line-height:1.5}'+
+      'table{width:100%;border-collapse:collapse;table-layout:fixed}tr{page-break-inside:avoid}.nb{white-space:nowrap}'+
+      '.hn{display:block;font-size:8.5pt;font-weight:500;color:#5d6b78;margin-top:1px}'+
+      /* letterhead */
+      'table.lh td{vertical-align:middle;padding:0 0 8px}td.lgo{width:36%}td.lgo img{height:62px;width:auto}td.org{text-align:right}'+
+      '.hi{color:#2f8f3a;font-weight:700;font-size:14pt;line-height:1.3}.hs{color:#5d6b78;font-size:8.5pt;margin-bottom:3px}.en{color:#1f3a8a;font-weight:700;font-size:11.5pt;letter-spacing:.3px}.es{color:#5d6b78;font-size:8.5pt}'+
+      '.rule{height:4px;background:linear-gradient(90deg,#2f8f3a 0,#2f8f3a 30%,#1f3a8a 30%,#1f3a8a 100%);border-radius:2px}.hair{height:0;border-top:1px solid #b8964a;margin:3px 0 0}.rule.r2{margin:10px 0 5px}'+
+      /* title */
+      '.ttl{text-align:center;margin:22px 0 18px}.ttl h1{margin:0;font-family:Georgia,"Times New Roman",serif;font-weight:700;font-size:19pt;letter-spacing:5px;color:#12263f;line-height:1.2}'+
+      '.ttl .h1h{font-size:13.5pt;font-weight:600;color:#2c3a47;margin-top:5px;letter-spacing:.5px}'+
+      '.ttl .orn{margin-top:9px;color:#b8964a;font-size:9pt;letter-spacing:6px}.ttl .orn:before,.ttl .orn:after{content:"";display:inline-block;width:22mm;border-top:1px solid #b8964a;vertical-align:middle;margin:0 3mm}'+
+      /* reference card */
+      'table.rf{margin:0 0 16px;border:1px solid #d3dae1;border-left:4px solid #1f3a52;background:#fafbfc}'+
+      'table.rf td{width:50%;padding:7px 12px;vertical-align:top;border-bottom:1px solid #e6ebf0}table.rf tr:last-child td{border-bottom:0}table.rf td+td{border-left:1px solid #e6ebf0}'+
+      '.rl{font-size:7.5pt;letter-spacing:.8px;text-transform:uppercase;color:#5d6b78;font-weight:600;line-height:1.3}.rl span{text-transform:none;letter-spacing:0}'+
+      '.rv{font-size:11pt;font-weight:700;color:#12263f;margin-top:2px;word-break:break-word}'+
+      /* bilingual text */
+      'table.bil{margin:0 0 12px}table.bil td{vertical-align:top;width:50%;text-align:left;line-height:1.6;font-size:10.5pt}'+
+      'td.hc{padding:0 5mm 0 0;border-right:1.2px solid #c5ced7;color:#2c3a47}td.ec{padding:0 0 0 5mm}table.bil b{color:#12263f}'+
+      /* items */
+      'table.ct{margin:2px 0 12px;border-top:2px solid #1f3a52;border-bottom:2px solid #1f3a52}'+
+      'table.ct th{background:#1f3a52;color:#fff;padding:6px 6px;font-size:10pt;letter-spacing:.6px;text-align:center}th .hn{color:#dfe7ef;letter-spacing:0}'+
+      'table.ct td{border-bottom:1px solid #d3dae1;padding:6px 8px;height:28px;vertical-align:middle;word-break:break-word}table.ct tr:nth-child(even) td{background:#f7f9fb}'+
+      'td.n{text-align:center;color:#5d6b78}td.d{text-align:left}td.q{text-align:center;white-space:nowrap}td.rm{vertical-align:top;background:#fff!important;border-left:1px solid #d3dae1}table.ct td .hn{display:inline;font-size:9pt}'+
+      /* delivered by */
+      'table.kv{margin:0 0 14px;border:1px solid #d3dae1}table.kv td{padding:5px 10px;border-bottom:1px solid #e6ebf0;vertical-align:middle}table.kv tr:last-child td{border-bottom:0}'+
+      'td.k{width:46%;background:#f1f5f9;color:#1f3a52;font-weight:700;font-size:10pt}td.k .hn{color:#44515e;font-weight:600}td.v{font-weight:600;color:#12263f}'+
+      /* signature */
+      'table.sgn{margin:8px 0 4px;page-break-inside:avoid}table.sgn td{vertical-align:top}td.seal{width:42%;padding-top:4px}'+
+      '.box{width:44mm;height:26mm;border:1.2px dashed #b8964a;color:#8795a1;font-size:8.5pt;text-align:center;padding-top:9mm}.box .hn{color:#8795a1}'+
+      'td.sgc{text-align:right;font-size:10pt;line-height:1.5}.fr{font-weight:700;color:#12263f}.fr .hn{font-size:9.5pt;font-weight:500}'+
+      '.sl{display:block;width:62mm;margin:24px 0 4px auto;border-top:1.2px solid #1f3a52;padding-top:3px;font-size:8.5pt;letter-spacing:.5px;text-transform:uppercase;color:#5d6b78;text-align:right}.sd b{color:#1f3a52}'+
+      /* footer */
+      'table.ft td{width:50%;vertical-align:top;font-size:7pt;line-height:1.3;color:#44515e;padding:2px 0}table.ft td:first-child{padding-right:4mm;border-right:1px solid #dfe5ea}table.ft td:last-child{padding-left:4mm}';
+  function inLetterExport(e){
+    var items = inItemsOf(e.id); if(!items.length){ alert("This entry has no items."); return; }
+    var logo = (document.querySelector(".login-logo") || {}).src || "", own = e.asset === "YES", g = own ? gpFind(e.gpId) : null;
+    var nb = function(s){ return '<span class="nb">'+esc(s)+'</span>'; };
+    var B = function(s){ return '<b>'+s+'</b>'; };
+    var refEn = g ? " against Gate Pass No. "+nb(g.number)+" dated "+nb(fmtDate(g.date)) : "", refHi = g ? " गेट पास सं. "+nb(g.number)+" दिनांक "+nb(fmtDate(g.date))+" के विरुद्ध" : "";
+    var viaEn = e.vehicle ? " through "+nb(e.vehicle) : "", viaHi = e.vehicle ? " "+nb(e.vehicle)+" द्वारा" : "";
+    var tr = ""; items.forEach(function(it, i){ tr += '<tr><td class="n">'+(i+1)+'</td><td class="d">'+esc(it.desc)+'</td><td class="q">'+qtyBi(it)+'</td>'+(i === 0 ? '<td rowspan="'+items.length+'" class="rm">'+esc(e.remarks||"")+'</td>' : '')+'</tr>'; });
+
+    /* reference card: receipt no., date, source, vehicle, gate pass */
+    var cells = [];
+    var cell = function(en, hi, v){ return '<td><div class="rl">'+en+' <span>/ '+hi+'</span></div><div class="rv">'+v+'</div></td>'; };
+    cells.push(cell("Material Receipt No.","सामग्री प्राप्ति सं.", esc(e.number)));
+    cells.push(cell("Date","दिनांक", esc(fmtDate(e.date))));
+    cells.push(cell("Received From","से प्राप्त", esc(e.party)));
+    if(e.vehicle) cells.push(cell("Vehicle No.","वाहन सं.", esc(e.vehicle)));
+    if(g){ cells.push(cell("Against Gate Pass No.","गेट पास सं.", esc(g.number))); cells.push(cell("Gate Pass Date","गेट पास दिनांक", esc(fmtDate(g.date)))); }
+    var card = '';
+    for(var c = 0; c < cells.length; c += 2) card += '<tr>'+(cells[c+1] ? cells[c]+cells[c+1] : cells[c].replace('<td>','<td colspan="2" style="width:100%">'))+'</tr>';
+
+    var pair = function(hi, en){ return '<tr><td class="hc">'+hi+'</td><td class="ec">'+en+'</td></tr>'; };
+    var para1 = pair(
+      'यह स्वीकार किया जाता है कि निम्नलिखित सामग्री '+B(esc(e.party))+' से '+B(esc(fmtDate(e.date)))+' को'+viaHi+refHi+' पावरग्रिड कोझिकोड एसएस में प्राप्त हुई है।',
+      'This is to acknowledge that the following materials have been received at POWERGRID Kozhikode SS from '+B(esc(e.party))+' on '+B(esc(fmtDate(e.date)))+viaEn+refEn+'.');
+    var para2 = own
+      ? pair('उपर्युक्त सामग्री पावर ग्रिड कॉर्पोरेशन ऑफ इंडिया लिमिटेड, कोझिकोड एसएस की संपत्ति है तथा स्टेशन में वापस प्राप्त हुई है।',
+             'The above materials are the property of POWER GRID CORPORATION OF INDIA LTD., Kozhikode SS and have been received back at the station.')
+      : pair('उपर्युक्त सामग्री '+esc(e.party)+' की है तथा कोझिकोड एसएस में प्राप्त हुई है।',
+             'The above materials belong to '+esc(e.party)+' and have been received at Kozhikode SS.');
+
+    var kv = function(en, hi, v){ return '<tr><td class="k">'+bi(en,hi)+'</td><td class="v">'+v+'</td></tr>'; };
+    var dlv = (e.deliveredBy || e.deliveredPhone) ? '<table class="kv">'+kv("Delivered By","प्रदानकर्ता", esc(e.deliveredBy||""))+kv("Contact No.","संपर्क सं.", esc(gpPhone(e.deliveredPhone)))+'</table>' : '';
+
+    var ft = ''; for(var f = 0; f + 1 < GP_CERT_FOOT.length; f += 2) ft += '<tr><td>'+esc(GP_CERT_FOOT[f])+'</td><td>'+esc(GP_CERT_FOOT[f+1])+'</td></tr>';
+
+    var body =
+      '<table class="lh"><tr><td class="lgo">'+(logo ? '<img src="'+esc(logo)+'" alt="POWERGRID">' : '<b>POWERGRID</b>')+'</td>'+
+        '<td class="org"><div class="hi">पावर ग्रिड कॉर्पोरेशन ऑफ इंडिया लिमिटेड</div><div class="hs">(भारत सरकार का उद्यम)</div>'+
+        '<div class="en">POWER GRID CORPORATION OF INDIA LIMITED</div><div class="es">(A Government of India Enterprise)</div></td></tr></table>'+
+      '<div class="rule"></div><div class="hair"></div>'+
+      '<div class="ttl"><h1>MATERIAL RECEIPT</h1><div class="h1h">सामग्री प्राप्ति पत्र</div><div class="orn">&#9670;</div></div>'+
+      '<table class="rf">'+card+'</table>'+
+      '<table class="bil">'+para1+'</table>'+
+      '<table class="ct"><colgroup><col style="width:9%"><col style="width:41%"><col style="width:26%"><col style="width:24%"></colgroup>'+
+        '<tr><th>'+bi("No.","क्र.सं.")+'</th><th>'+bi("Description","विवरण")+'</th><th>'+bi("Quantity","मात्रा")+'</th><th>'+bi("Remarks","टिप्पणी")+'</th></tr>'+tr+'</table>'+
+      dlv+
+      '<table class="bil">'+para2+'</table>'+
+      '<table class="sgn"><tr><td class="seal"><div class="box">'+bi("Office seal","कार्यालय मुहर")+'</div></td>'+
+        '<td class="sgc"><div class="fr">For POWER GRID CORPORATION OF INDIA LTD.<span class="hn">कृते पावर ग्रिड कॉर्पोरेशन ऑफ इंडिया लिमिटेड</span></div>'+
+        '<div class="sl">'+bl("Signature","हस्ताक्षर")+'</div>'+
+        '<div class="sd"><b>'+bl("Received By","प्राप्तकर्ता")+':</b> '+esc(e.approverName)+(e.approverDesig ? ' ('+esc(e.approverDesig)+')' : '')+
+        (e.approverEmpNo ? '<br>'+bl("Emp No.","कर्मचारी सं.")+': '+esc(e.approverEmpNo) : '')+
+        '<br>'+bl("Date","दिनांक")+': '+esc(fmtDate(e.date))+'</div></td></tr></table>'+
+      '<div class="rule r2"></div><table class="ft">'+ft+'</table>';
+    printDoc("Material_Receipt_"+String(e.number||"").replace(/[^A-Za-z0-9]+/g,"_"), LTR_CSS, body);
+  }
+
   /* ---------- Miscellaneous tab: export any employee's worklist for a date range ---------- */
   var misc = { empId:"", from:"", to:"", st:"all", q:"", init:false };
-  function renderMisc(){
+  function renderMiscExport(){
     var p = $("panel");
-    var h = '<div class="panel-head"><h3>Miscellaneous</h3></div>'+
-            '<h4 style="margin:0 0 4px">Export employee worklist</h4>'+
+    var h = '<div style="margin-bottom:10px"><button class="btn ghost small" id="mxBack" type="button">&lsaquo; Miscellaneous</button></div>'+
+            '<div class="panel-head"><h3>Export employee worklist</h3></div>'+
             '<p style="margin:0 0 12px;color:var(--muted);font-size:.9rem">Choose an employee and a date range, then export the worklist as a PDF.</p>';
-    if(!state.employees.length){ p.innerHTML = h+'<div class="empty">No employees yet.</div>'; return; }
+    if(!state.employees.length){ p.innerHTML = h+'<div class="empty">No employees yet.</div>'; $("mxBack").onclick = function(){ miscView = "menu"; render(); }; return; }
     if(!misc.init){ misc.init = true; misc.to = today(); misc.from = addDays(today(), -30); }
     if(!state.employees.some(function(x){ return x.id === misc.empId; })) misc.empId = state.employees[0].id;
     h += '<div class="rgbar">'+
@@ -3058,6 +4569,7 @@
       '<button class="btn small" id="miExport" type="button">Export PDF</button></div>'+
       '<div class="stats" id="miSum" style="margin-bottom:8px"></div><div id="miRes"></div>';
     p.innerHTML = h;
+    $("mxBack").onclick = function(){ miscView = "menu"; render(); };
     function cur(){ return emp(misc.empId); }
     function draw(){
       var sum = $("miSum"), res = $("miRes"), e = cur(); if(!sum || !res || !e) return;
@@ -3092,7 +4604,7 @@
     if(!list.length){ alert("No work has been entered for "+fmtDate(d)+"."); return; }
     var done = list.filter(function(w){ return w.done; }).length;
     var rows = list.map(function(w,i){
-      return '<tr><td>'+(i+1)+'</td><td class="l"><span'+wpriPrint(w)+'>'+esc(w.text)+'</span>'+(wpri(w)!=="normal" ? ' <small'+wpriPrint(w)+'>['+WP_LABEL[wpri(w)]+']</small>' : '')+(w.movedFrom ? '<br><small>Transferred from '+esc(fmtDate(w.movedFrom))+'</small>' : '')+'</td>'+
+      return '<tr><td>'+(i+1)+'</td><td class="l"><span'+wpriPrint(w)+'>'+esc(w.text)+'</span>'+(wpri(w)!=="normal" ? ' <small'+wpriPrint(w)+'>['+WP_LABEL[wpri(w)]+']</small>' : '')+(w.movedFrom ? '<br><small>Transferred from '+esc(fmtDate(w.movedFrom))+'</small>' : '')+(w.xferFrom ? '<br><small>Transferred from '+esc(w.xferFrom)+'</small>' : '')+'</td>'+
         '<td class="'+(w.done?'ok':'')+'">'+(w.done?'Done':'Pending')+'</td><td>'+(w.done && w.doneAt ? esc(fmtStamp(w.doneAt)) : '–')+'</td>'+
         '<td class="l">'+(w.done && w.comment ? esc(w.comment) : '')+'</td></tr>';
     }).join("");
@@ -3318,9 +4830,10 @@
     $("hhOk").onclick = function(){ applyHrs(false); };
     $("hhSave").onclick = function(){ applyHrs(true); };
   }
+  function amcMaxDate(){ return addDays(today(), 1); }      // daily work can be entered up to tomorrow (e.g. on Friday up to Saturday)
   function amcDailyHTML(edit){
     var staff = (state.amcStaff||[]).filter(function(s){ return edit || amcFilter === "all" || s.contractId === amcFilter; });
-    var h = '<div class="datebar"><input type="date" id="adDt" value="'+amcDate+'" max="'+today()+'" aria-label="Date"><span class="dlabel">'+esc(dayLabel(amcDate))+'</span></div>';
+    var h = '<div class="datebar"><input type="date" id="adDt" value="'+amcDate+'" max="'+amcMaxDate()+'" aria-label="Date"><span class="dlabel">'+esc(dayLabel(amcDate))+'</span></div>';
     if(!staff.length) return h+'<div class="empty">No AMC staff.</div>';
     if(!staff.some(function(s){ return s.id === amcExSel; })) amcExSel = "all";
     h += '<div class="exbar"><label for="adExSel">Export daily work list (PDF)</label><select id="adExSel" aria-label="Select contract employee">'+
@@ -3349,7 +4862,7 @@
   }
   function bindDaily(p, edit){
     var dt = $("adDt");
-    if(dt) dt.onchange = function(){ if(!this.value) return; amcDate = this.value > today() ? today() : this.value; renderPanel(); };
+    if(dt) dt.onchange = function(){ if(!this.value) return; amcDate = this.value > amcMaxDate() ? amcMaxDate() : this.value; renderPanel(); };
     var exSel = $("adExSel"), exBtn = $("adExport");
     if(exSel) exSel.onchange = function(){ amcExSel = exSel.value; };
     if(exBtn) exBtn.onclick = function(){ amcExSel = exSel.value; amcDailyExport(amcDate, amcExSel); };
@@ -3774,6 +5287,13 @@
       h += '<div class="carry"><div class="carry-txt"><b>'+myA.length+' assignment'+(myA.length>1?'s':'')+'</b> pending for '+esc(e.name)+(myLate?' ('+myLate+' overdue)':'')+'</div>'+
            '<button class="btn small" id="viewAssign" type="button">View assignments</button></div>';
     }
+    var inX = canW ? xfersIn(e.id) : [];
+    if(inX.length){
+      h += '<div class="xin"><b style="font-size:.88rem">Transfer request'+(inX.length>1?'s':'')+' for you</b>'+inX.map(function(x){
+        return '<div class="xr"><div class="xt">'+esc(x.text)+wpriTag(x)+'<small>From '+esc(x.fromName)+' &middot; for '+fmtDate(x.date)+'</small></div>'+
+               '<div><button class="btn small" data-xacc="'+esc(x.id)+'" type="button">Accept</button> <button class="btn ghost small" data-xdec="'+esc(x.id)+'" type="button">Decline</button></div></div>';
+      }).join("")+'</div>';
+    }
     h += '<div class="datebar">'+
          '<button class="btn ghost small" id="dPrev" type="button" aria-label="Previous day">‹ Previous</button>'+
          '<input type="date" id="dPick" value="'+viewDate+'" aria-label="Select date">'+
@@ -3820,14 +5340,19 @@
     } else {
       h += '<table><thead><tr><th>Done</th><th>Work details</th><th></th></tr></thead><tbody>';
       list.forEach(function(w){
+        var xo = xferOut(w.id), xdc = !xo && !w.done ? xferDeclined(w.id) : null;
         h += '<tr class="'+(w.done?"done":"")+'">'+
           '<td class="chk"><input type="checkbox" data-done="'+esc(w.id)+'" '+(w.done?"checked":"")+(canW?'':' disabled')+' aria-label="Mark complete"></td>'+
           '<td class="txt"><span class="wt wp-'+wpri(w)+'">'+esc(w.text)+'</span>'+wpriTag(w)+
             (w.movedFrom?'<span class="moved">Transferred from '+fmtDate(w.movedFrom)+'</span>':'')+
+            (w.xferFrom?'<span class="moved">Transferred from '+esc(w.xferFrom)+'</span>':'')+
+            (xo?'<span class="xnote">Waiting for '+esc(xo.toName)+' to accept (for '+fmtDate(xo.date)+')</span>':'')+
+            (xdc?'<span class="xnote no">Declined by '+esc(xdc.toName)+'</span>':'')+
             (w.done&&w.doneAt?'<span class="doneat">Completed '+fmtStamp(w.doneAt)+'</span>':'')+
             (w.done&&w.comment?'<span class="cmt">Comment: '+esc(w.comment)+'</span>':'')+'</td>'+
           '<td class="act">'+(!canW ? '' :
-            (!w.done?'<button class="btn ghost small" data-move="'+esc(w.id)+'" type="button">Transfer</button> ':'')+
+            (xo ? '<button class="btn ghost small" data-xcan="'+esc(xo.id)+'" type="button">Cancel transfer</button> '
+                : (!w.done?'<button class="btn ghost small" data-move="'+esc(w.id)+'" type="button">Transfer</button> ':''))+
             '<button class="btn ghost small" data-edit="'+esc(w.id)+'" type="button">Edit</button>'+
             (isMaster()?' <button class="btn danger small" data-del="'+esc(w.id)+'" type="button">Delete</button>':''))+
           '</td></tr>';
@@ -3888,6 +5413,10 @@
     Array.prototype.forEach.call(p.querySelectorAll("[data-move]"),function(b){
       b.onclick = function(){ transferModal(e, findWork(b.getAttribute("data-move"))); };
     });
+    function xById(id){ return (state.xfers||[]).find(function(x){ return x.id === id; }); }
+    Array.prototype.forEach.call(p.querySelectorAll("[data-xacc]"),function(b){ b.onclick = function(){ var x = xById(b.getAttribute("data-xacc")); if(x) xferAccept(x); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-xdec]"),function(b){ b.onclick = function(){ var x = xById(b.getAttribute("data-xdec")); if(x) xferDecline(x); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-xcan]"),function(b){ b.onclick = function(){ var x = xById(b.getAttribute("data-xcan")); if(x) xferCancel(x); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-del]"),function(b){
       b.onclick = function(){
         var id = b.getAttribute("data-del");
@@ -4018,14 +5547,18 @@
   function transferModal(e,w){
     var from = w.date;
     var def = from < today() ? today() : addDays(from,1);
+    var others = state.employees.filter(function(x){ return x.id !== e.id; });
+    var selfLbl = (isMaster() && e.id !== myEmpId()) ? "Same employee ("+e.name+")" : "Myself";
     openModal('<h3>Transfer work</h3>'+
-      '<p style="margin-top:0">'+esc(w.text)+'</p>'+
-      '<p style="color:var(--muted);margin-top:-6px">Currently on '+fmtDate(from)+'</p>'+
-      '<div class="field"><label for="tDate">Move to date</label><input type="date" id="tDate" value="'+def+'"></div>'+
+      '<p style="margin-top:0">'+esc(w.text)+' <small style="color:var(--muted)">&middot; on '+fmtDate(from)+'</small></p>'+
+      '<div class="field"><label for="tTo">Transfer to</label><select id="tTo"><option value="">'+esc(selfLbl)+'</option>'+
+        others.map(function(x){ return '<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="tDate">Date</label><input type="date" id="tDate" value="'+def+'"></div>'+
       '<div class="quick"><button class="chip" id="tYest" type="button">Yesterday</button>'+
       '<button class="chip" id="tToday" type="button">Today</button>'+
       '<button class="chip" id="tTom" type="button">Tomorrow</button>'+
       '<button class="chip" id="tWeek" type="button">Next week</button></div>'+
+      '<p class="xhint hidden" id="tNote"></p>'+
       '<p class="error" id="tErr"></p>'+
       '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Transfer</button></div>');
     var t0 = today();
@@ -4033,13 +5566,22 @@
     $("tToday").onclick = function(){ $("tDate").value = t0; };
     $("tTom").onclick = function(){ $("tDate").value = addDays(t0,1); };
     $("tWeek").onclick = function(){ $("tDate").value = addDays(t0,7); };
+    $("tTo").onchange = function(){
+      var o = emp(this.value);
+      $("tNote").classList.toggle("hidden", !o);
+      if(o) $("tNote").textContent = o.name+" must accept before it is added to the worklist.";
+      $("mOk").textContent = o ? "Send request" : "Transfer";
+      $("tErr").textContent = "";
+    };
     $("mNo").onclick = closeModal;
     $("mOk").onclick = function(){
-      var d = $("tDate").value;
+      var d = $("tDate").value, to = $("tTo").value;
       if(!d){ $("tErr").textContent = "Pick a date."; return; }
-      if(d === from){ $("tErr").textContent = "Pick a date different from "+fmtDate(from)+"."; return; }
+      if(!to && d === from){ $("tErr").textContent = "Pick a date different from "+fmtDate(from)+"."; return; }
+      closeModal();
+      if(to){ xferSend(e, w, to, d); return; }
       w.movedFrom = from; w.date = d;
-      closeModal(); commit([wput(e,w)]); render();
+      commit([wput(e,w)]); render();
     };
   }
 
@@ -4218,6 +5760,36 @@
     loadPw(function(m){ body(m); });
   }
   $("manageUsersBtn").onclick = usersModal;
+
+  /* ---------- Install as an app (Android / iPhone / desktop Chrome) ---------- */
+  (function(){
+    var deferred = null, root = document.documentElement;
+    function standalone(){ return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true; }
+    var ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    function offer(){ if(!standalone()) root.classList.add("can-install"); }
+    window.addEventListener("beforeinstallprompt", function(ev){ ev.preventDefault(); deferred = ev; offer(); });   // Android Chrome / Edge / Samsung
+    window.addEventListener("appinstalled", function(){ deferred = null; root.classList.remove("can-install"); });
+    if(ios) offer();                                                                                              // iOS has no prompt: show how-to
+    document.addEventListener("click", function(ev){
+      var b = ev.target.closest && ev.target.closest("[data-install]"); if(!b) return;
+      if(deferred){
+        deferred.prompt();
+        deferred.userChoice.then(function(c){ if(c && c.outcome === "accepted") root.classList.remove("can-install"); deferred = null; });
+      } else {
+        openModal('<h3>Install this app</h3>'+
+          '<ol style="margin:0 0 12px;padding-left:20px;line-height:1.7">'+
+          '<li>Tap the <b>Share</b> button (square with an arrow) in Safari.</li>'+
+          '<li>Scroll and tap <b>Add to Home Screen</b>.</li>'+
+          '<li>Tap <b>Add</b>. The app icon appears on your home screen.</li></ol>'+
+          '<p style="color:var(--muted);font-size:.88rem;margin:0 0 12px">On iPhone this works only from Safari. If this page is open in another app or browser, open it in Safari first.</p>'+
+          '<div class="row"><button class="btn" id="mNo" type="button">Got it</button></div>');
+        $("mNo").onclick = closeModal;
+      }
+    });
+    if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){
+      window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
+    }
+  })();
 
   setStatus("ok");
   setRole("user");
