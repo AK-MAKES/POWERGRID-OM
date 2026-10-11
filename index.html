@@ -477,7 +477,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.22";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.23";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -3753,6 +3753,24 @@
       });
     })();
   }
+  function vendorOptions(cur){
+    return '<option value="">Select vendor</option>' + claimsData.vendors.map(function(v){ return '<option value="'+esc(v.id)+'"'+(v.id === cur ? ' selected' : '')+'>'+esc(v.name)+'</option>'; }).join("");
+  }
+  /* fetch the newest vendor list (Master may have added vendors after this screen was loaded) and update an open claim form without touching what was typed */
+  function claimVendorsRefresh(){
+    if(!SYNC) return;
+    api({ action: "claimList" }).then(function(r){
+      claimsData.vendors = r.json.vendors || claimsData.vendors; claimsData.loaded = true;
+      var sel = $("clVen"); if(!sel) return;
+      var cur = sel.value; sel.innerHTML = vendorOptions(cur); sel.value = cur;
+      var info = $("clVenInfo"); if(info) info.innerHTML = claimsData.vendors.length ? vendorInfo(vendorById(sel.value)) : "No vendors yet. Ask Master to add them.";
+    }).catch(function(){});
+  }
+  /* while the Claims / Vendor screen is open, pick up changes every 20 seconds */
+  setInterval(function(){
+    if(!session || !SYNC || document.hidden || modalOpen()) return;
+    if((activeTab === myEmpId() && empView === "claims") || (activeTab === "misc" && miscView === "vendors")) claimFetch();
+  }, 20000);
   function vendorById(id){ return claimsData.vendors.find(function(v){ return v.id === id; }); }
   function vendorInfo(v){ return v ? (v.registered === "Registered" ? "Registered &middot; GST "+esc(v.gst) : "Non registered")+(v.business ? " &middot; "+esc(v.business) : "")+(v.phone ? " &middot; "+esc(v.phone) : "") : ""; }
   function claimTypeText(c){ return c.type + (c.typeName ? " – " + c.typeName : ""); }
@@ -3803,9 +3821,8 @@
       '<div class="field"><label for="clType">Claim type</label><select id="clType"><option value="">Select</option>'+
         CLAIM_TYPES.map(function(t){ return '<option'+(t===d.type?' selected':'')+'>'+t+'</option>'; }).join("")+'</select></div>'+
       '<div class="field" id="clNameF"><label for="clName">Name for this claim</label><input type="text" id="clName" maxlength="60" placeholder="e.g. Tour advance, Diwali cleaning" value="'+esc(d.typeName)+'"></div>'+
-      '<div class="field"><label for="clVen">Vendor</label><select id="clVen"><option value="">Select vendor</option>'+
-        claimsData.vendors.map(function(v){ return '<option value="'+esc(v.id)+'"'+(v.id===d.vendorId?' selected':'')+'>'+esc(v.name)+'</option>'; }).join("")+'</select>'+
-        '<small id="clVenInfo" style="display:block;color:var(--muted);margin-top:4px">'+(claimsData.vendors.length ? vendorInfo(vendorById(d.vendorId)) : 'No vendors yet. Ask Master to add them.')+'</small></div>'+
+      '<div class="field"><label for="clVen">Vendor</label><select id="clVen">'+vendorOptions(d.vendorId)+'</select>'+
+        '<small id="clVenInfo" style="display:block;color:var(--muted);margin-top:4px">'+(claimsData.vendors.length ? vendorInfo(vendorById(d.vendorId)) : 'Loading vendors…')+'</small></div>'+
       '<div class="field"><label for="clDesc">Material description</label><textarea id="clDesc" maxlength="500">'+esc(d.desc)+'</textarea></div>'+
       '<div class="field"><label for="clQty">Quantity</label><input type="text" id="clQty" maxlength="30" placeholder="e.g. 5 nos" value="'+esc(d.qty)+'"></div>'+
       '<div class="field"><label for="clStat">Settlement status</label><select id="clStat">'+
@@ -3817,6 +3834,7 @@
     nameShow();
     $("clType").onchange = nameShow;
     $("clVen").onchange = function(){ $("clVenInfo").innerHTML = vendorInfo(vendorById(this.value)); };
+    claimVendorsRefresh();                                  // always show the newest vendor list
     $("mNo").onclick = closeModal;
     $("mOk").onclick = function(){
       var er = $("clErr"), v = vendorById($("clVen").value), type = $("clType").value, name = $("clName").value.trim();
