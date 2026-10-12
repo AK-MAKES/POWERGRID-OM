@@ -174,11 +174,28 @@
   .clm-d{margin:0 0 4px;white-space:pre-wrap;overflow-wrap:anywhere}
   .clm-q{color:var(--muted);white-space:nowrap}
   .clm-rem{font-size:.85rem;color:var(--muted);margin:0 0 4px;white-space:pre-wrap}
+  .cld{border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px;margin:0 0 12px}
+  .cld-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .cld-box{background:#f5f7fa;border-radius:8px;padding:8px 10px}
+  .cld-box small{display:block;color:var(--muted);font-size:.78rem}
+  .cld-box b{font-size:1.08rem;color:var(--ink)}
+  .cld-box.big{grid-column:1/-1;background:#fff4e8}.cld-box.big b{font-size:1.3rem;color:#b3541e}
+  .cld h4{margin:12px 0 6px;font-size:.9rem;color:var(--steel)}
+  .cld-ppl button{display:flex;width:100%;justify-content:space-between;gap:8px;align-items:center;text-align:left;padding:8px 10px;margin:0 0 5px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:.9rem;color:var(--ink)}
+  .cld-ppl button.on{border-color:var(--steel);background:#eef3f8}
+  .cld-ppl small{display:block;color:var(--muted)}
   .clm-act{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
   .clm-act select{padding:6px 8px;border-radius:6px;border:1px solid var(--line);font-weight:600}
   .clm-act select[data-v="Not applied"]{color:#8a6500;background:#fff7e0}
   .clm-act select[data-v="Applied"]{color:#1d4f91;background:#e8f1fc}
   .clm-act select[data-v="Settled"]{color:#1b7f3b;background:#e6f5ea}
+  .pm-act{border:2px solid #1b7f3b;background:#f0faf3}
+  .pm-badge{display:inline-block;background:#1b7f3b;color:#fff;border-radius:999px;padding:2px 10px;font-size:.74rem;font-weight:700;letter-spacing:.3px}
+  .pm-row{display:flex;gap:6px;font-size:.9rem;margin:0 0 3px}.pm-row b{min-width:98px;color:var(--steel);flex:none}.pm-row span{overflow-wrap:anywhere}
+  .clm-act select[data-v="INITIATED"]{color:#5d6b78;background:#eef1f4}.clm-act select[data-v="APPROVED"]{color:#1d4f91;background:#e8f1fc}
+  .clm-act select[data-v="ISSUED"]{color:#8a5a00;background:#fff1cc}.clm-act select[data-v="RETURNED"]{color:#6a3a9a;background:#f1e8fb}.clm-act select[data-v="CLOSED"]{color:#1b7f3b;background:#e6f5ea}
+  .pmpick{max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:#fff}
+  .pmpick label{display:flex;gap:8px;align-items:center;padding:5px 0;font-size:.92rem;border-bottom:1px solid #f0f2f4}.pmpick label:last-child{border-bottom:0}
   .cpl{border:1px solid var(--line);border-radius:8px;margin:0 0 12px;max-height:55vh;overflow:auto}
   .cpr{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 10px}
   .cpr + .cpr{border-top:1px solid var(--line)}
@@ -483,7 +500,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.24";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.30";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -638,7 +655,7 @@
   function api(body){
     body.auth = auth;
     var ctl = null, tm = null;
-    if(body.action !== "ops" && typeof AbortController !== "undefined"){ ctl = new AbortController(); tm = setTimeout(function(){ ctl.abort(); }, 45000); }   // reads give up after 45 s (saves are never cut off)
+    if(body.action !== "ops" && body.action !== "backupAll" && typeof AbortController !== "undefined"){ ctl = new AbortController(); tm = setTimeout(function(){ ctl.abort(); }, 45000); }   // reads give up after 45 s (saves are never cut off)
     return fetch(API_URL, { method: "POST", body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined })
       .then(function(r){ if(tm) clearTimeout(tm); return r.text(); }, function(e){ if(tm) clearTimeout(tm); throw e; })
       .then(function(t){
@@ -3059,7 +3076,7 @@
 
   /* ---------- Oil Sampling Schedule (inside Maintenance status) ---------- */
   var OIL_UNIT = { d:"Days", m:"Months", y:"Years" };
-  var OIL_TESTS = ["DGA","BDV","PARTICLE COUNT","MOISTURE (PPM)","FURAN","TAN DELTA","ACIDITY","INTERFACIAL TENSION","FLASH POINT","RESISTIVITY","DDF"];
+  var OIL_TESTS = ["DGA","BDV","PARTICLE COUNT","MOISTURE (PPM)","FURAN","ETHANOL/METHANOL","TAN DELTA","ACIDITY","INTERFACIAL TENSION","FLASH POINT","RESISTIVITY","DDF"];
   var oilSel = "";
   function oilTestsOf(id){ return (state.oilTests || []).filter(function(t){ return t.equipId === id; }); }
   function oilAdd(iso, n, unit){            // iso + n days/months/years (month end is respected)
@@ -3099,24 +3116,52 @@
   function oilWho(){ return session ? (session.displayName || session.id) : ""; }
 
   function oilExport(onlyId){
+    var eq0 = (state.oilEquip || []);
+    if(onlyId) eq0 = eq0.filter(function(e){ return e.id === onlyId; });
+    if(!eq0.length){ alert("There is no equipment to export."); return; }
+    var td = new Date(), fr0 = toISO(new Date(td.getFullYear(), td.getMonth(), 1)), to0 = toISO(new Date(td.getFullYear(), td.getMonth()+1, 0));
+    openModal('<h3>Export oil sampling schedule</h3>'+
+      '<p style="margin:0 0 10px;color:var(--muted);font-size:.88rem">Only tests whose <b>next due date</b> falls in this range are exported. For a single date, choose the same date in both boxes.</p>'+
+      '<div class="field"><label for="oxFrom">Due from</label><input type="date" id="oxFrom" value="'+fr0+'"></div>'+
+      '<div class="field"><label for="oxTo">Due to</label><input type="date" id="oxTo" value="'+to0+'"></div>'+
+      '<p class="error" id="oxErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn ghost" id="oxAll" type="button">All dates</button><button class="btn" id="mOk" type="button">Export PDF</button></div>');
+    $("mNo").onclick = closeModal;
+    $("oxAll").onclick = function(){ if(oilDoExport(onlyId, "", "")) closeModal(); else $("oxErr").textContent = "There are no tests with a due date to export."; };
+    $("mOk").onclick = function(){
+      var fr = $("oxFrom").value, to = $("oxTo").value, err = $("oxErr"); err.textContent = "";
+      if(!fr || !to){ err.textContent = "Select both dates."; return; }
+      if(fr > to){ err.textContent = "“Due from” must not be after “Due to”."; return; }
+      if(oilDoExport(onlyId, fr, to)) closeModal(); else err.textContent = "No oil tests are due in that date range.";
+    };
+  }
+
+  // fr/to = ISO dates (inclusive). Both empty = every test that has a due date. Returns false if nothing matched.
+  function oilDoExport(onlyId, fr, to){
     var eq = (state.oilEquip || []).slice().sort(function(a,b){ return (a.created||0)-(b.created||0); });
     if(onlyId) eq = eq.filter(function(e){ return e.id === onlyId; });
-    if(!eq.length){ alert("There is no equipment to export."); return; }
-    var all = []; eq.forEach(function(e){ all = all.concat(oilTestsOf(e.id)); });
+    function inRange(t){ var n = oilNext(t); if(!n) return false; return (!fr || n >= fr) && (!to || n <= to); }
+    var rows = [], all = [];
+    eq.forEach(function(e){
+      var ts = oilTestsOf(e.id).filter(inRange).sort(function(x,y){ return oilNext(x) < oilNext(y) ? -1 : (oilNext(x) > oilNext(y) ? 1 : (x.created||0)-(y.created||0)); });
+      if(ts.length){ rows.push({ e:e, ts:ts }); all = all.concat(ts); }
+    });
+    if(!all.length) return false;
     var c = oilCount(all), COL = { od:"#b3261e", ds:"#8a5a00", ok:"#1a7f37", nr:"#5d6b78" };
-    var body = docHead('KOZHIKODE SS &ndash; Oil Sampling Schedule', (onlyId ? esc(eq[0].name) : 'All equipment ('+eq.length+')')+' &nbsp;|&nbsp; As on '+esc(fmtDate(today())))+
-      '<p class="sm">Tests: <b>'+c.total+'</b> &nbsp;|&nbsp; Overdue: <b style="color:#b3261e">'+c.od+'</b> &nbsp;|&nbsp; Due within 30 days: <b style="color:#8a5a00">'+c.ds+'</b> &nbsp;|&nbsp; OK: <b style="color:#1a7f37">'+c.ok+'</b> &nbsp;|&nbsp; Not recorded: <b>'+c.nr+'</b></p>';
-    eq.forEach(function(e, ei){
-      var ts = oilTestsOf(e.id).sort(function(x,y){ return (x.created||0)-(y.created||0); });
-      body += '<div class="oe"><h2>'+(ei+1)+'. '+esc(e.name)+'</h2>';
-      if(!ts.length) body += '<p class="sm">No tests added.</p></div>';
-      else body += '<table><thead><tr><th style="width:5%">#</th><th>Test type</th><th style="width:15%">Last done</th><th style="width:15%">Frequency</th><th style="width:15%">Next due</th><th style="width:20%">Status</th></tr></thead><tbody>'+
-        ts.map(function(t,i){ var s = oilState(t);
+    var rng = (fr && to) ? (fr === to ? 'Due on '+esc(fmtDate(fr)) : 'Due from '+esc(fmtDate(fr))+' to '+esc(fmtDate(to))) : 'All due dates';
+    var body = docHead('KOZHIKODE SS &ndash; Oil Sampling Schedule', (onlyId ? esc(eq[0].name) : 'Equipment ('+rows.length+')')+' &nbsp;|&nbsp; '+rng+' &nbsp;|&nbsp; As on '+esc(fmtDate(today())))+
+      '<p class="sm">Tests: <b>'+c.total+'</b> &nbsp;|&nbsp; Overdue: <b style="color:#b3261e">'+c.od+'</b> &nbsp;|&nbsp; Due within 30 days: <b style="color:#8a5a00">'+c.ds+'</b> &nbsp;|&nbsp; OK: <b style="color:#1a7f37">'+c.ok+'</b></p>';
+    rows.forEach(function(r, ei){
+      body += '<div class="oe"><h2>'+(ei+1)+'. '+esc(r.e.name)+'</h2>'+
+        '<table><thead><tr><th style="width:5%">#</th><th>Test type</th><th style="width:15%">Last done</th><th style="width:15%">Frequency</th><th style="width:15%">Next due</th><th style="width:20%">Status</th></tr></thead><tbody>'+
+        r.ts.map(function(t,i){ var s = oilState(t);
           return '<tr><td>'+(i+1)+'</td><td class="l"><b>'+esc(t.test)+'</b></td><td>'+(t.lastDone ? esc(fmtDate(t.lastDone)) : '&ndash;')+'</td><td>'+esc(oilFreq(t))+'</td><td>'+(s.next ? esc(fmtDate(s.next)) : '&ndash;')+
             '</td><td style="color:'+COL[s.k]+';font-weight:700">'+esc(s.label)+'</td></tr>'; }).join("")+'</tbody></table></div>';
     });
     body += docFoot();
-    printDoc("Oil_Sampling_"+(onlyId ? eq[0].name.replace(/[^A-Za-z0-9]+/g,"_") : "All")+"_"+today(), listCss(false)+'.oe h2{margin:14px 0 4px;font-size:12pt;color:#1f3a52}tr{page-break-inside:avoid}', body);
+    var tag = (fr && to) ? (fr === to ? fr : fr+"_to_"+to) : "AllDates";
+    printDoc("Oil_Sampling_"+(onlyId ? eq[0].name.replace(/[^A-Za-z0-9]+/g,"_") : "All")+"_"+tag, listCss(false)+'.oe h2{margin:14px 0 4px;font-size:12pt;color:#1f3a52}tr{page-break-inside:avoid}', body);
+    return true;
   }
 
   function renderOilList(){
@@ -3739,63 +3784,202 @@
     api({ action: "claimList" }).then(function(r){
       if(claimBusy) return;
       claimsData.claims = r.json.claims || []; claimsData.vendors = r.json.vendors || []; claimsData.loaded = true;
-      if(!modalOpen() && ((activeTab === myEmpId() && empView === "claims") || (activeTab === "misc" && miscView === "vendors"))) render();
+      if(!modalOpen() && ((activeTab === myEmpId() && empView === "claims") || (activeTab === "misc" && (miscView === "vendors" || (miscView === "vsearch" && !(document.activeElement && document.activeElement.id === "vsQ")))))) render();
     }).catch(onSyncError);
   }
   /* saves in the background: the screen is already updated; quiet retries; only a final failure shows a message and reloads the truth */
+  var claimChain = Promise.resolve();       // saves run one after another: a new vendor is stored before the claim that uses it
   function claimSend(body){
-    claimBusy++; var tries = 0;
-    (function go(){
-      tries++;
-      api(body).then(function(r){
-        claimBusy--;
-        if(!claimBusy){ claimsData.claims = r.json.claims || []; claimsData.vendors = r.json.vendors || []; if(!modalOpen()) render(); }
-      }).catch(function(err){
-        if(err && err.server && err.message === "auth"){ claimBusy--; onSyncError(err); return; }
-        if(!(err && err.server) && tries < 3){ setTimeout(go, 3000); return; }
-        claimBusy--;
-        try{ toast("Not saved" + (err && err.server && err.message ? ": " + err.message : " (no connection)") + "."); }catch(x){}
-        claimFetch();
-      });
-    })();
+    claimBusy++;
+    claimChain = claimChain.then(function(){ return new Promise(function(done){
+      var tries = 0;
+      (function go(){
+        tries++;
+        api(body).then(function(r){
+          claimBusy--;
+          if(!claimBusy){ claimsData.claims = r.json.claims || []; claimsData.vendors = r.json.vendors || []; if(!modalOpen()) render(); }
+          done();
+        }).catch(function(err){
+          if(err && err.server && err.message === "auth"){ claimBusy--; onSyncError(err); done(); return; }
+          if(!(err && err.server) && tries < 3){ setTimeout(go, 3000); return; }
+          claimBusy--;
+          try{ toast("Not saved" + (err && err.server && err.message ? ": " + err.message : " (no connection)") + "."); }catch(x){}
+          claimFetch(); done();
+        });
+      })();
+    }); });
   }
   function vendorOptions(cur){
-    return '<option value="">Select vendor</option>' + claimsData.vendors.map(function(v){ return '<option value="'+esc(v.id)+'"'+(v.id === cur ? ' selected' : '')+'>'+esc(v.name)+'</option>'; }).join("");
+    return '<option value="">Select vendor</option>' + claimsData.vendors.map(function(v){ return '<option value="'+esc(v.id)+'"'+(v.id === cur ? ' selected' : '')+'>'+esc(v.name)+'</option>'; }).join("") +
+      '<option value="__new__">+ Vendor not available (add new vendor)</option>';
   }
   /* fetch the newest vendor list (Master may have added vendors after this screen was loaded) and update an open claim form without touching what was typed */
   function claimVendorsRefresh(){
-    if(!SYNC) return;
+    if(!SYNC || claimBusy) return;
     api({ action: "claimList" }).then(function(r){
+      if(claimBusy) return;
       claimsData.vendors = r.json.vendors || claimsData.vendors; claimsData.loaded = true;
       var sel = $("clVen"); if(!sel) return;
       var cur = sel.value; sel.innerHTML = vendorOptions(cur); sel.value = cur;
-      var info = $("clVenInfo"); if(info) info.innerHTML = claimsData.vendors.length ? vendorInfo(vendorById(sel.value)) : "No vendors yet. Ask Master to add them.";
+      var info = $("clVenInfo"); if(info) info.innerHTML = claimsData.vendors.length ? vendorInfo(vendorById(sel.value)) : "No vendors yet. Choose &lsquo;Vendor not available&rsquo; to add one.";
     }).catch(function(){});
   }
   /* while the Claims / Vendor screen is open, pick up changes every 20 seconds */
   setInterval(function(){
     if(!session || !SYNC || document.hidden || modalOpen()) return;
-    if((activeTab === myEmpId() && empView === "claims") || (activeTab === "misc" && miscView === "vendors")) claimFetch();
+    if((activeTab === myEmpId() && empView === "claims") || (activeTab === "misc" && (miscView === "vendors" || miscView === "vsearch"))) claimFetch();
   }, 20000);
   function vendorById(id){ return claimsData.vendors.find(function(v){ return v.id === id; }); }
   function vendorInfo(v){ return v ? (v.registered === "Registered" ? "Registered &middot; GST "+esc(v.gst) : "Non registered")+(v.business ? " &middot; "+esc(v.business) : "")+(v.phone ? " &middot; "+esc(v.phone) : "") : ""; }
   function claimTypeText(c){ return c.type + (c.typeName ? " – " + c.typeName : ""); }
 
+  /* ---------- Claims: unsettled dashboard + Excel export ---------- */
+  var clF = { q:"", type:[], payer:[], ven:"", from:"", to:"", min:"", max:"", open:false };   // extra claim filters; they combine (AND) with the status chips
+  function r2(x){ return Math.round(x * 100) / 100; }
+  /* unsettled = Not applied + Applied. "Yours" = you are the payer (older claims without a payer count as yours); the rest belongs to other employees */
+  function claimStats(L){
+    var me = myEmpId(), s = { n:0, total:0, na:0, ap:0, mine:0, nMine:0, others:0, nOthers:0, noAmt:0, settled:0, nSettled:0, who:[] }, map = {};
+    L.forEach(function(c){
+      var a = Number(c.amount) || 0;
+      if(c.status === "Settled"){ s.settled += a; s.nSettled++; return; }
+      s.n++; s.total += a; if(!(a > 0)) s.noAmt++;
+      var applied = c.status === "Applied"; if(applied) s.ap += a; else s.na += a;
+      var pid = c.payerId || me;
+      if(pid === me){ s.mine += a; s.nMine++; return; }
+      s.others += a; s.nOthers++;
+      var w = map[pid]; if(!w){ var pe = emp(pid); w = map[pid] = { id: pid, name: c.payerName || (pe ? pe.name : "Unknown"), amt:0, n:0, na:0, ap:0 }; s.who.push(w); }
+      w.amt += a; w.n++; if(applied) w.ap += a; else w.na += a;
+    });
+    s.who.sort(function(a, b){ return b.amt - a.amt || a.name.localeCompare(b.name); });
+    return s;
+  }
+  function claimDash(L){
+    var s = claimStats(L), R = "&#8377; ";
+    var h = '<div class="cld"><div class="cld-grid">'+
+      '<div class="cld-box big"><small>Not yet settled ('+s.n+' claim'+(s.n === 1 ? "" : "s")+')</small><b>'+R+inr(s.total)+'</b></div>'+
+      '<div class="cld-box"><small>Not applied</small><b>'+R+inr(s.na)+'</b></div>'+
+      '<div class="cld-box"><small>Applied, awaiting settlement</small><b>'+R+inr(s.ap)+'</b></div>'+
+      '<div class="cld-box"><small>Paid by you ('+s.nMine+')</small><b>'+R+inr(s.mine)+'</b></div>'+
+      '<div class="cld-box"><small>Belongs to other employees ('+s.nOthers+')</small><b>'+R+inr(s.others)+'</b></div></div>';
+    h += '<h4>Belongs to other employees &ndash; not settled</h4>';
+    if(!s.who.length) h += '<div class="clm-rem">No unsettled claim belongs to another employee.</div>';
+    else h += '<div class="cld-ppl">'+s.who.map(function(w){
+      return '<button type="button" data-clpay="'+esc(w.id)+'" class="'+(clF.payer.indexOf(w.id) >= 0 ? "on" : "")+'"><span><b>'+esc(w.name)+'</b><small>'+w.n+' claim'+(w.n === 1 ? "" : "s")+' &middot; not applied '+R+inr(w.na)+' &middot; applied '+R+inr(w.ap)+'</small></span><b>'+R+inr(w.amt)+'</b></button>'; }).join("")+'</div>';
+    if(s.who.length) h += '<div class="clm-rem">Tap a name to filter the list by that payer.</div>';
+    if(s.noAmt) h += '<div class="clm-rem" style="color:#a33">'+s.noAmt+' unsettled claim'+(s.noAmt === 1 ? " has" : "s have")+' no amount entered, so the totals are low. Edit the claim to add it.</div>';
+    return h + '</div>';
+  }
+  function claimsExcel(e, list, filtered){
+    var L = (list || claimsData.claims).slice().sort(function(a, b){ return a.serial - b.serial; });
+    if(!L.length){ toast(filtered ? "No claims match the filters." : "No claims to export."); return; }
+    loadXLSX(function(){
+      var X = window.XLSX, me = myEmpId(), s = claimStats(L);
+      var rows = [["Sl. no.","Date","Claim type","Claim name","Vendor","Material description","Qty","Invoice no.","Invoice date","Amount (Rs)","Payer","Status","Remarks"]];
+      L.forEach(function(c){
+        rows.push([c.serial, fmtDate(c.date), c.type, c.typeName || "", c.vendorName, c.desc, c.qty, c.invNo || "", c.invDate ? fmtDate(c.invDate) : "",
+                   c.amount === "" || c.amount == null ? "" : Number(c.amount), c.payerName || (e ? e.name : ""), c.status, c.remarks || ""]);
+      });
+      var tot = r2(L.reduce(function(m, c){ return m + (Number(c.amount) || 0); }, 0));
+      rows.push(["","","","","","","","","TOTAL", { t:"n", v: tot, f: "SUM(J2:J"+(L.length + 1)+")" }, "","",""]);
+      var ws = X.utils.aoa_to_sheet(rows);
+      ws["!cols"] = [7,12,16,20,28,36,8,14,13,14,20,12,30].map(function(w){ return { wch: w }; });
+      var sm = [["Claims summary &ndash; "+(e ? e.name : "")], ["As on", fmtDate(today())], [],
+                ["Status","Claims","Amount (Rs)"],
+                ["Not applied", L.filter(function(c){ return c.status === "Not applied"; }).length, r2(s.na)],
+                ["Applied", L.filter(function(c){ return c.status === "Applied"; }).length, r2(s.ap)],
+                ["NOT YET SETTLED (total)", s.n, r2(s.total)],
+                ["Settled", s.nSettled, r2(s.settled)], [],
+                ["Unsettled amount by payer","Claims","Not applied (Rs)","Applied (Rs)","Total (Rs)"]];
+      sm[0][0] = "Claims summary - "+(e ? e.name : "")+(filtered ? " (filtered list)" : "");
+      var mineNa = 0, mineAp = 0;
+      L.forEach(function(c){ if(c.status !== "Settled" && (c.payerId || me) === me){ var a = Number(c.amount) || 0; if(c.status === "Applied") mineAp += a; else mineNa += a; } });
+      sm.push([(e ? e.name : "You")+" (own)", s.nMine, r2(mineNa), r2(mineAp), r2(s.mine)]);
+      s.who.forEach(function(w){ sm.push([w.name, w.n, r2(w.na), r2(w.ap), r2(w.amt)]); });
+      sm.push(["Belongs to other employees (total)", s.nOthers, "", "", r2(s.others)]);
+      var ws2 = X.utils.aoa_to_sheet(sm); ws2["!cols"] = [38,10,18,16,16].map(function(w){ return { wch: w }; });
+      var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Claims"); X.utils.book_append_sheet(wb, ws2, "Summary");
+      X.writeFile(wb, "Claims_"+String(e ? e.name : "me").replace(/[^A-Za-z0-9]+/g, "_")+(filtered ? "_filtered" : "")+"_"+today()+".xlsx");
+    }, function(){ toast("Could not load the Excel library. Check your internet connection and try again."); });
+  }
+
+  /* ---------- Claims: combined filters (status chips + search + type + payer + vendor + dates + amount) ---------- */
+  function clPanelCount(){ return (clF.q.trim() ? 1 : 0) + (clF.type.length ? 1 : 0) + (clF.payer.length ? 1 : 0) + (clF.ven ? 1 : 0) + ((clF.from || clF.to) ? 1 : 0) + ((clF.min !== "" || clF.max !== "") ? 1 : 0); }
+  function clActive(){ return clFilter !== "all" || clPanelCount() > 0; }
+  function claimMatch(c){
+    if(clFilter === "open"){ if(c.status === "Settled") return false; } else if(clFilter !== "all" && c.status !== clFilter) return false;
+    if(clF.payer.length && clF.payer.indexOf(c.payerId || myEmpId()) < 0) return false;
+    if(clF.type.length && clF.type.indexOf(c.type) < 0) return false;
+    if(clF.ven && c.vendorName !== clF.ven) return false;
+    if(clF.from && c.date < clF.from) return false;
+    if(clF.to && c.date > clF.to) return false;
+    var a = Number(c.amount) || 0;
+    if(clF.min !== "" && a < Number(clF.min)) return false;
+    if(clF.max !== "" && a > Number(clF.max)) return false;
+    var q = clF.q.trim().toLowerCase();
+    if(q){
+      var hay = ("#"+c.serial+" "+c.serial+" "+c.vendorName+" "+c.desc+" "+(c.invNo || "")+" "+(c.remarks || "")+" "+c.type+" "+(c.typeName || "")+" "+(c.payerName || "")+" "+c.status).toLowerCase();
+      var ok = q.split(/\s+/).every(function(t){ return hay.indexOf(t) >= 0; });
+      if(!ok) return false;
+    }
+    return true;
+  }
+  function claimFilterBar(L, shown){
+    var n = clPanelCount(), types = CLAIM_TYPES.filter(function(t){ return L.some(function(c){ return c.type === t; }); }), pay = [], ven = [];
+    L.forEach(function(c){
+      var pid = c.payerId || myEmpId(); if(!pay.some(function(x){ return x.id === pid; })){ var pe = emp(pid); pay.push({ id: pid, name: c.payerName || (pe ? pe.name : "Unknown") }); }
+      if(c.vendorName && ven.indexOf(c.vendorName) < 0) ven.push(c.vendorName);
+    });
+    pay.sort(function(a, b){ return a.name.localeCompare(b.name); }); ven.sort(function(a, b){ return a.localeCompare(b); });
+    var h = '<div class="filters" style="flex-wrap:wrap"><input type="text" id="clQ" maxlength="60" placeholder="Search vendor, item, invoice no., remarks…" value="'+esc(clF.q)+'" aria-label="Search claims" style="flex:1;min-width:150px">'+
+            '<button type="button" id="clFtog" class="'+(clF.open || n ? "active" : "")+'">Filters'+(n ? " ("+n+")" : "")+'</button></div>';
+    if(clF.open){
+      h += '<div class="cld">'+
+        '<h4 style="margin-top:0">Claim type</h4><div class="clmchips">'+types.map(function(t){ return '<button type="button" data-clft="'+esc(t)+'" class="'+(clF.type.indexOf(t) >= 0 ? "on" : "")+'">'+esc(t)+'</button>'; }).join("")+'</div>'+
+        '<h4>Payer</h4><div class="clmchips">'+pay.map(function(x){ return '<button type="button" data-clfp="'+esc(x.id)+'" class="'+(clF.payer.indexOf(x.id) >= 0 ? "on" : "")+'">'+esc(x.name)+'</button>'; }).join("")+'</div>'+
+        '<div class="field" style="margin-top:12px"><label for="clFv">Vendor</label><select id="clFv"><option value="">All vendors</option>'+ven.map(function(v){ return '<option'+(v === clF.ven ? " selected" : "")+' value="'+esc(v)+'">'+esc(v)+'</option>'; }).join("")+'</select></div>'+
+        '<div class="cld-grid"><div class="field"><label for="clFd1">Claim date from</label><input type="date" id="clFd1" value="'+esc(clF.from)+'"></div>'+
+        '<div class="field"><label for="clFd2">Claim date to</label><input type="date" id="clFd2" value="'+esc(clF.to)+'"></div>'+
+        '<div class="field"><label for="clFa1">Amount from (&#8377;)</label><input type="number" id="clFa1" min="0" step="any" inputmode="decimal" value="'+esc(clF.min)+'"></div>'+
+        '<div class="field"><label for="clFa2">Amount to (&#8377;)</label><input type="number" id="clFa2" min="0" step="any" inputmode="decimal" value="'+esc(clF.max)+'"></div></div>'+
+        '<div class="row" style="margin-top:6px"><button class="btn ghost small" id="clFclr2" type="button">Clear all filters</button></div></div>';
+    }
+    if(clActive()){
+      var sum = shown.reduce(function(m, c){ return m + (Number(c.amount) || 0); }, 0);
+      h += '<div class="clm-rem">Showing <b>'+shown.length+'</b> of '+L.length+' claim'+(L.length === 1 ? "" : "s")+' &middot; &#8377; '+inr(sum)+' &middot; <a href="#" id="clFclr" style="color:var(--steel)">clear all filters</a></div>';
+    }
+    return h;
+  }
+  function claimFilterReset(){ clF.q = ""; clF.type = []; clF.payer = []; clF.ven = ""; clF.from = ""; clF.to = ""; clF.min = ""; clF.max = ""; clFilter = "all"; }
+  function claimFilterBind(p){
+    var q = $("clQ"); if(!q) return;
+    q.oninput = function(){ clF.q = this.value; var pos = this.selectionStart; render(); var n = $("clQ"); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(x){} } };
+    $("clFtog").onclick = function(){ clF.open = !clF.open; render(); };
+    function toggle(arr, v){ var k = arr.indexOf(v); if(k >= 0) arr.splice(k, 1); else arr.push(v); }
+    Array.prototype.forEach.call(p.querySelectorAll("[data-clft]"),function(b){ b.onclick = function(){ toggle(clF.type, b.getAttribute("data-clft")); render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-clfp]"),function(b){ b.onclick = function(){ toggle(clF.payer, b.getAttribute("data-clfp")); render(); }; });
+    function on(id, fn){ var el = $(id); if(el) el.onchange = function(){ fn(this.value); render(); }; }
+    on("clFv", function(v){ clF.ven = v; }); on("clFd1", function(v){ clF.from = v; }); on("clFd2", function(v){ clF.to = v; });
+    on("clFa1", function(v){ clF.min = v; }); on("clFa2", function(v){ clF.max = v; });
+    ["clFclr","clFclr2"].forEach(function(id){ if($(id)) $(id).onclick = function(ev){ if(ev) ev.preventDefault(); claimFilterReset(); render(); }; });
+  }
+
   function claimsView(e, p, h, done){
     var L = claimsData.claims.slice().sort(function(a,b){ return b.serial - a.serial; });
     var cnt = { "Not applied": 0, "Applied": 0, "Settled": 0 }; L.forEach(function(c){ cnt[c.status]++; });
-    var shown = clFilter === "all" ? L : L.filter(function(c){ return c.status === clFilter; });
+    var shown = L.filter(claimMatch);
     h += '<div class="clmbar"><div class="clmchips">'+
-         [["all","All ("+L.length+")"],["Not applied","Not applied ("+cnt["Not applied"]+")"],["Applied","Applied ("+cnt["Applied"]+")"],["Settled","Settled ("+cnt["Settled"]+")"]].map(function(f){
+         [["all","All ("+L.length+")"],["open","Unsettled ("+(L.length-cnt["Settled"])+")"],["Not applied","Not applied ("+cnt["Not applied"]+")"],["Applied","Applied ("+cnt["Applied"]+")"],["Settled","Settled ("+cnt["Settled"]+")"]].map(function(f){
            return '<button type="button" data-clf="'+f[0]+'" class="'+(clFilter===f[0]?"on":"")+'">'+f[1]+'</button>'; }).join("")+'</div>'+
-         '<button class="btn" id="clNew" type="button">Add claim</button></div>';
+         '<span style="display:flex;gap:6px"><button class="btn ghost" id="clXl" type="button">'+(clActive() ? "Export filtered" : "Export Excel")+'</button><button class="btn" id="clNew" type="button">Add claim</button></span></div>';
+    if(claimsData.loaded && L.length) h += claimDash(L)+claimFilterBar(L, shown);
     if(!claimsData.loaded) h += '<div class="empty">Loading…</div>';
     else if(!L.length) h += '<div class="empty">No claims yet. Tap <b>Add claim</b> to note a bill you have to claim.<br><small>Only you can see this list.</small></div>';
-    else if(!shown.length) h += '<div class="empty">No claims with this status.</div>';
+    else if(!shown.length) h += '<div class="empty">No claims match this filter.</div>';
     else h += shown.map(function(c){
       return '<div class="clm"><div class="clm-top"><b>#'+c.serial+'</b><span>'+fmtDate(c.date)+'</span><span class="clm-type">'+esc(claimTypeText(c))+'</span></div>'+
         '<div class="clm-v">'+esc(c.vendorName)+'<small>'+vendorInfo(vendorById(c.vendorId))+'</small></div>'+
         '<div class="clm-d">'+esc(c.desc)+' <span class="clm-q">&times; '+esc(c.qty)+'</span></div>'+
+        (c.payerName ? '<div class="clm-rem">Payer: <b>'+esc(c.payerName)+'</b></div>' : '')+
         ((c.invNo || c.invDate || c.amount) ? '<div class="clm-rem">'+[c.invNo ? "Inv "+esc(c.invNo) : "", c.invDate ? fmtDate(c.invDate) : "", c.amount ? "&#8377; "+inr(c.amount) : ""].filter(Boolean).join(" &middot; ")+'</div>' : '')+
         (c.remarks ? '<div class="clm-rem">'+esc(c.remarks)+'</div>' : '')+
         '<div class="clm-act"><select data-clst="'+esc(c.id)+'" data-v="'+esc(c.status)+'" aria-label="Settlement status">'+
@@ -3807,6 +3991,9 @@
     p.innerHTML = h;
     bindHead(e, done);
     $("clNew").onclick = function(){ claimForm(null); };
+    $("clXl").onclick = function(){ claimsExcel(e, shown, clActive()); };
+    claimFilterBind(p);
+    Array.prototype.forEach.call(p.querySelectorAll("[data-clpay]"),function(b){ b.onclick = function(){ var id = b.getAttribute("data-clpay"), k = clF.payer.indexOf(id); if(k >= 0) clF.payer.splice(k, 1); else { clF.payer.push(id); clFilter = "open"; } render(); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-clf]"),function(b){ b.onclick = function(){ clFilter = b.getAttribute("data-clf"); render(); }; });
     function byId(id){ return claimsData.claims.find(function(c){ return c.id === id; }); }
     Array.prototype.forEach.call(p.querySelectorAll("[data-clst]"),function(s){
@@ -3854,8 +4041,11 @@
     });
   }
 
-  function claimForm(c){
-    var isNew = !c, d = c || { id: uid(), date: today(), type: "", typeName: "", vendorId: "", desc: "", qty: "", status: "Not applied", remarks: "", invNo: "", invDate: "", amount: "" };
+  function claimForm(c, draft){
+    var isNew = !c, d = Object.assign({}, c || { id: uid(), date: today(), type: "", typeName: "", vendorId: "", desc: "", qty: "", status: "Not applied", remarks: "", invNo: "", invDate: "", amount: "", payerId: myEmpId() }, draft || {});
+    if(!d.payerId) d.payerId = myEmpId();                    // older claims have no payer: suggest the employee himself
+    var payerOpts = '<option value="">Select payer</option>' + state.employees.slice().sort(function(a,b){ return a.name.localeCompare(b.name); }).map(function(e){
+      return '<option value="'+esc(e.id)+'"'+(e.id === d.payerId ? ' selected' : '')+'>'+esc(e.name)+(e.desig ? ' ('+esc(e.desig)+')' : '')+'</option>'; }).join("");
     var nextNo = claimsData.claims.reduce(function(m, x){ return Math.max(m, x.serial); }, 0) + 1;
     openModal('<h3>'+(isNew ? 'Add claim' : 'Edit claim #'+d.serial)+'</h3>'+
       '<div class="field"><label>Sl. no.</label><input type="text" value="'+(isNew ? nextNo+' (automatic)' : d.serial)+'" disabled></div>'+
@@ -3863,6 +4053,7 @@
       '<div class="field"><label for="clType">Claim type</label><select id="clType"><option value="">Select</option>'+
         CLAIM_TYPES.map(function(t){ return '<option'+(t===d.type?' selected':'')+'>'+t+'</option>'; }).join("")+'</select></div>'+
       '<div class="field" id="clNameF"><label for="clName">Name for this claim</label><input type="text" id="clName" maxlength="60" placeholder="e.g. Tour advance, Diwali cleaning" value="'+esc(d.typeName)+'"></div>'+
+      '<div class="field"><label for="clPayer">Payer name</label><select id="clPayer">'+payerOpts+'</select></div>'+
       '<div class="field"><label for="clVen">Vendor</label><select id="clVen">'+vendorOptions(d.vendorId)+'</select>'+
         '<small id="clVenInfo" style="display:block;color:var(--muted);margin-top:4px">'+(claimsData.vendors.length ? vendorInfo(vendorById(d.vendorId)) : 'Loading vendors…')+'</small></div>'+
       '<div class="field"><label for="clInv">Invoice no.</label><input type="text" id="clInv" maxlength="40" value="'+esc(d.invNo||"")+'"></div>'+
@@ -3878,20 +4069,34 @@
     function nameShow(){ $("clNameF").style.display = CLAIM_NAMED.indexOf($("clType").value) >= 0 ? "" : "none"; }
     nameShow();
     $("clType").onchange = nameShow;
-    $("clVen").onchange = function(){ $("clVenInfo").innerHTML = vendorInfo(vendorById(this.value)); };
+    function readDraft(){
+      return { date: $("clDate").value, type: $("clType").value, typeName: $("clName").value, payerId: $("clPayer").value, vendorId: "", invNo: $("clInv").value, invDate: $("clInvD").value,
+               amount: $("clAmt").value, desc: $("clDesc").value, qty: $("clQty").value, status: $("clStat").value, remarks: $("clRem").value };
+    }
+    $("clVen").onchange = function(){
+      if(this.value === "__new__"){                          // vendor not in the list: any employee can add it to the vendor master
+        var dr = readDraft(); this.value = "";
+        vendorForm(null, { fromClaim: true,
+          onSave: function(item){ dr.vendorId = item.id; claimForm(c, dr); },
+          onCancel: function(){ claimForm(c, dr); } });
+        return;
+      }
+      $("clVenInfo").innerHTML = vendorInfo(vendorById(this.value));
+    };
     claimVendorsRefresh();                                  // always show the newest vendor list
     $("mNo").onclick = closeModal;
     $("mOk").onclick = function(){
-      var er = $("clErr"), v = vendorById($("clVen").value), type = $("clType").value, name = $("clName").value.trim();
+      var er = $("clErr"), v = vendorById($("clVen").value), type = $("clType").value, name = $("clName").value.trim(), pe = emp($("clPayer").value);
       var date = $("clDate").value, desc = $("clDesc").value.trim(), qty = $("clQty").value.trim();
       if(!date){ er.textContent = "Pick a date."; return; }
       if(!type){ er.textContent = "Select the claim type."; return; }
       if(CLAIM_NAMED.indexOf(type) >= 0 && !name){ er.textContent = "Enter a name for this "+type+" claim."; return; }
-      if(!v){ er.textContent = "Select a vendor."; return; }
+      if(!pe){ er.textContent = "Select the payer name."; return; }
+      if(!v){ er.textContent = "Select a vendor, or choose \u2018Vendor not available\u2019 to add a new one."; return; }
       if(!desc){ er.textContent = "Enter the material description."; return; }
       if(!qty){ er.textContent = "Enter the quantity."; return; }
       var amt = $("clAmt").value.trim(); if(amt !== "" && !(Number(amt) >= 0)){ er.textContent = "Enter a valid amount."; return; }
-      var item = { id: d.id, serial: isNew ? nextNo : d.serial, invNo: $("clInv").value.trim(), invDate: $("clInvD").value, amount: amt === "" ? "" : Number(amt).toFixed(2), date: date, type: type, typeName: CLAIM_NAMED.indexOf(type) >= 0 ? name : "", vendorId: v.id, vendorName: v.name,
+      var item = { id: d.id, serial: isNew ? nextNo : d.serial, invNo: $("clInv").value.trim(), invDate: $("clInvD").value, amount: amt === "" ? "" : Number(amt).toFixed(2), date: date, type: type, typeName: CLAIM_NAMED.indexOf(type) >= 0 ? name : "", vendorId: v.id, vendorName: v.name, payerId: pe.id, payerName: pe.name,
                    desc: desc, qty: qty, status: $("clStat").value, remarks: $("clRem").value.trim(), created: d.created || Date.now() };
       claimsData.claims = claimsData.claims.filter(function(x){ return x.id !== item.id; }).concat([item]);
       closeModal(); render();                               // shown at once; saved in the background
@@ -3989,7 +4194,7 @@
     else if(!L.length) h += '<div class="empty">'+(q ? 'No vendor matches your search.' : 'No vendors yet. Add the vendors employees can pick in their Claims.')+'</div>';
     else h += L.map(function(v){
       return '<div class="clm"><div class="clm-top"><b>'+esc(v.name)+'</b><span class="clm-type">'+(v.registered === "Registered" ? "Registered" : "Non registered")+'</span></div>'+
-        '<div class="clm-d" style="margin-top:6px">'+vendorInfo(v)+'</div>'+((v.address || v.city) ? '<div class="clm-rem">'+esc(v.address)+(v.address && v.city ? ", " : "")+esc(v.city||"")+'</div>' : '')+
+        '<div class="clm-d" style="margin-top:6px">'+vendorInfo(v)+(v.addedBy ? ' <small style="color:var(--muted)">&middot; added by '+esc(v.addedBy)+'</small>' : '')+'</div>'+((v.address || v.city) ? '<div class="clm-rem">'+esc(v.address)+(v.address && v.city ? ", " : "")+esc(v.city||"")+'</div>' : '')+
         '<div class="clm-act"><button class="btn ghost small" data-vned="'+esc(v.id)+'" type="button">Edit</button><button class="btn ghost small" data-vndel="'+esc(v.id)+'" type="button">Delete</button></div></div>';
     }).join("");
     p.innerHTML = h; gpBind("menu");
@@ -4006,10 +4211,12 @@
           claimsData.vendors = claimsData.vendors.filter(function(x){ return x.id !== v.id; }); render(); claimSend({ action: "vendorDel", id: v.id }); }); };
     });
   }
-  function vendorForm(v){
+  function vendorForm(v, opts){
+    opts = opts || {};
     var isNew = !v, d = v || { id: uid(), name: "", registered: "Registered", gst: "", address: "", city: "", phone: "", business: "" };
     var biz = BUSINESS.slice(); claimsData.vendors.forEach(function(x){ if(x.business && biz.indexOf(x.business) < 0) biz.push(x.business); });
-    openModal('<h3>'+(isNew ? 'Add vendor' : 'Edit vendor')+'</h3>'+
+    openModal('<h3>'+(isNew ? (opts.fromClaim ? 'Add new vendor' : 'Add vendor') : 'Edit vendor')+'</h3>'+
+      (opts.fromClaim ? '<p style="margin:0 0 10px;color:var(--muted);font-size:.88rem">The vendor you add here is saved in the common vendor list and can be picked by everyone. Please check the details carefully; only Master can edit them later.</p>' : '')+
       '<div class="field"><label for="vnName">Vendor name</label><input type="text" id="vnName" maxlength="100" value="'+esc(d.name)+'"></div>'+
       '<div class="field"><label for="vnReg">GST registration</label><select id="vnReg"><option'+(d.registered==="Registered"?' selected':'')+'>Registered</option><option'+(d.registered!=="Registered"?' selected':'')+'>Non registered</option></select></div>'+
       '<div class="field" id="vnGstF"><label for="vnGst">GST number</label><input type="text" id="vnGst" maxlength="15" autocapitalize="characters" placeholder="15 characters" value="'+esc(d.gst)+'"></div>'+
@@ -4021,7 +4228,7 @@
       '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
     function gstShow(){ $("vnGstF").style.display = $("vnReg").value === "Registered" ? "" : "none"; }
     gstShow(); $("vnReg").onchange = gstShow;
-    $("mNo").onclick = closeModal;
+    $("mNo").onclick = opts.onCancel ? function(){ closeModal(); opts.onCancel(); } : closeModal;
     $("mOk").onclick = function(){
       var er = $("vnErr"), name = $("vnName").value.trim(), reg = $("vnReg").value, gst = $("vnGst").value.trim().toUpperCase().replace(/\s+/g, "");
       if(!name){ er.textContent = "Enter the vendor name."; return; }
@@ -4029,7 +4236,277 @@
       if(claimsData.vendors.some(function(x){ return x.id !== d.id && x.name.trim().toLowerCase() === name.toLowerCase(); })){ er.textContent = "A vendor with this name already exists."; return; }
       var item = { id: d.id, name: name, registered: reg, gst: reg === "Registered" ? gst : "", address: $("vnAd").value.trim(), city: $("vnCity").value.trim(), phone: $("vnPh").value.trim(), business: $("vnBiz").value.trim() };
       claimsData.vendors = claimsData.vendors.filter(function(x){ return x.id !== item.id; }).concat([item]).sort(function(a,b){ return a.name.localeCompare(b.name); });
+      if(opts.onSave){ closeModal(); claimSend({ action: "vendorPut", item: item }); opts.onSave(item); return; }
       closeModal(); render(); claimSend({ action: "vendorPut", item: item });
+    };
+  }
+
+  /* ---------- Backup (Master): export everything ---------- */
+  var bk = { busy:false, data:null, err:"", pass:false };
+  function bkStamp(){ var d = new Date(), p = function(n){ return (n < 10 ? "0" : "") + n; }; return today()+"_"+p(d.getHours())+p(d.getMinutes()); }
+  function bkRows(d){ return d.tables.reduce(function(m, t){ return m + t.rows.length; }, 0); }
+  function downloadText(name, text, mime){
+    var b = new Blob([text], { type: mime }), u = URL.createObjectURL(b), a = document.createElement("a");
+    a.href = u; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(u); }, 1500);
+  }
+  function bkSheetName(n, used){
+    var base = (String(n).replace(/[\[\]:*?\/\\]/g, " ").trim() || "Sheet").slice(0, 28), s = base, i = 2;
+    while(used[s.toLowerCase()]){ s = base + "_" + i; i++; }
+    used[s.toLowerCase()] = 1; return s;
+  }
+  function bkJson(){
+    var d = bk.data; if(!d) return;
+    downloadText("KSS_Backup_"+bkStamp()+".json", JSON.stringify({ app: "KOZHIKODE SS", version: d.ver, created: new Date(d.created).toISOString(), timezone: d.tz, passwordsIncluded: !!d.withPass, tables: d.tables }), "application/json");
+  }
+  function bkExcel(){
+    var d = bk.data; if(!d) return;
+    loadXLSX(function(){
+      var X = window.XLSX, wb = X.utils.book_new(), used = { "backup info": 1 }, cut = 0, sheets = [];
+      function cell(v){ if(typeof v === "string" && v.length > 32000){ cut++; return v.slice(0, 32000); } return v; }
+      d.tables.forEach(function(t){
+        var aoa = [t.head].concat(t.rows.map(function(r){ return r.map(cell); }));
+        var ws = X.utils.aoa_to_sheet(aoa);
+        ws["!cols"] = t.head.map(function(h){ return { wch: Math.max(10, Math.min(36, String(h).length + 4)) }; });
+        sheets.push({ n: bkSheetName(t.name, used), ws: ws });
+      });
+      var info = [["KOZHIKODE SS backup"], ["Created", fmtStamp(d.created)], ["App version", d.ver], ["Login passwords included", d.withPass ? "Yes" : "No"], ["Total rows", bkRows(d)]];
+      if(cut) info.push(["Note", cut+" very long cell(s) were shortened in this Excel file. The JSON backup has the full text."]);
+      info.push([], ["Sheet", "Rows"]);
+      d.tables.forEach(function(t){ info.push([t.name, t.rows.length]); });
+      var wi = X.utils.aoa_to_sheet(info); wi["!cols"] = [{ wch: 28 }, { wch: 40 }];
+      X.utils.book_append_sheet(wb, wi, "Backup info");
+      sheets.forEach(function(x){ X.utils.book_append_sheet(wb, x.ws, x.n); });
+      X.writeFile(wb, "KSS_Backup_"+bkStamp()+".xlsx");
+    }, function(){ toast("Could not load the Excel library. Check your internet connection and try again."); });
+  }
+  function bkCreate(){
+    if(bk.busy) return;
+    bk.busy = true; bk.err = ""; bk.data = null; render();
+    api({ action: "backupAll", withPass: !!bk.pass }).then(function(r){
+      bk.busy = false;
+      if(!r.json.tables){ bk.err = "The Google Apps Script is an old version and cannot make a backup. Paste the latest Code.gs and Deploy > Manage deployments > New version."; }
+      else bk.data = r.json;
+      if(activeTab === "misc" && miscView === "backup") render();
+    }).catch(function(err){
+      bk.busy = false;
+      if(err && err.server && err.message === "auth"){ onSyncError(err); return; }
+      bk.err = err && err.server && err.message ? err.message : (err && err.name === "AbortError" ? "The server took too long. Try again." : "Could not create the backup (no connection?). Try again.");
+      if(activeTab === "misc" && miscView === "backup") render();
+    });
+  }
+  function renderBackup(){
+    var p = $("panel"), d = bk.data;
+    var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Backup</h3></div>'+
+      '<div class="cld"><div class="clm-d">Creates a copy of <b>all data</b> in the system &ndash; every employee&rsquo;s works, assignments, AMC and contract records, gate passes, claims, vendors, permits, settings and more &ndash; as an <b>Excel file</b> (one sheet per table) and a <b>JSON file</b> (complete copy, best for restoring).</div>'+
+      '<label style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px;font-size:.92rem"><input type="checkbox" id="bkPass"'+(bk.pass ? " checked" : "")+' style="margin-top:3px"> <span>Include login passwords</span></label>'+
+      '<div class="clm-rem" style="'+(bk.pass ? "color:#a33" : "")+'">'+(bk.pass ? "The file will contain every user&rsquo;s password in plain text. Keep it private and delete it when no longer needed." : "Off by default: passwords are left out of the backup, everything else is included.")+'</div>'+
+      '<div class="row" style="margin-top:10px"><button class="btn" id="bkGo" type="button"'+(bk.busy ? " disabled" : "")+'>'+(bk.busy ? "Preparing backup…" : (d ? "Create a fresh backup" : "Create backup"))+'</button></div>'+
+      (bk.busy ? '<div class="clm-rem" style="margin-top:8px">Reading all sheets. This can take up to a minute.</div>' : '')+
+      (bk.err ? '<p class="error" style="margin-top:8px">'+esc(bk.err)+'</p>' : '')+'</div>';
+    if(d){
+      var withRows = d.tables.filter(function(t){ return t.rows.length; }), empty = d.tables.length - withRows.length;
+      h += '<div class="cld"><h4 style="margin-top:0">Backup ready</h4>'+
+        '<div class="clm-rem">Created '+esc(fmtStamp(d.created))+' &middot; '+d.tables.length+' sheets &middot; '+bkRows(d)+' rows &middot; passwords '+(d.withPass ? "<b>included</b>" : "not included")+'</div>'+
+        '<div class="clm-act" style="margin:8px 0"><button class="btn" id="bkXl" type="button">Download Excel (.xlsx)</button><button class="btn ghost" id="bkJs" type="button">Download JSON (.json)</button></div>'+
+        '<div class="clm-rem">'+withRows.map(function(t){ return esc(t.name)+' '+t.rows.length; }).join(" &middot; ")+(empty ? ' &middot; '+empty+' empty sheet'+(empty === 1 ? "" : "s") : "")+'</div></div>';
+    }
+    p.innerHTML = h; gpBind("menu");
+    $("gBack").onclick = function(){ bk.data = null; bk.err = ""; miscView = "menu"; render(); };
+    $("bkPass").onchange = function(){ bk.pass = this.checked; render(); };
+    $("bkGo").onclick = bkCreate;
+    if($("bkXl")) $("bkXl").onclick = bkExcel;
+    if($("bkJs")) $("bkJs").onclick = bkJson;
+  }
+
+  /* ---------- Vendor search (Miscellaneous): read-only lookup for every employee ---------- */
+  var vsQ = "", vsReg = "all", vsBiz = "", vsCity = "", vsLim = 40;
+  function vsKey(x){ return String(x || "").trim().toLowerCase(); }
+  function vendorMatch(v){
+    if(vsReg !== "all" && v.registered !== vsReg) return false;
+    if(vsBiz && vsKey(v.business) !== vsKey(vsBiz)) return false;
+    if(vsCity && vsKey(v.city) !== vsKey(vsCity)) return false;
+    var q = vsQ.trim().toLowerCase(); if(!q) return true;
+    var hay = (v.name+" "+v.gst+" "+v.phone+" "+v.business+" "+v.city+" "+v.address+" "+v.registered+" "+(v.addedBy || "")).toLowerCase(), dig = String(v.phone || "").replace(/\D/g, "");
+    return q.split(/\s+/).every(function(t){ return hay.indexOf(t) >= 0 || (/^\d{3,}$/.test(t) && dig.indexOf(t) >= 0); });
+  }
+  function vendorText(v){
+    return ["Vendor: "+v.name, v.registered === "Registered" ? "GST: "+v.gst : "GST: Non registered", v.business ? "Business: "+v.business : "", v.phone ? "Phone: "+v.phone : "",
+            (v.address || v.city) ? "Address: "+[v.address, v.city].filter(Boolean).join(", ") : ""].filter(Boolean).join("\n");
+  }
+  function vsUnique(field){ var seen = {}, out = []; claimsData.vendors.forEach(function(v){ var k = vsKey(v[field]); if(k && !seen[k]){ seen[k] = 1; out.push(String(v[field]).trim()); } }); return out.sort(function(a, b){ return a.localeCompare(b); }); }
+  function renderVendorSearch(){
+    var p = $("panel"), all = claimsData.vendors, L = all.filter(vendorMatch);
+    var nReg = all.filter(function(v){ return v.registered === "Registered"; }).length, shownN = Math.min(L.length, vsLim);
+    var active = !!(vsQ.trim() || vsReg !== "all" || vsBiz || vsCity), biz = vsUnique("business"), cities = vsUnique("city");
+    var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Vendor search</h3><div class="stats"><span>Vendors <b>'+all.length+'</b></span></div></div>'+
+      '<div class="filters"><input type="text" id="vsQ" maxlength="60" placeholder="Search name, GST no., phone, city, address…" value="'+esc(vsQ)+'" aria-label="Search vendors" autocomplete="off"></div>'+
+      '<div class="clmbar"><div class="clmchips">'+[["all","All ("+all.length+")"],["Registered","Registered ("+nReg+")"],["Non registered","Non registered ("+(all.length-nReg)+")"]].map(function(f){
+        return '<button type="button" data-vsr="'+f[0]+'" class="'+(vsReg === f[0] ? "on" : "")+'">'+f[1]+'</button>'; }).join("")+'</div></div>'+
+      '<div class="filters" style="flex-wrap:wrap">'+
+        '<select id="vsBiz" aria-label="Type of business"><option value="">All business types</option>'+biz.map(function(b){ return '<option value="'+esc(b)+'"'+(vsKey(b) === vsKey(vsBiz) ? " selected" : "")+'>'+esc(b)+'</option>'; }).join("")+'</select>'+
+        '<select id="vsCity" aria-label="City"><option value="">All cities</option>'+cities.map(function(c){ return '<option value="'+esc(c)+'"'+(vsKey(c) === vsKey(vsCity) ? " selected" : "")+'>'+esc(c)+'</option>'; }).join("")+'</select></div>';
+    if(active) h += '<div class="clm-rem">Showing <b>'+L.length+'</b> of '+all.length+' vendor'+(all.length === 1 ? "" : "s")+' &middot; <a href="#" id="vsClr" style="color:var(--steel)">clear search and filters</a></div>';
+    if(!claimsData.loaded) h += '<div class="empty">Loading…</div>';
+    else if(!all.length) h += '<div class="empty">No vendors in the list yet.<br><small>Master adds vendors from the Vendor list.</small></div>';
+    else if(!L.length) h += '<div class="empty">No vendor matches your search.</div>';
+    else {
+      h += L.slice(0, shownN).map(function(v){
+        var num = String(v.phone || "").split(/[,;\/]|\band\b/i)[0].replace(/[^\d+]/g, "");
+        return '<div class="clm"><div class="clm-top"><b>'+esc(v.name)+'</b><span class="clm-type">'+(v.registered === "Registered" ? "Registered" : "Non registered")+'</span></div>'+
+          '<div style="margin-top:6px">'+
+          '<div class="pm-row"><b>GST no.</b><span>'+(v.registered === "Registered" && v.gst ? esc(v.gst) : "&ndash;")+'</span></div>'+
+          '<div class="pm-row"><b>Phone</b><span>'+(v.phone ? esc(v.phone) : "&ndash;")+'</span></div>'+
+          '<div class="pm-row"><b>Business</b><span>'+(v.business ? esc(v.business) : "&ndash;")+'</span></div>'+
+          '<div class="pm-row"><b>Address</b><span>'+((v.address || v.city) ? esc([v.address, v.city].filter(Boolean).join(", ")) : "&ndash;")+'</span></div></div>'+
+          '<div class="clm-act">'+(num ? '<a class="btn small" style="text-decoration:none" href="tel:'+esc(num)+'">Call</a>' : '')+
+          (v.registered === "Registered" && v.gst ? '<button class="btn ghost small" data-vsgst="'+esc(v.id)+'" type="button">Copy GST</button>' : '')+
+          '<button class="btn ghost small" data-vscp="'+esc(v.id)+'" type="button">Copy details</button></div></div>';
+      }).join("");
+      if(L.length > shownN) h += '<div style="text-align:center;margin:8px 0"><button class="btn ghost" id="vsMore" type="button">Show more ('+(L.length - shownN)+' left)</button></div>';
+    }
+    p.innerHTML = h; gpBind("menu");
+    function byId(id){ return claimsData.vendors.find(function(v){ return v.id === id; }); }
+    $("vsQ").oninput = function(){ vsQ = this.value; vsLim = 40; var pos = this.selectionStart; render(); var n = $("vsQ"); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(x){} } };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-vsr]"),function(b){ b.onclick = function(){ vsReg = b.getAttribute("data-vsr"); vsLim = 40; render(); }; });
+    $("vsBiz").onchange = function(){ vsBiz = this.value; vsLim = 40; render(); };
+    $("vsCity").onchange = function(){ vsCity = this.value; vsLim = 40; render(); };
+    if($("vsClr")) $("vsClr").onclick = function(ev){ if(ev) ev.preventDefault(); vsQ = ""; vsReg = "all"; vsBiz = ""; vsCity = ""; vsLim = 40; render(); };
+    if($("vsMore")) $("vsMore").onclick = function(){ vsLim += 40; render(); };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-vsgst]"),function(b){ b.onclick = function(){ var v = byId(b.getAttribute("data-vsgst")); if(v) copyText(v.gst, function(){ b.textContent = "Copied \u2713"; }); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-vscp]"),function(b){ b.onclick = function(){ var v = byId(b.getAttribute("data-vscp")); if(v) copyText(vendorText(v), function(){ b.textContent = "Copied \u2713"; }); }; });
+  }
+
+  /* ---------- Permits & Orders (Miscellaneous): shared by every employee ---------- */
+  var PERMIT_ST = ["INITIATED","APPROVED","ISSUED","RETURNED","CLOSED"];
+  var PM_KEY = ["1\uFE0F\u20E3","2\uFE0F\u20E3","3\uFE0F\u20E3","4\uFE0F\u20E3","5\uFE0F\u20E3"];
+  var permitsData = { permits: [], loaded: false }, permitBusy = 0, pmFilter = "all", pmQ = "", permitChain = Promise.resolve();
+  function permitFetch(){
+    if(!SYNC) return;
+    api({ action: "permitList" }).then(function(r){
+      if(permitBusy) return;
+      permitsData.permits = r.json.permits || []; permitsData.loaded = true;
+      if(!modalOpen() && activeTab === "misc" && (miscView === "permits" || miscView === "menu")) render();
+    }).catch(onSyncError);
+  }
+  function permitSend(body){
+    permitBusy++;
+    permitChain = permitChain.then(function(){ return new Promise(function(done){
+      var tries = 0;
+      (function go(){
+        tries++;
+        api(body).then(function(r){
+          permitBusy--;
+          if(!permitBusy){ permitsData.permits = r.json.permits || []; if(!modalOpen()) render(); }
+          done();
+        }).catch(function(err){
+          if(err && err.server && err.message === "auth"){ permitBusy--; onSyncError(err); done(); return; }
+          if(!(err && err.server) && tries < 3){ setTimeout(go, 3000); return; }
+          permitBusy--;
+          try{ toast("Not saved" + (err && err.server && err.message ? ": " + err.message : " (no connection)") + "."); }catch(x){}
+          permitFetch(); done();
+        });
+      })();
+    }); });
+  }
+  setInterval(function(){
+    if(!session || !SYNC || document.hidden || modalOpen()) return;
+    if(activeTab === "misc" && miscView === "permits") permitFetch();
+  }, 20000);
+  /* active = today falls inside the permit dates and the permit is not yet CLOSED */
+  function permitActive(p){ var t = today(); return p.status !== "CLOSED" && p.from <= t && t <= p.to; }
+  function permitPgNames(p){ return p.pgIds.map(function(id, i){ var e = emp(id); return (e ? e.name : (p.pgNames[i] || "")); }).filter(Boolean); }
+  function permitMsg(p){
+    var L = ["*PERMIT NUMBER :* "+p.no,
+             "*PERMIT DATE :* "+fmtDate(p.from)+" TO "+fmtDate(p.to),
+             "*WORK DETAILS :* "+p.work,
+             "*PG PERSON :* "+permitPgNames(p).join(", ").toUpperCase(),
+             "*AMC/LABOUR :* "+(p.staff ? p.staff.toUpperCase() : "NIL"),
+             "*STATUS*"];
+    PERMIT_ST.forEach(function(s, i){ L.push(PM_KEY[i]+" "+s+(s === p.status ? " \u2714\uFE0F" : "")); });
+    return L.join("\n");
+  }
+  function permitCanDelete(p){ return isMaster() || (p.by && p.by === myEmpId()); }
+  function renderPermits(){
+    var p = $("panel"), q = pmQ.toLowerCase(), all = permitsData.permits.slice();
+    var nAct = all.filter(permitActive).length, nOpen = all.filter(function(x){ return x.status !== "CLOSED"; }).length;
+    var L = all.filter(function(x){
+      if(pmFilter === "active" && !permitActive(x)) return false;
+      if(pmFilter === "open" && x.status === "CLOSED") return false;
+      if(pmFilter === "closed" && x.status !== "CLOSED") return false;
+      return !q || (x.no+" "+x.work+" "+x.staff+" "+permitPgNames(x).join(" ")).toLowerCase().indexOf(q) >= 0;
+    }).sort(function(a, b){ var aa = permitActive(a) ? 0 : 1, bb = permitActive(b) ? 0 : 1; if(aa !== bb) return aa - bb; return a.from < b.from ? 1 : (a.from > b.from ? -1 : b.created - a.created); });
+    var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Permits &amp; Orders</h3><div class="stats"><span>Active today <b style="color:#1b7f3b">'+nAct+'</b></span><span>Open <b>'+nOpen+'</b></span><span>Total <b>'+all.length+'</b></span></div></div>'+
+      '<div class="clmbar"><div class="clmchips">'+
+        [["all","All ("+all.length+")"],["active","Active today ("+nAct+")"],["open","Not closed ("+nOpen+")"],["closed","Closed ("+(all.length-nOpen)+")"]].map(function(f){
+          return '<button type="button" data-pmf="'+f[0]+'" class="'+(pmFilter===f[0]?"on":"")+'">'+f[1]+'</button>'; }).join("")+'</div>'+
+        '<button class="btn" id="pmNew" type="button">Add permit</button></div>'+
+      '<div class="filters"><input type="text" id="pmQ" maxlength="60" placeholder="Search permit no., work, person, staff…" value="'+esc(pmQ)+'" aria-label="Search permits"></div>';
+    if(!permitsData.loaded) h += '<div class="empty">Loading…</div>';
+    else if(!all.length) h += '<div class="empty">No permits yet. Tap <b>Add permit</b> to record one.<br><small>Every employee can see and add permits.</small></div>';
+    else if(!L.length) h += '<div class="empty">No permit matches.</div>';
+    else h += L.map(function(x){
+      var act = permitActive(x), msg = permitMsg(x);
+      return '<div class="clm'+(act ? " pm-act" : "")+'"><div class="clm-top"><b>'+esc(x.no)+'</b>'+(act ? '<span class="pm-badge">ACTIVE TODAY</span>' : '')+'<span class="clm-type">'+esc(x.status)+'</span></div>'+
+        '<div style="margin-top:6px">'+
+        '<div class="pm-row"><b>Permit date</b><span>'+esc(fmtDate(x.from))+' TO '+esc(fmtDate(x.to))+'</span></div>'+
+        '<div class="pm-row"><b>Work details</b><span style="white-space:pre-wrap">'+esc(x.work)+'</span></div>'+
+        '<div class="pm-row"><b>PG person</b><span>'+esc(permitPgNames(x).join(", "))+'</span></div>'+
+        '<div class="pm-row"><b>AMC/Labour</b><span>'+(x.staff ? esc(x.staff) : '&ndash;')+'</span></div></div>'+
+        '<div class="clm-rem">Added by '+esc(x.byName || "–")+(x.updatedBy && x.updated ? ' &middot; updated by '+esc(x.updatedBy)+', '+esc(fmtStamp(x.updated)) : '')+'</div>'+
+        '<div class="clm-act"><select data-pmst="'+esc(x.id)+'" data-v="'+esc(x.status)+'" aria-label="Permit status">'+PERMIT_ST.map(function(s){ return '<option'+(s===x.status?' selected':'')+'>'+s+'</option>'; }).join("")+'</select>'+
+        '<a class="btn small" target="_blank" rel="noopener" style="text-decoration:none;'+(act ? 'background:#1b7f3b;border-color:#1b7f3b' : '')+'" href="https://wa.me/?text='+encodeURIComponent(msg)+'">WhatsApp</a>'+
+        '<button class="btn ghost small" data-pmcp="'+esc(x.id)+'" type="button">Copy</button>'+
+        '<button class="btn ghost small" data-pmed="'+esc(x.id)+'" type="button">Edit</button>'+
+        (permitCanDelete(x) ? '<button class="btn ghost small" data-pmdel="'+esc(x.id)+'" type="button">Delete</button>' : '')+'</div></div>';
+    }).join("");
+    p.innerHTML = h; gpBind("menu");
+    function byId(id){ return permitsData.permits.find(function(x){ return x.id === id; }); }
+    $("pmNew").onclick = function(){ permitForm(null); };
+    $("pmQ").oninput = function(){ pmQ = this.value; var pos = this.selectionStart; render(); var n = $("pmQ"); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(x){} } };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-pmf]"),function(b){ b.onclick = function(){ pmFilter = b.getAttribute("data-pmf"); render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-pmst]"),function(sel){
+      sel.onchange = function(){ var x = byId(sel.getAttribute("data-pmst")); if(!x) return; x.status = sel.value; x.updatedBy = isMaster() ? "Master" : (emp(myEmpId()) ? emp(myEmpId()).name : ""); x.updated = Date.now(); render(); permitSend({ action: "permitPut", item: x }); };
+    });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-pmcp]"),function(b){ b.onclick = function(){ var x = byId(b.getAttribute("data-pmcp")); if(x) copyText(permitMsg(x), function(){ b.textContent = "Copied \u2713"; }); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-pmed]"),function(b){ b.onclick = function(){ permitForm(byId(b.getAttribute("data-pmed"))); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-pmdel]"),function(b){
+      b.onclick = function(){ var x = byId(b.getAttribute("data-pmdel")); if(!x) return;
+        confirmModal("Delete permit "+x.no+"?", function(){ permitsData.permits = permitsData.permits.filter(function(y){ return y.id !== x.id; }); render(); permitSend({ action: "permitDel", id: x.id }); }); };
+    });
+  }
+  function permitForm(c){
+    var isNew = !c, d = c || { id: uid(), no: "", from: today(), to: today(), work: "", pgIds: [], staff: "", status: "INITIATED" };
+    var staffSug = []; permitsData.permits.forEach(function(x){ if(x.staff && staffSug.indexOf(x.staff) < 0) staffSug.push(x.staff); });
+    openModal('<h3>'+(isNew ? 'Add permit' : 'Edit permit')+'</h3>'+
+      '<div class="field"><label for="pmNo">Permit no.</label><input type="text" id="pmNo" maxlength="40" inputmode="numeric" value="'+esc(d.no)+'"></div>'+
+      '<div class="field"><label for="pmFrom">Permit date &ndash; from</label><input type="date" id="pmFrom" value="'+esc(d.from)+'"></div>'+
+      '<div class="field"><label for="pmTo">Permit date &ndash; to</label><input type="date" id="pmTo" value="'+esc(d.to)+'"></div>'+
+      '<div class="field"><label for="pmWork">Work details</label><textarea id="pmWork" maxlength="500">'+esc(d.work)+'</textarea></div>'+
+      '<div class="field"><label>POWERGRID persons (select one or more)</label><div class="pmpick" id="pmPick">'+
+        state.employees.slice().sort(function(a,b){ return a.name.localeCompare(b.name); }).map(function(e){
+          return '<label><input type="checkbox" value="'+esc(e.id)+'"'+(d.pgIds.indexOf(e.id) >= 0 ? ' checked' : '')+'> '+esc(e.name)+(e.desig ? ' <small style="color:var(--muted)">('+esc(e.desig)+')</small>' : '')+'</label>'; }).join("")+'</div></div>'+
+      '<div class="field"><label for="pmStaff">Supporting staff (AMC / labour)</label><input type="text" id="pmStaff" list="pmStaffL" maxlength="200" placeholder="e.g. SREE NANDHEESH ENGINEERS &amp; AMC STAFF" value="'+esc(d.staff)+'"><datalist id="pmStaffL">'+staffSug.map(function(x){ return '<option value="'+esc(x)+'">'; }).join("")+'</datalist></div>'+
+      '<div class="field"><label for="pmSt">Status</label><select id="pmSt">'+PERMIT_ST.map(function(s){ return '<option'+(s===d.status?' selected':'')+'>'+s+'</option>'; }).join("")+'</select></div>'+
+      '<p class="error" id="pmErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+    $("pmFrom").onchange = function(){ if(!$("pmTo").value || $("pmTo").value < this.value) $("pmTo").value = this.value; };
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var er = $("pmErr"), no = $("pmNo").value.trim(), fr = $("pmFrom").value, to = $("pmTo").value, work = $("pmWork").value.trim();
+      var ids = Array.prototype.map.call($("pmPick").querySelectorAll("input:checked"), function(i){ return i.value; });
+      if(!no){ er.textContent = "Enter the permit number."; return; }
+      if(!fr || !to){ er.textContent = "Pick both permit dates."; return; }
+      if(fr > to){ er.textContent = "\u201CFrom\u201D date must not be after the \u201Cto\u201D date."; return; }
+      if(!work){ er.textContent = "Enter the work details."; return; }
+      if(!ids.length){ er.textContent = "Select at least one POWERGRID person."; return; }
+      if(permitsData.permits.some(function(x){ return x.id !== d.id && x.no.trim().toLowerCase() === no.toLowerCase(); })){ er.textContent = "A permit with this number already exists."; return; }
+      var me = isMaster() ? "Master" : (emp(myEmpId()) ? emp(myEmpId()).name : "");
+      var item = { id: d.id, no: no, from: fr, to: to, work: work, pgIds: ids, pgNames: ids.map(function(i){ return emp(i) ? emp(i).name : ""; }), staff: $("pmStaff").value.trim(), status: $("pmSt").value,
+                   by: d.by || (isMaster() ? "master" : myEmpId()), byName: d.byName || me, created: d.created || Date.now(), updated: Date.now(), updatedBy: me };
+      permitsData.permits = permitsData.permits.filter(function(x){ return x.id !== item.id; }).concat([item]);
+      closeModal(); render();
+      permitSend({ action: "permitPut", item: item });
     };
   }
 
@@ -4042,6 +4519,9 @@
   function renderMisc(){
     if(miscView === "export"){ renderMiscExport(); return; }
     if(miscView === "vendors" && isMaster()){ renderVendors(); return; }
+    if(miscView === "permits"){ renderPermits(); return; }
+    if(miscView === "vsearch"){ renderVendorSearch(); return; }
+    if(miscView === "backup" && isMaster()){ renderBackup(); return; }
     if(miscView === "gp"){ renderGateList(); return; }
     if(miscView === "gpForm"){ renderGateForm(); return; }
     if(miscView === "gpDet"){ renderGateDetail(); return; }
@@ -4054,12 +4534,15 @@
       { go:"gp",     ic:"assign", cls:"",     t:"Gate Pass", s: n ? n+" gate pass"+(n>1?"es":"") : "Create and print material exit gate passes" },
       { go:"dio",    ic:"works",  cls:"",     t:"Dispatch / Inward entry", s: (nSent || nHeld) ? nSent+" sent, awaiting return · "+nHeld+" held from others" : "Track returnable assets and material received" }
     ];
+    if(SYNC) cards.push({ go:"permits", ic:"assign", cls:"", t:"Permits & Orders", s: permitsData.loaded ? (permitsData.permits.filter(permitActive).length ? permitsData.permits.filter(permitActive).length+" active today · " : "")+permitsData.permits.length+" permit"+(permitsData.permits.length===1?"":"s") : "Work permits, shutdown details, share on WhatsApp" });
+    if(SYNC) cards.push({ go:"vsearch", ic:"works", cls:"", t:"Vendor search", s: claimsData.loaded ? "Search "+claimsData.vendors.length+" vendor"+(claimsData.vendors.length===1?"":"s")+" by name, GST no., phone, city" : "Find a vendor by name, GST no., phone, city" });
+    if(isMaster() && SYNC) cards.push({ go:"backup", ic:"works", cls:"", t:"Backup", s:"Export all data as Excel and JSON" });
     if(isMaster() && SYNC) cards.push({ go:"vendors", ic:"works", cls:"", t:"Vendor list", s: claimsData.loaded ? claimsData.vendors.length+" vendor"+(claimsData.vendors.length===1?"":"s")+" · used in employee Claims" : "Vendors employees pick in their Claims" });
     p.innerHTML = '<div class="panel-head"><h3>Miscellaneous</h3></div><div class="hgrid">'+cards.map(function(c){
       return '<button type="button" class="hcard '+c.cls+'" data-miv="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
     }).join("")+'</div>';
     Array.prototype.forEach.call(p.querySelectorAll("[data-miv]"),function(b){
-      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); if(miscView === "vendors") claimFetch(); };
+      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); if(miscView === "vendors" || miscView === "vsearch") claimFetch(); if(miscView === "permits") permitFetch(); };
     });
   }
   function gpMine(g){ return isMaster() || (session && g.createdBy === session.id); }
