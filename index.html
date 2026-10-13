@@ -191,6 +191,15 @@
   .clm-act select[data-v="Settled"]{color:#1b7f3b;background:#e6f5ea}
   .pm-act{border:2px solid #1b7f3b;background:#f0faf3}
   .pm-badge{display:inline-block;background:#1b7f3b;color:#fff;border-radius:999px;padding:2px 10px;font-size:.74rem;font-weight:700;letter-spacing:.3px}
+  .dff{border:1px solid var(--line);border-radius:10px;background:#fff;margin:0 0 10px;overflow:hidden}
+  .dff-h{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;background:#f4f7fa;border:0;text-align:left;font-size:.95rem;color:var(--steel);cursor:pointer}
+  .dff-h .dff-ic{flex:none;font-size:1.1rem}
+  .dff-h b{flex:1;min-width:0;overflow-wrap:anywhere}
+  .dff-h .dff-n{flex:none;background:#fff3dc;color:#8a5a00;border-radius:999px;padding:2px 10px;font-size:.78rem;font-weight:700}
+  .dff-h .dff-ch{flex:none;transition:transform .15s}
+  .dff.open .dff-ch{transform:rotate(90deg)}
+  .dff-b{display:none;padding:10px 10px 0;border-top:1px solid var(--line)}
+  .dff.open .dff-b{display:block}
   .pm-row{display:flex;gap:6px;font-size:.9rem;margin:0 0 3px}.pm-row b{min-width:98px;color:var(--steel);flex:none}.pm-row span{overflow-wrap:anywhere}
   .clm-act select[data-v="INITIATED"]{color:#5d6b78;background:#eef1f4}.clm-act select[data-v="APPROVED"]{color:#1d4f91;background:#e8f1fc}
   .clm-act select[data-v="ISSUED"]{color:#8a5a00;background:#fff1cc}.clm-act select[data-v="RETURNED"]{color:#6a3a9a;background:#f1e8fb}.clm-act select[data-v="CLOSED"]{color:#1b7f3b;background:#e6f5ea}
@@ -475,7 +484,7 @@
       <span class="sync" id="onlinePill" role="button" tabindex="0" style="cursor:default"></span>
       <span class="sync" id="syncPill" role="button" tabindex="0" title="Click to refresh now"></span>
       <span class="who" id="whoLabel"></span>
-      <span class="sess" id="sessLabel" title="Time left in this login session. It resets whenever you use the app; 30 minutes of inactivity logs you out."></span>
+      <span class="sess" id="sessLabel" title="Time left in this login session. It resets whenever you use the app; 6 hours of inactivity logs you out."></span>
       <button class="btn small hidden" id="noticeBtn" type="button">Set notice</button>
       <button class="btn small hidden" id="manageUsersBtn" type="button">Manage logins</button>
       <button class="btn small" id="logoutBtn" type="button">Log out</button>
@@ -500,7 +509,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.30";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.32";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -873,10 +882,15 @@
   function xferDecline(x){ x.status = "declined"; x.resolved = Date.now(); commit([{ t: "xfer.decline", id: x.id }]); render(); }
   function xferCancel(x){ state.xfers = state.xfers.filter(function(r){ return r.id !== x.id; }); commit([{ t: "xfer.cancel", id: x.id }]); render(); }
 
-  /* ---------- Login session: 30 minutes, renewed by activity, shown in the header ---------- */
-  var SESSION_MIN = 30, SESSION_MS = SESSION_MIN * 60000, sessExp = 0, sessTick = null, sessLastBump = 0;
+  /* ---------- Login session: 6 hours, renewed by activity, shown in the header ----------
+     The login is kept in localStorage (falls back to sessionStorage) so a page refresh,
+     a reopened tab or a restarted installed app does not sign the person out. */
+  function authStoreSet(v){ var t = JSON.stringify(v); try{ localStorage.setItem("kss_auth", t); }catch(e){} try{ sessionStorage.setItem("kss_auth", t); }catch(e){} }
+  function authStoreGet(){ var t = null; try{ t = localStorage.getItem("kss_auth"); }catch(e){} if(!t){ try{ t = sessionStorage.getItem("kss_auth"); }catch(e){} } try{ return JSON.parse(t || "null"); }catch(e){ return null; } }
+  function authStoreClear(){ try{ localStorage.removeItem("kss_auth"); }catch(e){} try{ sessionStorage.removeItem("kss_auth"); }catch(e){} }
+  var SESSION_MIN = 360, SESSION_LABEL = "6 hours", SESSION_MS = SESSION_MIN * 60000, sessExp = 0, sessTick = null, sessLastBump = 0;
   function sessSave(){
-    try{ if(auth) sessionStorage.setItem("kss_auth", JSON.stringify({ role: auth.role, id: auth.id, pass: auth.pass, exp: sessExp })); }catch(e){}
+    if(auth) authStoreSet({ role: auth.role, id: auth.id, pass: auth.pass, exp: sessExp });
   }
   function sessPaint(){
     var el = $("sessLabel");
@@ -884,10 +898,10 @@
     var left = sessExp - Date.now();
     if(left <= 0){
       if(SYNC && (flushing || queue.length)){ sessExp = Date.now() + 60000; left = 60000; }   // never drop unsaved changes
-      else { doLogout("Your session expired after "+SESSION_MIN+" minutes of inactivity. Please sign in again."); return; }
+      else { doLogout("Your session expired after "+SESSION_LABEL+" of inactivity. Please sign in again."); return; }
     }
-    var sec = Math.ceil(left/1000), m = Math.floor(sec/60), r = sec % 60;
-    if(el){ el.textContent = "Session "+m+":"+String(r).padStart(2,"0"); el.classList.toggle("warn", left < 5*60000); }
+    var sec = Math.ceil(left/1000), hh = Math.floor(sec/3600), m = Math.floor((sec % 3600)/60), r = sec % 60;
+    if(el){ el.textContent = "Session "+hh+":"+String(m).padStart(2,"0")+":"+String(r).padStart(2,"0"); el.classList.toggle("warn", left < 5*60000); }
   }
   function sessBump(){
     if(!session) return;
@@ -958,7 +972,7 @@
     $("loginErr").textContent = "";
     auth = { role: loginRole, id: id, pass: pw };
     api({ action: "login" }).then(function(r){
-      try{ sessionStorage.setItem("kss_auth", JSON.stringify(auth)); }catch(e){}
+      authStoreSet(auth);
       applyData(r.json.data); lastText = r.text; lastTok = r.json.tok || ""; lastFullAt = Date.now();
       enterApp(r.json.role || auth.role, auth.id, r.json.user);
       if(r.json.ver && r.json.ver !== PAGE_VER && auth.role === "master"){
@@ -1029,10 +1043,10 @@
 
   function doLogout(msg){
     if(SYNC && auth){ try{ fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "logout", auth: auth }) }).catch(function(){}); }catch(e){} }
-    clearInterval(pollTimer); clearInterval(sessTick); sessExp = 0;
+    clearInterval(pollTimer); clearInterval(sessTick); sessExp = 0; clLast = null;
     var sl = $("sessLabel"); if(sl){ sl.textContent = ""; sl.classList.remove("warn"); }
     session = null; auth = null; queue = []; flushing = false; pendingRefresh = null;
-    try{ sessionStorage.removeItem("kss_auth"); }catch(e){}
+    authStoreClear();
     closeModal();
     ampBusy = 0; ampText = ""; ampChain = Promise.resolve();
     noticeShown = null; if(SYNC){ state = { employees: [], xfers: [], users: [], events: [], assignments: [], amp: [], notice: "", contracts: [], amcUsers: [], amcWorks: [], amcStaff: [], amcTransfers: [], amcEmployees: [], amcDaily: [], amcTemp: [], amcHours: [], amcAssignees: [], mandays: [], minWage: [], sched: [], fu: [], pr: [], avail: [], online: { count: 0, list: [] } }; lastText = ""; lastTok = ""; pullBusy = 0; claimsData = { claims: [], vendors: [], loaded: false }; claimBusy = 0; clFilter = "all"; }
@@ -1053,16 +1067,24 @@
   /* restore session after page refresh (sync mode) */
   if(SYNC){
     try{
-      var saved = JSON.parse(sessionStorage.getItem("kss_auth") || "null");
+      var saved = authStoreGet();
       if(saved && saved.exp && saved.exp < Date.now()){
-        sessionStorage.removeItem("kss_auth"); saved = null;
-        $("loginErr").textContent = "Your session expired after "+SESSION_MIN+" minutes of inactivity. Please sign in again.";
+        authStoreClear(); saved = null;
+        $("loginErr").textContent = "Your session expired after "+SESSION_LABEL+" of inactivity. Please sign in again.";
       }
       if(saved){
-        auth = { role: saved.role, id: saved.id, pass: saved.pass };
-        api({ action: "login" }).then(function(r){
-          applyData(r.json.data); lastText = r.text; lastTok = r.json.tok || ""; lastFullAt = Date.now(); enterApp(r.json.role || auth.role, auth.id, r.json.user);
-        }).catch(function(){ auth = null; });
+        var restoreTry = 0;
+        (function restore(){
+          auth = { role: saved.role, id: saved.id, pass: saved.pass };
+          api({ action: "login" }).then(function(r){
+            applyData(r.json.data); lastText = r.text; lastTok = r.json.tok || ""; lastFullAt = Date.now(); enterApp(r.json.role || auth.role, auth.id, r.json.user);
+          }).catch(function(err){
+            auth = null;
+            if(err && err.server){ authStoreClear(); $("loginErr").textContent = "Your login is no longer valid. Please sign in again."; return; }   // wrong/changed password
+            if(++restoreTry < 4){ setTimeout(restore, 3000); return; }                                                                                // network hiccup: keep the saved login and retry
+            $("loginErr").textContent = "Cannot reach the server. Refresh the page to continue your session.";
+          });
+        })();
       }
     }catch(e){}
   }
@@ -4041,11 +4063,12 @@
     });
   }
 
+  var clLast = null;      // claim type / name / vendor of the claim just saved, pre-filled in the next "Add claim"
   function claimForm(c, draft){
-    var isNew = !c, d = Object.assign({}, c || { id: uid(), date: today(), type: "", typeName: "", vendorId: "", desc: "", qty: "", status: "Not applied", remarks: "", invNo: "", invDate: "", amount: "", payerId: myEmpId() }, draft || {});
+    var isNew = !c, d = Object.assign({}, c || { id: uid(), date: today(), type: "", typeName: "", vendorId: "", desc: "", qty: "", status: "Not applied", remarks: "", invNo: "", invDate: "", amount: "", payerId: myEmpId() }, (isNew && clLast && !draft) ? { type: clLast.type, typeName: clLast.typeName, vendorId: clLast.vendorId } : {}, draft || {});
     if(!d.payerId) d.payerId = myEmpId();                    // older claims have no payer: suggest the employee himself
     var payerOpts = '<option value="">Select payer</option>' + state.employees.slice().sort(function(a,b){ return a.name.localeCompare(b.name); }).map(function(e){
-      return '<option value="'+esc(e.id)+'"'+(e.id === d.payerId ? ' selected' : '')+'>'+esc(e.name)+(e.desig ? ' ('+esc(e.desig)+')' : '')+'</option>'; }).join("");
+      return '<option value="'+esc(e.id)+'"'+(e.id === d.payerId ? ' selected' : '')+'>'+esc(e.name)+'</option>'; }).join("");
     var nextNo = claimsData.claims.reduce(function(m, x){ return Math.max(m, x.serial); }, 0) + 1;
     openModal('<h3>'+(isNew ? 'Add claim' : 'Edit claim #'+d.serial)+'</h3>'+
       '<div class="field"><label>Sl. no.</label><input type="text" value="'+(isNew ? nextNo+' (automatic)' : d.serial)+'" disabled></div>'+
@@ -4099,6 +4122,7 @@
       var item = { id: d.id, serial: isNew ? nextNo : d.serial, invNo: $("clInv").value.trim(), invDate: $("clInvD").value, amount: amt === "" ? "" : Number(amt).toFixed(2), date: date, type: type, typeName: CLAIM_NAMED.indexOf(type) >= 0 ? name : "", vendorId: v.id, vendorName: v.name, payerId: pe.id, payerName: pe.name,
                    desc: desc, qty: qty, status: $("clStat").value, remarks: $("clRem").value.trim(), created: d.created || Date.now() };
       claimsData.claims = claimsData.claims.filter(function(x){ return x.id !== item.id; }).concat([item]);
+      clLast = { type: item.type, typeName: item.typeName, vendorId: item.vendorId };
       closeModal(); render();                               // shown at once; saved in the background
       claimSend({ action: "claimPut", item: item });
     };
@@ -4485,7 +4509,7 @@
       '<div class="field"><label for="pmWork">Work details</label><textarea id="pmWork" maxlength="500">'+esc(d.work)+'</textarea></div>'+
       '<div class="field"><label>POWERGRID persons (select one or more)</label><div class="pmpick" id="pmPick">'+
         state.employees.slice().sort(function(a,b){ return a.name.localeCompare(b.name); }).map(function(e){
-          return '<label><input type="checkbox" value="'+esc(e.id)+'"'+(d.pgIds.indexOf(e.id) >= 0 ? ' checked' : '')+'> '+esc(e.name)+(e.desig ? ' <small style="color:var(--muted)">('+esc(e.desig)+')</small>' : '')+'</label>'; }).join("")+'</div></div>'+
+          return '<label><input type="checkbox" value="'+esc(e.id)+'"'+(d.pgIds.indexOf(e.id) >= 0 ? ' checked' : '')+'> '+esc(e.name)+'</label>'; }).join("")+'</div></div>'+
       '<div class="field"><label for="pmStaff">Supporting staff (AMC / labour)</label><input type="text" id="pmStaff" list="pmStaffL" maxlength="200" placeholder="e.g. SREE NANDHEESH ENGINEERS &amp; AMC STAFF" value="'+esc(d.staff)+'"><datalist id="pmStaffL">'+staffSug.map(function(x){ return '<option value="'+esc(x)+'">'; }).join("")+'</datalist></div>'+
       '<div class="field"><label for="pmSt">Status</label><select id="pmSt">'+PERMIT_ST.map(function(s){ return '<option'+(s===d.status?' selected':'')+'>'+s+'</option>'; }).join("")+'</select></div>'+
       '<p class="error" id="pmErr"></p>'+
@@ -4512,6 +4536,298 @@
 
   /* ---------- Miscellaneous: menu + Gate Pass ---------- */
   var miscView = "menu", gpSel = "", gpEditId = "", gpDraft = null, gpFilter = "";
+  /* ---------- Defect register (Miscellaneous) ----------
+     Every employee login can add and edit; nobody but Master can delete.
+     Master uploads the Object / Equipment list and the Linked shutdown list from one Excel file. */
+  var DEFECT_ST = ["Open","Closed"];
+  var defectsData = { items: [], equip: [], shut: [], loaded: false }, defectBusy = 0, dfFilter = "all", dfQ = "", defectChain = Promise.resolve();
+  var dfView = "folders", dfOpenF = {}, DF_NONE = "__no_shutdown__";     // folders view: one folder per Linked shutdown, open defects only
+  function defectApply(j){ defectsData.items = j.defects || []; defectsData.equip = j.equip || []; defectsData.shut = j.shut || []; defectsData.loaded = true; }
+  function defectFetch(){
+    if(!SYNC) return;
+    api({ action: "defectList" }).then(function(r){
+      if(defectBusy) return;
+      defectApply(r.json);
+      if(!modalOpen() && activeTab === "misc" && (miscView === "defects" || miscView === "menu") && !(document.activeElement && document.activeElement.id === "dfQ")) render();
+    }).catch(onSyncError);
+  }
+  function defectSend(body){
+    defectBusy++;
+    defectChain = defectChain.then(function(){ return new Promise(function(done){
+      var tries = 0;
+      (function go(){
+        tries++;
+        api(body).then(function(r){
+          defectBusy--;
+          if(!defectBusy){ defectApply(r.json); if(!modalOpen()) render(); }
+          done();
+        }).catch(function(err){
+          if(err && err.server && err.message === "auth"){ defectBusy--; onSyncError(err); done(); return; }
+          if(!(err && err.server) && tries < 3){ setTimeout(go, 3000); return; }
+          defectBusy--;
+          try{ toast("Not saved" + (err && err.server && err.message ? ": " + err.message : " (no connection)") + "."); }catch(x){}
+          defectFetch(); done();
+        });
+      })();
+    }); });
+  }
+  setInterval(function(){
+    if(!session || !SYNC || document.hidden || modalOpen()) return;
+    if(activeTab === "misc" && miscView === "defects") defectFetch();
+  }, 20000);
+  function dfCmp(a,b){ return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" }); }
+  function dfObjects(){ var o = []; defectsData.equip.forEach(function(x){ if(o.indexOf(x.object) < 0) o.push(x.object); }); return o.sort(dfCmp); }
+  function dfEquipOf(obj){ return defectsData.equip.filter(function(x){ return x.object === obj; }).map(function(x){ return x.equipment; }).sort(dfCmp); }
+  function dfOpts(list, cur, ph){
+    var l = list.slice(); if(cur && l.indexOf(cur) < 0) l.unshift(cur);      // a value saved earlier stays selectable even if Master's list changed
+    return '<option value="">'+esc(ph)+'</option>'+l.map(function(x){ return '<option value="'+esc(x)+'"'+(x === cur ? ' selected' : '')+'>'+esc(x)+'</option>'; }).join("");
+  }
+  function dfMatch(x, q){ return !q || (x.object+" "+x.equipment+" "+x.desc+" "+x.shutdown+" "+x.comment+" "+x.byName+" "+x.status).toLowerCase().indexOf(q) >= 0; }
+  function dfCard(x){
+    var closed = x.status === "Closed";
+    return '<div class="clm"><div class="clm-top"><b>'+esc(x.object)+' &middot; '+esc(x.equipment)+'</b><span class="clm-type" style="'+(closed ? 'background:#e3f4e8;color:#1b7f3b' : 'background:#fff3dc;color:#8a5a00')+'">'+esc(x.status)+'</span></div>'+
+      '<div style="margin-top:6px">'+
+      '<div class="pm-row"><b>Date</b><span>'+esc(fmtDate(x.date))+'</span></div>'+
+      '<div class="pm-row"><b>Description</b><span style="white-space:pre-wrap">'+esc(x.desc)+'</span></div>'+
+      '<div class="pm-row"><b>Linked shutdown</b><span>'+(x.shutdown ? esc(x.shutdown) : '&ndash;')+'</span></div>'+
+      (x.comment ? '<div class="pm-row"><b>Comment</b><span style="white-space:pre-wrap">'+esc(x.comment)+'</span></div>' : '')+'</div>'+
+      '<div class="clm-rem">Added by '+esc(x.byName || "–")+(x.updatedBy && x.updated && x.updated !== x.created ? ' &middot; updated by '+esc(x.updatedBy)+', '+esc(fmtStamp(x.updated)) : '')+'</div>'+
+      '<div class="clm-act"><button class="btn ghost small" data-dfed="'+esc(x.id)+'" type="button">Edit</button>'+
+      (isMaster() ? '<button class="btn ghost small" data-dfdel="'+esc(x.id)+'" type="button">Delete</button>' : '')+'</div></div>';
+  }
+  /* open defects grouped by Linked shutdown (folders); defects with no shutdown go to the last folder */
+  function dfFolders(q){
+    var map = {}, order = [];
+    defectsData.items.forEach(function(x){
+      if(x.status === "Closed" || !dfMatch(x, q)) return;
+      var k = x.shutdown || DF_NONE;
+      if(!map[k]){ map[k] = []; order.push(k); }
+      map[k].push(x);
+    });
+    order.sort(function(a,b){ if(a === DF_NONE) return 1; if(b === DF_NONE) return -1; return dfCmp(a,b); });
+    return order.map(function(k){ return { key: k, name: k === DF_NONE ? "No linked shutdown" : k, items: map[k] }; });
+  }
+  function renderDefects(){
+    var p = $("panel"), q = dfQ.trim().toLowerCase(), all = defectsData.items.slice(), nOpen = all.filter(function(x){ return x.status !== "Closed"; }).length;
+    var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Defect register</h3></div>'+
+      '<div class="clmbar"><div class="clmchips">'+
+        [["folders","Shutdown folders"],["list","All defects"]].map(function(v){
+          return '<button type="button" data-dfv="'+v[0]+'" class="'+(dfView===v[0]?"on":"")+'">'+v[1]+'</button>'; }).join("")+'</div>'+
+        '<button class="btn" id="dfNew" type="button">Add defect</button></div>';
+    if(dfView === "list") h += '<div class="clmbar" style="margin-top:-4px"><div class="clmchips">'+
+        [["all","All ("+all.length+")"],["open","Open ("+nOpen+")"],["closed","Closed ("+(all.length-nOpen)+")"]].map(function(f){
+          return '<button type="button" data-dff="'+f[0]+'" class="'+(dfFilter===f[0]?"on":"")+'">'+f[1]+'</button>'; }).join("")+'</div></div>';
+    h += '<div class="clmbar" style="margin-top:-4px"><div class="clmchips"><button type="button" id="dfXl">Download defects Excel</button>'+
+      (isMaster() ? '<button type="button" id="dfDl">Download list Excel</button><button type="button" id="dfUp">Upload list Excel</button>' : '')+'</div>'+
+      (isMaster() ? '<input type="file" id="dfFile" accept=".xlsx,.xls" style="display:none">' : '')+'</div><p class="error" id="dfXErr" style="margin:-6px 0 8px"></p>';
+    h += '<div class="filters"><input type="text" id="dfQ" maxlength="60" placeholder="Search object, equipment, description, shutdown…" value="'+esc(dfQ)+'" aria-label="Search defects"></div>';
+    if(!defectsData.loaded) h += '<div class="empty">Loading…</div>';
+    else if(!all.length) h += '<div class="empty">No defects yet. Tap <b>Add defect</b> to record one.'+(defectsData.equip.length ? '' : '<br><small>'+(isMaster() ? 'First upload the Object / Equipment list with <b>Upload list Excel</b>.' : 'Master has not uploaded the Object / Equipment list yet.')+'</small>')+'</div>';
+    else if(dfView === "folders"){
+      var F = dfFolders(q);
+      if(!F.length) h += '<div class="empty">'+(q ? 'No open defect matches.' : 'No open defects. &#127881;')+'</div>';
+      else {
+        h += '<p style="margin:0 0 8px;color:var(--muted);font-size:.85rem">Open defects only, grouped by Linked shutdown. '+F.length+' folder'+(F.length===1?'':'s')+'.</p>';
+        h += F.map(function(f){
+          var open = q ? true : !!dfOpenF[f.key];       // while searching, every folder with a match is opened
+          return '<div class="dff'+(open ? ' open' : '')+'"><button type="button" class="dff-h" data-dffold="'+esc(f.key)+'" aria-expanded="'+open+'">'+
+            '<span class="dff-ic">'+(open ? '&#128194;' : '&#128193;')+'</span><b>'+esc(f.name)+'</b><span class="dff-n">'+f.items.length+' open</span><span class="dff-ch">&rsaquo;</span></button>'+
+            '<div class="dff-b">'+f.items.map(dfCard).join("")+'</div></div>';
+        }).join("");
+      }
+    } else {
+      var L = all.filter(function(x){
+        if(dfFilter === "open" && x.status === "Closed") return false;
+        if(dfFilter === "closed" && x.status !== "Closed") return false;
+        return dfMatch(x, q);
+      });
+      if(!L.length) h += '<div class="empty">No defect matches.</div>';
+      else h += L.map(dfCard).join("");
+    }
+    p.innerHTML = h; gpBind("menu");
+    function byId(id){ return defectsData.items.find(function(x){ return x.id === id; }); }
+    $("dfNew").onclick = function(){ defectForm(null); };
+    $("dfQ").oninput = function(){ dfQ = this.value; var pos = this.selectionStart; render(); var n = $("dfQ"); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(x){} } };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dfv]"),function(b){ b.onclick = function(){ dfView = b.getAttribute("data-dfv"); render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dff]"),function(b){ b.onclick = function(){ dfFilter = b.getAttribute("data-dff"); render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dffold]"),function(b){ b.onclick = function(){ var k = b.getAttribute("data-dffold"); dfOpenF[k] = !dfOpenF[k]; render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dfed]"),function(b){ b.onclick = function(){ var x = byId(b.getAttribute("data-dfed")); if(x) defectForm(x); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dfdel]"),function(b){
+      b.onclick = function(){ var x = byId(b.getAttribute("data-dfdel")); if(!x) return;
+        confirmModal("Delete this defect ("+x.object+" "+x.equipment+")?", function(){ defectsData.items = defectsData.items.filter(function(y){ return y.id !== x.id; }); render(); defectSend({ action: "defectDel", id: x.id }); }); };
+    });
+    function xe(t){ var n = $("dfXErr"); if(n) n.textContent = t || ""; }
+    $("dfXl").onclick = function(){ defectExportForm(); };
+    if(isMaster()){
+      $("dfDl").onclick = function(){ xe("Preparing…"); defectListDownload(xe); };
+      $("dfUp").onclick = function(){ $("dfFile").click(); };
+      $("dfFile").onchange = function(){ var f = this.files[0]; this.value = ""; if(f){ xe("Reading file…"); defectListUpload(f, xe); } };
+    }
+  }
+  /* ---- Download defects (all at once) as Excel: filter by date range and Linked shutdown ---- */
+  function defectExportForm(){
+    var names = defectsData.shut.slice();
+    defectsData.items.forEach(function(x){ if(x.shutdown && names.indexOf(x.shutdown) < 0) names.push(x.shutdown); });
+    names.sort(dfCmp);
+    openModal('<h3>Download defects (Excel)</h3>'+
+      '<div class="field"><label for="dxFrom">From date</label><input type="date" id="dxFrom"></div>'+
+      '<div class="field"><label for="dxTo">To date</label><input type="date" id="dxTo"></div>'+
+      '<div class="field"><label for="dxSh">Linked shutdown</label><select id="dxSh"><option value="">All shutdowns</option><option value="'+DF_NONE+'">No linked shutdown</option>'+
+        names.map(function(n){ return '<option value="'+esc(n)+'">'+esc(n)+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="dxSt">Status</label><select id="dxSt"><option value="">Open and Closed</option><option>Open</option><option>Closed</option></select></div>'+
+      '<p style="margin:0 0 8px;color:var(--muted);font-size:.85rem">Leave the dates empty to include every date. Dates are the defect dates.</p>'+
+      '<p class="error" id="dxErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Download</button></div>');
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var er = $("dxErr"), from = $("dxFrom").value, to = $("dxTo").value, sh = $("dxSh").value, st = $("dxSt").value;
+      if(from && to && from > to){ er.textContent = "'From' date is after 'To' date."; return; }
+      var L = defectsData.items.filter(function(x){
+        if(from && x.date < from) return false;
+        if(to && x.date > to) return false;
+        if(sh === DF_NONE && x.shutdown) return false;
+        if(sh && sh !== DF_NONE && x.shutdown !== sh) return false;
+        if(st && x.status !== st) return false;
+        return true;
+      }).sort(function(a,b){ return dfCmp(a.shutdown || "\uffff", b.shutdown || "\uffff") || (a.date < b.date ? -1 : a.date > b.date ? 1 : 0); });
+      if(!L.length){ er.textContent = "No defect matches these filters."; return; }
+      er.textContent = "Preparing…";
+      loadXLSX(function(){
+        try{
+          var X = window.XLSX, rows = [["Sl No","Date","Object","Equipment","Description","Linked shutdown","Status","Comment","Added by","Last updated by","Last updated on"]];
+          L.forEach(function(x, i){ rows.push([i+1, fmtDate(x.date), x.object, x.equipment, x.desc, x.shutdown, x.status, x.comment, x.byName, x.updatedBy, x.updated ? fmtStamp(x.updated) : ""]); });
+          var ws = X.utils.aoa_to_sheet(rows);
+          ws["!cols"] = [{wch:6},{wch:12},{wch:14},{wch:14},{wch:50},{wch:34},{wch:9},{wch:36},{wch:16},{wch:16},{wch:18}];
+          var nOp = L.filter(function(x){ return x.status !== "Closed"; }).length;
+          var info = [["Defect register export"],["Downloaded on", fmtDate(today())],["Date from", from ? fmtDate(from) : "All"],["Date to", to ? fmtDate(to) : "All"],
+            ["Linked shutdown", sh === DF_NONE ? "No linked shutdown" : (sh || "All")],["Status", st || "Open and Closed"],["Defects", L.length],["Open", nOp],["Closed", L.length - nOp]];
+          var wi = X.utils.aoa_to_sheet(info); wi["!cols"] = [{wch:18},{wch:40}];
+          var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Defects"); X.utils.book_append_sheet(wb, wi, "Filter info");
+          X.writeFile(wb, "Defects_"+(from || "start")+"_to_"+(to || today())+".xlsx");
+          closeModal();
+        } catch(e){ er.textContent = "Could not create the Excel file."; }
+      }, function(){ er.textContent = "Could not load the Excel library (needs internet)."; });
+    };
+  }
+  function defectForm(c){
+    var isNew = !c, d = c || { id: uid(), date: today(), object: "", equipment: "", desc: "", shutdown: "", status: "Open", comment: "" };
+    var objs = dfObjects();
+    openModal('<h3>'+(isNew ? 'Add defect' : 'Edit defect')+'</h3>'+
+      '<div class="field"><label for="dfDate">Date</label><input type="date" id="dfDate" value="'+esc(d.date)+'"></div>'+
+      '<div class="field"><label for="dfObj">Object</label><select id="dfObj">'+dfOpts(objs, d.object, "Select object")+'</select>'+
+        (objs.length ? '' : '<small style="display:block;color:#a33;margin-top:4px">Master has not uploaded the Object / Equipment list yet.</small>')+'</div>'+
+      '<div class="field"><label for="dfEq">Equipment</label><select id="dfEq">'+dfOpts(dfEquipOf(d.object), d.equipment, d.object ? "Select equipment" : "Select object first")+'</select></div>'+
+      '<div class="field"><label for="dfDesc">Description</label><textarea id="dfDesc" maxlength="600">'+esc(d.desc)+'</textarea></div>'+
+      '<div class="field"><label for="dfShut">Linked shutdown</label><select id="dfShut">'+dfOpts(defectsData.shut, d.shutdown, "None")+'</select></div>'+
+      '<div class="field"><label for="dfSt">Status</label><select id="dfSt">'+DEFECT_ST.map(function(s){ return '<option'+(s===d.status?' selected':'')+'>'+s+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field" id="dfCmtF"><label for="dfCmt">Comments (how it was closed, remarks)</label><textarea id="dfCmt" maxlength="500">'+esc(d.comment)+'</textarea></div>'+
+      '<p class="error" id="dfErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+    function cmtShow(){ $("dfCmtF").style.display = $("dfSt").value === "Closed" ? "" : "none"; }
+    cmtShow(); $("dfSt").onchange = cmtShow;
+    $("dfObj").onchange = function(){ $("dfEq").innerHTML = dfOpts(dfEquipOf(this.value), "", this.value ? "Select equipment" : "Select object first"); };
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var er = $("dfErr"), date = $("dfDate").value, obj = $("dfObj").value, eq = $("dfEq").value, desc = $("dfDesc").value.trim();
+      if(!date){ er.textContent = "Pick the date."; return; }
+      if(!obj){ er.textContent = "Select the object."; return; }
+      if(!eq){ er.textContent = "Select the equipment."; return; }
+      if(!desc){ er.textContent = "Enter the description."; return; }
+      var me = isMaster() ? "Master" : (emp(myEmpId()) ? emp(myEmpId()).name : "");
+      var item = { id: d.id, date: date, object: obj, equipment: eq, desc: desc, shutdown: $("dfShut").value, status: $("dfSt").value, comment: $("dfCmt").value.trim(),
+                   by: d.by || (isMaster() ? "master" : myEmpId()), byName: d.byName || me, created: d.created || Date.now(), updated: Date.now(), updatedBy: me };
+      defectsData.items = defectsData.items.filter(function(x){ return x.id !== item.id; }).concat([item]);
+      closeModal(); render();
+      defectSend({ action: "defectPut", item: item });
+    };
+  }
+
+  /* ---- Master: dropdown lists <-> Excel (sheet 1 Object / Equipment, sheet 2 Linked shutdown) ---- */
+  var DF_SAMPLE_EQUIP = [["CB","20152"],["CB","20252"],["CB","20352"],["CB","20452"],["ISOLATOR","20189"],["ISOLATOR","20289"],["ISOLATOR","20389"],["CT","20114"],["CT","20214"],["TRANSFORMER","ICT-1"],["TRANSFORMER","ICT-2"]];
+  var DF_SAMPLE_SHUT = ["SD-2026-001 : 220 kV Bus-1 maintenance","SD-2026-002 : ICT-1 annual maintenance","SD-2026-003 : Bay 202 relay testing"];
+  function defectListDownload(err){
+    loadXLSX(function(){
+      var X = window.XLSX, hasData = defectsData.equip.length || defectsData.shut.length;
+      var eq = [["Object","Equipment"]].concat(hasData ? defectsData.equip.slice().sort(function(a,b){ return dfCmp(a.object,b.object) || dfCmp(a.equipment,b.equipment); }).map(function(x){ return [x.object, x.equipment]; }) : DF_SAMPLE_EQUIP);
+      var sh = [["Linked Shutdown"]].concat((hasData ? defectsData.shut : DF_SAMPLE_SHUT).map(function(x){ return [x]; }));
+      var w1 = X.utils.aoa_to_sheet(eq); w1["!cols"] = [{ wch: 24 }, { wch: 24 }];
+      var w2 = X.utils.aoa_to_sheet(sh); w2["!cols"] = [{ wch: 60 }];
+      var help = X.utils.aoa_to_sheet([["How to fill this workbook"],
+        ["Sheet 'Object & Equipment': one row per piece of equipment. Column A = Object (e.g. CB), column B = Equipment (e.g. 20152). Repeat the Object on every row."],
+        ["In the Defect register, employees first pick the Object and then see only the Equipment listed against that Object."],
+        ["Sheet 'Linked Shutdown': one shutdown per row, in column A. Employees pick one of these while adding a defect (optional for them)."],
+        ["Keep the first row (headings) of both sheets as it is. Replace the sample rows with your own; delete any rows you do not need."],
+        ["Upload with the 'Upload list Excel' button in Miscellaneous > Defect register. You see a preview first. The upload REPLACES the old lists; defects already entered are not changed."],
+        ["Tip: to change the lists later, press 'Download list Excel' (it gives the current lists), edit and upload again."]]);
+      help["!cols"] = [{ wch: 130 }];
+      var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, w1, "Object & Equipment"); X.utils.book_append_sheet(wb, w2, "Linked Shutdown"); X.utils.book_append_sheet(wb, help, "How to fill");
+      X.writeFile(wb, hasData ? "Defect_lists_"+today()+".xlsx" : "Defect_lists_sample.xlsx");
+      err("");
+    }, function(){ err("Could not load the Excel library. Check your internet connection and try again."); });
+  }
+  function parseDefectWorkbook(buf){
+    var X = window.XLSX, wb = X.read(buf, { type: "array" }), names = wb.SheetNames;
+    if(!names.length) throw new Error("The file has no sheet.");
+    function pick(re, fallback){ var n = names.filter(function(s){ return re.test(s.toLowerCase()); })[0]; return n || fallback; }
+    var sEq = pick(/object|equip/, names[0]), sSh = pick(/shut/, names.filter(function(s){ return s !== sEq && !/how|help|read/i.test(s); })[0]);
+    function rowsOf(sn){ return X.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: "", raw: false, blankrows: false }); }
+    function findHead(data, ALIAS){
+      for(var r = 0; r < Math.min(data.length, 6); r++){
+        var m = {}; data[r].forEach(function(c, i){ var k = vnKey(c); Object.keys(ALIAS).forEach(function(f){ if(m[f] === undefined && ALIAS[f].indexOf(k) >= 0) m[f] = i; }); });
+        if(Object.keys(ALIAS).every(function(f){ return m[f] !== undefined; })) return { row: r, col: m };
+      }
+      return null;
+    }
+    var errors = [], equip = [], shut = [], seen = {}, objSeen = {};
+    var d1 = rowsOf(sEq), h1 = findHead(d1, { object: ["object","objects","objectname"], equipment: ["equipment","equipments","equipmentno","equipmentname","equip"] });
+    if(!h1) throw new Error("Could not find the \"Object\" and \"Equipment\" columns on the first sheet. Use the Excel from the Download list Excel button.");
+    for(var i = h1.row + 1; i < d1.length; i++){
+      var row = d1[i], o = String(row[h1.col.object] == null ? "" : row[h1.col.object]).trim(), q = String(row[h1.col.equipment] == null ? "" : row[h1.col.equipment]).trim();
+      if(!o && !q) continue;
+      if(!o || !q){ errors.push("Row "+(i+1)+": "+(o ? "equipment is empty." : "object is empty.")); continue; }
+      var key = o.toLowerCase()+"|"+q.toLowerCase();
+      if(seen[key]){ errors.push("Row "+(i+1)+": "+o+" / "+q+" is repeated (first on row "+seen[key]+")."); continue; }
+      seen[key] = i+1; objSeen[o.toLowerCase()] = 1;
+      equip.push({ object: o.slice(0, 60), equipment: q.slice(0, 80) });
+    }
+    var keepShut = false;
+    if(sSh){
+      var d2 = rowsOf(sSh), h2 = findHead(d2, { name: ["linkedshutdown","shutdown","shutdowns","shutdownname","linkedshutdowns"] }), sseen = {};
+      if(!h2) throw new Error("Could not find the \"Linked Shutdown\" column on the second sheet. Use the Excel from the Download list Excel button.");
+      for(var j = h2.row + 1; j < d2.length; j++){
+        var t = String(d2[j][h2.col.name] == null ? "" : d2[j][h2.col.name]).trim();
+        if(!t) continue;
+        if(sseen[t.toLowerCase()]){ errors.push("Linked Shutdown row "+(j+1)+": \""+t+"\" is repeated."); continue; }
+        sseen[t.toLowerCase()] = 1; shut.push(t.slice(0, 120));
+      }
+    } else { shut = defectsData.shut.slice(); keepShut = true; }       // no shutdown sheet in the file: leave the current shutdown list as it is
+    if(equip.length > 3000) throw new Error("Too many rows (maximum 3000 equipment).");
+    return { equip: equip, shut: shut, keepShut: keepShut, errors: errors, nObj: Object.keys(objSeen).length };
+  }
+  function defectListPreview(res){
+    var ok = res.equip.length || res.shut.length;
+    openModal('<h3>Upload Defect register lists</h3>'+
+      '<p style="margin:0 0 8px"><b>'+res.nObj+'</b> object'+(res.nObj===1?'':'s')+' &middot; <b>'+res.equip.length+'</b> equipment &middot; <b>'+res.shut.length+'</b> linked shutdown'+(res.shut.length===1?'':'s')+(res.keepShut ? ' (current list kept: no shutdown sheet in the file)' : '')+
+        (res.errors.length ? ' &middot; <b style="color:#a33">'+res.errors.length+' row'+(res.errors.length>1?'s':'')+' skipped</b>' : '')+'</p>'+
+      (res.errors.length ? '<div style="max-height:150px;overflow:auto;font-size:.85rem;color:#a33;margin:0 0 10px;padding:8px 10px;background:#fdf1f1;border-radius:6px">'+res.errors.slice(0, 30).map(function(e){ return esc(e); }).join("<br>")+(res.errors.length>30?'<br>…':'')+'</div>' : '')+
+      (ok ? '<p style="margin:0 0 10px;color:var(--muted);font-size:.88rem">This <b>replaces</b> the current dropdown lists. Defects already entered are not changed.</p>' : '<p class="error">There is nothing valid in this file.</p>')+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button>'+(ok ? '<button class="btn" id="mOk" type="button">Replace lists</button>' : '')+'</div>');
+    $("mNo").onclick = closeModal;
+    if(ok) $("mOk").onclick = function(){
+      defectsData.equip = res.equip; defectsData.shut = res.shut;
+      closeModal(); render(); try{ toast("Saving lists…"); }catch(x){}
+      defectSend({ action: "defectLists", equip: res.equip, shut: res.shut });
+    };
+  }
+  function defectListUpload(file, err){
+    loadXLSX(function(){
+      var rd = new FileReader();
+      rd.onload = function(){ try{ var res = parseDefectWorkbook(rd.result); err(""); defectListPreview(res); } catch(e){ err(e && e.message ? e.message : "Could not read that file."); } };
+      rd.onerror = function(){ err("Could not read that file."); };
+      rd.readAsArrayBuffer(file);
+    }, function(){ err("Could not load the Excel library. Check your internet connection and try again."); });
+  }
+
   var GP_REASONS = ["Repair","Diversion","Scrap","Oil sample","Other"];
   var GP_MODES = ["Company vehicle","Truck","Courier","By hand"];
   var GP_UNITS = ["Nos","Set","Kg","Litre","Metre","Box","Pair","Drum","Roll","Lot"];
@@ -4520,6 +4836,7 @@
     if(miscView === "export"){ renderMiscExport(); return; }
     if(miscView === "vendors" && isMaster()){ renderVendors(); return; }
     if(miscView === "permits"){ renderPermits(); return; }
+    if(miscView === "defects"){ renderDefects(); return; }
     if(miscView === "vsearch"){ renderVendorSearch(); return; }
     if(miscView === "backup" && isMaster()){ renderBackup(); return; }
     if(miscView === "gp"){ renderGateList(); return; }
@@ -4535,6 +4852,8 @@
       { go:"dio",    ic:"works",  cls:"",     t:"Dispatch / Inward entry", s: (nSent || nHeld) ? nSent+" sent, awaiting return · "+nHeld+" held from others" : "Track returnable assets and material received" }
     ];
     if(SYNC) cards.push({ go:"permits", ic:"assign", cls:"", t:"Permits & Orders", s: permitsData.loaded ? (permitsData.permits.filter(permitActive).length ? permitsData.permits.filter(permitActive).length+" active today · " : "")+permitsData.permits.length+" permit"+(permitsData.permits.length===1?"":"s") : "Work permits, shutdown details, share on WhatsApp" });
+    if(SYNC && !isSupport()){ var dfOpen = defectsData.items.filter(function(x){ return x.status !== "Closed"; }).length;
+      cards.push({ go:"defects", ic:"works", cls:"", t:"Defect register", s: defectsData.loaded ? dfOpen+" open \u00b7 "+defectsData.items.length+" defect"+(defectsData.items.length===1?"":"s") : "Log equipment defects and track them to closure" }); }
     if(SYNC) cards.push({ go:"vsearch", ic:"works", cls:"", t:"Vendor search", s: claimsData.loaded ? "Search "+claimsData.vendors.length+" vendor"+(claimsData.vendors.length===1?"":"s")+" by name, GST no., phone, city" : "Find a vendor by name, GST no., phone, city" });
     if(isMaster() && SYNC) cards.push({ go:"backup", ic:"works", cls:"", t:"Backup", s:"Export all data as Excel and JSON" });
     if(isMaster() && SYNC) cards.push({ go:"vendors", ic:"works", cls:"", t:"Vendor list", s: claimsData.loaded ? claimsData.vendors.length+" vendor"+(claimsData.vendors.length===1?"":"s")+" · used in employee Claims" : "Vendors employees pick in their Claims" });
@@ -4542,7 +4861,7 @@
       return '<button type="button" class="hcard '+c.cls+'" data-miv="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
     }).join("")+'</div>';
     Array.prototype.forEach.call(p.querySelectorAll("[data-miv]"),function(b){
-      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); if(miscView === "vendors" || miscView === "vsearch") claimFetch(); if(miscView === "permits") permitFetch(); };
+      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); if(miscView === "vendors" || miscView === "vsearch") claimFetch(); if(miscView === "permits") permitFetch(); if(miscView === "defects") defectFetch(); };
     });
   }
   function gpMine(g){ return isMaster() || (session && g.createdBy === session.id); }
