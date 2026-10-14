@@ -484,7 +484,7 @@
       <span class="sync" id="onlinePill" role="button" tabindex="0" style="cursor:default"></span>
       <span class="sync" id="syncPill" role="button" tabindex="0" title="Click to refresh now"></span>
       <span class="who" id="whoLabel"></span>
-      <span class="sess" id="sessLabel" title="Time left in this login session. It resets whenever you use the app; 6 hours of inactivity logs you out."></span>
+      <span class="sess" id="sessLabel" title="Date and time of your previous login on this device. You stay signed in for 7 days."></span>
       <button class="btn small hidden" id="noticeBtn" type="button">Set notice</button>
       <button class="btn small hidden" id="manageUsersBtn" type="button">Manage logins</button>
       <button class="btn small" id="logoutBtn" type="button">Log out</button>
@@ -509,7 +509,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.32";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.36";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -635,6 +635,7 @@
   var DESIGS = ["Apprentice/Intern","TT","DT","ET","Technician","Junior Engineer","Engineer","Assistant Manager","Deputy Manager","Manager","Chief Manager","DGM","Sr. DGM","GM","Sr. GM","CGM"];
   var ROLES = ["HR","SAFETY","IT","GUESTHOUSE","STORE","SS O&M","TLM","COURT CASES","ESG","HINDI","C&M","INCHARGE","MRT","AUXILIARY SYSTEMS","COLONY MAINTENANCE","OTHER (SPECIFY)"];
   var ESEP = "\u00A7";
+  function cleanNm(s){ return String(s == null ? "" : s).split(ESEP)[0].trim(); }     // "Name§Designation§Roles" -> "Name" (names are shown / saved without designation and roles)
   function parseEmp(raw){
     var p = String(raw == null ? "" : raw).split(ESEP);
     return { name: (p[0]||"").trim(), desig: (p[1]||"").trim(),
@@ -882,13 +883,23 @@
   function xferDecline(x){ x.status = "declined"; x.resolved = Date.now(); commit([{ t: "xfer.decline", id: x.id }]); render(); }
   function xferCancel(x){ state.xfers = state.xfers.filter(function(r){ return r.id !== x.id; }); commit([{ t: "xfer.cancel", id: x.id }]); render(); }
 
-  /* ---------- Login session: 6 hours, renewed by activity, shown in the header ----------
+  /* ---------- Login session: 7 days, renewed by activity, silent sign-out; header shows the last login time ----------
      The login is kept in localStorage (falls back to sessionStorage) so a page refresh,
      a reopened tab or a restarted installed app does not sign the person out. */
   function authStoreSet(v){ var t = JSON.stringify(v); try{ localStorage.setItem("kss_auth", t); }catch(e){} try{ sessionStorage.setItem("kss_auth", t); }catch(e){} }
   function authStoreGet(){ var t = null; try{ t = localStorage.getItem("kss_auth"); }catch(e){} if(!t){ try{ t = sessionStorage.getItem("kss_auth"); }catch(e){} } try{ return JSON.parse(t || "null"); }catch(e){ return null; } }
   function authStoreClear(){ try{ localStorage.removeItem("kss_auth"); }catch(e){} try{ sessionStorage.removeItem("kss_auth"); }catch(e){} }
-  var SESSION_MIN = 360, SESSION_LABEL = "6 hours", SESSION_MS = SESSION_MIN * 60000, sessExp = 0, sessTick = null, sessLastBump = 0;
+  var SESSION_MIN = 7 * 24 * 60, SESSION_LABEL = "7 days", SESSION_MS = SESSION_MIN * 60000, sessExp = 0, sessTick = null, sessLastBump = 0;
+  var lastLoginTxt = "";
+  function llKey(id){ return "kss_lastlogin_" + id; }
+  function llNote(id, fresh){            // fresh = a real sign-in (not a page refresh): remember this login, show the one before it
+    var ll = null; try{ ll = JSON.parse(localStorage.getItem(llKey(id)) || "null"); }catch(e){}
+    ll = ll || {};
+    if(fresh){ ll = { prev: ll.cur || 0, cur: Date.now() }; }
+    else if(!ll.cur){ ll = { prev: 0, cur: Date.now() }; }
+    try{ localStorage.setItem(llKey(id), JSON.stringify(ll)); }catch(e){}
+    lastLoginTxt = ll.prev ? "Last login: " + fmtStamp(ll.prev) : "First login on this device";
+  }
   function sessSave(){
     if(auth) authStoreSet({ role: auth.role, id: auth.id, pass: auth.pass, exp: sessExp });
   }
@@ -898,10 +909,9 @@
     var left = sessExp - Date.now();
     if(left <= 0){
       if(SYNC && (flushing || queue.length)){ sessExp = Date.now() + 60000; left = 60000; }   // never drop unsaved changes
-      else { doLogout("Your session expired after "+SESSION_LABEL+" of inactivity. Please sign in again."); return; }
+      else { doLogout(); return; }                                                            // silent sign-out after 7 days
     }
-    var sec = Math.ceil(left/1000), hh = Math.floor(sec/3600), m = Math.floor((sec % 3600)/60), r = sec % 60;
-    if(el){ el.textContent = "Session "+hh+":"+String(m).padStart(2,"0")+":"+String(r).padStart(2,"0"); el.classList.toggle("warn", left < 5*60000); }
+    if(el){ el.textContent = lastLoginTxt; el.classList.remove("warn"); }
   }
   function sessBump(){
     if(!session) return;
@@ -915,7 +925,7 @@
   function sessStart(){
     sessLastBump = Date.now(); sessExp = sessLastBump + SESSION_MS;
     if(SYNC) sessSave();
-    clearInterval(sessTick); sessTick = setInterval(sessPaint, 1000); sessPaint();
+    clearInterval(sessTick); sessTick = setInterval(sessPaint, 30000); sessPaint();
   }
   ["click","keydown","touchstart","mousemove","scroll"].forEach(function(ev){
     document.addEventListener(ev, sessBump, { passive: true, capture: true });
@@ -937,8 +947,9 @@
   $("roleMaster").onclick = function(){ setRole("master"); };
   $("modeNote").textContent = SYNC ? "" : "Demo mode: data stays on this device. Add the Web App URL in the file to share live data with the team.";
 
-  function enterApp(role,id,profile){
+  function enterApp(role,id,profile,fresh){
     profile = profile || {};
+    llNote(id, !!fresh);
     var linked = state.employees.find(function(e){ return e.userId === id; });
     session = { role: role, id: id, displayName: profile.displayName || (linked ? linked.name : id), employeeId: profile.employeeId || (linked ? linked.id : ''), contractId: profile.contractId || '' };
     activeTab = "home"; empView = "work"; supView = "home"; amcSub = "staff";
@@ -966,7 +977,7 @@
       if(loginRole === "master") ok = false;   // no master password is stored in this page; Master login is checked only on the server
       else ok = state.users.some(function(u){ return u.id === id && u.pass === pw && (u.role||"user") === loginRole; });
       if(!ok){ $("loginErr").textContent = "Wrong ID or password. Check and try again."; return; }
-      enterApp(loginRole, id); return;
+      enterApp(loginRole, id, null, true); return;
     }
     var btn = $("loginBtn"); btn.disabled = true; btn.textContent = "Signing in…";
     $("loginErr").textContent = "";
@@ -974,7 +985,7 @@
     api({ action: "login" }).then(function(r){
       authStoreSet(auth);
       applyData(r.json.data); lastText = r.text; lastTok = r.json.tok || ""; lastFullAt = Date.now();
-      enterApp(r.json.role || auth.role, auth.id, r.json.user);
+      enterApp(r.json.role || auth.role, auth.id, r.json.user, true);
       if(r.json.ver && r.json.ver !== PAGE_VER && auth.role === "master"){
         setTimeout(function(){ try{ alert("VERSION MISMATCH\n\nThis page is " + PAGE_VER + " but the Google Apps Script is " + r.json.ver + ".\n\nIf the server is older: paste the latest Code.gs and Deploy > Manage deployments > New version.\nIf the page is older: hard-refresh (Ctrl+F5) or re-upload the HTML to GitHub."); }catch(e){} }, 400);
       }
@@ -1069,8 +1080,7 @@
     try{
       var saved = authStoreGet();
       if(saved && saved.exp && saved.exp < Date.now()){
-        authStoreClear(); saved = null;
-        $("loginErr").textContent = "Your session expired after "+SESSION_LABEL+" of inactivity. Please sign in again.";
+        authStoreClear(); saved = null;                  // expired: show the normal sign-in page, no message
       }
       if(saved){
         var restoreTry = 0;
@@ -1249,7 +1259,7 @@
         }).join("")+'</tbody></table></div>';
     }
     h += amcHistoryHTML();
-    h += '<h3 class="sec" id="officeCal">Office calendar</h3><p style="margin:-4px 0 12px;color:var(--muted);font-size:.9rem">Office events set by Master. Click a date to see details.</p>'+calHTML("office");
+    h += '<h3 class="sec" id="officeCal">Office calendar</h3><p style="margin:-4px 0 12px;color:var(--muted);font-size:.9rem">Click a date to see details.</p>'+calHTML("office");
     p.innerHTML = h;
     $("goWork").onclick = function(){ supView = "work"; renderPanel(); };
     $("goWage").onclick = function(){ supView = "wage"; renderPanel(); };
@@ -1428,7 +1438,7 @@
       if(best) cur[k] = best;
     });
     var h = '<div class="panel-head"><h3>Minimum wage rates (per day)</h3>'+(master ? '<button class="btn small" id="wgAdd" type="button">+ Add / update rate</button>' : '')+'</div>'+
-      '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">'+(master ? 'Only Master can update these rates. All users can view them.' : 'View only. These rates are updated by Master.')+'</p>';
+      '';
     h += '<div style="overflow-x:auto"><table><thead><tr><th>Skill category</th><th>Current rate / day</th><th>Effective from</th><th>Reference</th></tr></thead><tbody>'+
       AMC_SKILLS.map(function(k){
         var c = cur[k];
@@ -1443,7 +1453,7 @@
           var isCur = cur[r.skill] && cur[r.skill].id === r.id;
           var st = isCur ? '<span class="wcur">CURRENT</span>' : r.effective > t ? '<span class="wup">UPCOMING</span>' : '<span class="wold">Earlier</span>';
           return '<tr><td>'+esc(r.skill)+'</td><td>'+fmtRate(r.rate)+'</td><td>'+esc(fmtDate(r.effective))+'</td><td>'+st+'</td><td>'+esc(r.ref||"–")+'</td>'+
-            '<td>'+esc(r.updatedBy||"–")+(r.updated?'<span class="moved">'+esc(fmtStamp(r.updated))+'</span>':'')+'</td>'+
+            '<td>'+esc(cleanNm(r.updatedBy||"–"))+(r.updated?'<span class="moved">'+esc(fmtStamp(r.updated))+'</span>':'')+'</td>'+
             (master ? '<td class="act" style="width:auto"><button class="btn ghost small" data-wged="'+esc(r.id)+'" type="button">Edit</button> <button class="btn danger small" data-wgdel="'+esc(r.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
         }).join("")+'</tbody></table></div>';
     }
@@ -1496,7 +1506,7 @@
   function rulesHTML(master){
     var r = wrGet();
     var h = '<div class="panel-head"><h3>Wage rules &ndash; Bonus, PF and ESI</h3></div>'+
-      '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">'+(master ? 'Set the rules used for the wage slip of AMC staff. The percentage is applied on the monthly wages earned, limited to the maximum amount given. Bonus is added to the wages; PF and ESI are deducted.' : 'View only. These rules are set by Master and are used in the wage slip of AMC staff.')+'</p>';
+      (master ? '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">'+'Set the rules used for the wage slip of AMC staff. The percentage is applied on the monthly wages earned, limited to the maximum amount given. Bonus is added to the wages; PF and ESI are deducted.'+'</p>' : '');
     ["bonus","pf","esi"].forEach(function(k){
       var x = r[k], nm = WR_NAME[k];
       h += '<div class="assign-form" style="margin-bottom:12px"><h4>'+nm+'</h4><div class="agrid">'+
@@ -1635,7 +1645,7 @@
     if(!cts.length) return '<div class="empty">No contracts yet.</div>';
     if(!cts.some(function(c){ return c.id === mdContract; })) mdContract = cts[0].id;
     var h = '<div class="panel-head"><h3>Mandays balance</h3></div>'+
-      '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">'+(master ? 'Enter the initial mandays of each contract and skill category. Used mandays and the balance are calculated automatically from the daily attendance.' : 'View only. Allotted mandays are set by Master; the balance reduces automatically as attendance is updated.')+'</p>';
+      (master ? '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">'+'Enter the initial mandays of each contract and skill category. Used mandays and the balance are calculated automatically from the daily attendance.'+'</p>' : '');
     if(cts.length > 1) h += '<div class="filters"><select id="mdCt" aria-label="Contract">'+cts.map(function(c){ return '<option value="'+esc(c.id)+'"'+(c.id===mdContract?' selected':'')+'>'+esc(c.name)+'</option>'; }).join("")+'</select></div>';
     else h += '<p style="margin:0 0 10px"><b>Contract:</b> '+esc(cts[0].name)+(cts[0].agency ? ' &middot; '+esc(cts[0].agency) : '')+'</p>';
     h += mandaysTable(mdContract, master);
@@ -1679,7 +1689,7 @@
     var multi = master && (state.contracts||[]).length > 1;
     var h = '<div class="panel-head"><h3>Overtime &amp; early leave &ndash; AMC labour</h3></div>'+
       '<p style="margin:-6px 0 12px;color:var(--muted);font-size:.9rem">Hours are recorded when the AMC login marks a worker\u2019s work as COMPLETED (late = extra hours, early = less hours). '+
-      (master ? 'Use \u201cAdjust\u201d to deduct hours when a worker takes leave against his accumulated hours.' : 'View only. Master can adjust the hours.')+'</p>';
+      (master ? 'Use \u201cAdjust\u201d to deduct hours when a worker takes leave against his accumulated hours.' : '')+'</p>';
     if(multi) h += '<div class="filters"><select id="amcFilter" aria-label="Filter by contract"><option value="all">All contracts</option>'+
       state.contracts.map(function(c){ return '<option value="'+esc(c.id)+'"'+(amcFilter===c.id?' selected':'')+'>'+esc(c.name)+'</option>'; }).join("")+'</select></div>';
     if(!staff.length) return h+'<div class="empty">No AMC staff.</div>';
@@ -1980,7 +1990,6 @@
         '<div class="field"><label for="evNote">Note (optional)</label><input type="text" id="evNote" maxlength="300" value="'+esc(ed?(ed.note||""):"")+'"></div>'+
         '<p class="error" id="evErr"></p></div>';
     } else {
-      h += '<p style="color:var(--muted);font-size:.9rem">Only Master can change office events.</p>';
     }
     h += '<div class="row wrap"><button class="btn ghost" id="mNo" type="button">Close</button>'+
          (scope!=="office"?'<button class="btn ghost" id="evWork" type="button">Open worklist</button>':'')+
@@ -2074,7 +2083,7 @@
     /* office calendar */
     h += '<h3 class="sec" id="officeCal">Office calendar</h3>'+
          '<p style="margin:-4px 0 12px;color:var(--muted);font-size:.9rem">'+
-         (isMaster() ? 'Click a date to add or change office events.' : 'Office events set by Master. Click a date to see details.')+'</p>';
+         (isMaster() ? 'Click a date to add or change office events.' : 'Click a date to see details.')+'</p>';
     h += calHTML("office");
     p.innerHTML = h;
 
@@ -2381,7 +2390,7 @@
 
     var defDue = (c.y===td.getFullYear() && c.m===td.getMonth()) ? t : mk+"-01";
     if(isMaster()) h += ampUploadCard(fyStartOf(c));
-    h += !isMaster() ? '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add new AMP plans. You can update the status of existing plans using the Status column.</p>' : '<div class="assign-form"><h4>Add AMP plan</h4><div class="agrid">'+
+    h += !isMaster() ? '' : '<div class="assign-form"><h4>Add AMP plan</h4><div class="agrid">'+
       '<div class="field"><label for="mpPlan">Maintenance plan no.</label><input type="number" id="mpPlan" min="1" step="1" inputmode="numeric" placeholder="e.g. 12"></div>'+
       '<div class="field"><label for="mpDue">Due date</label><input type="date" id="mpDue" value="'+defDue+'"></div>'+
       '<div class="field"><label for="mpComp">Completion date</label><input type="date" id="mpComp"></div>'+
@@ -2792,7 +2801,6 @@
     if(canMaintUpdate()) return;
     var p = $("panel"); if(!p) return;
     Array.prototype.forEach.call(p.querySelectorAll("[data-astat],[data-amtr],[data-scomp],[data-odone],[data-apst],[data-aplk],[data-cdone],[data-fxr],[data-fxt],[data-rlyd]"),function(el){ el.disabled = true; el.title = "Only the employees selected by Master can update the status"; });
-    if(maintView !== "menu" && p.firstElementChild && !$("mLockNote")) p.firstElementChild.insertAdjacentHTML("afterend", '<p id="mLockNote" style="margin:0 0 12px;padding:10px 12px;background:#fff6e0;border:1px solid #f0d58a;border-radius:6px;color:#6b4e00;font-size:.9rem">You can view this page, but only the employees selected by Master can update the status or dates.</p>');
   }
   function renderMaintPerm(){
     var p = $("panel"), m = maintPermGet();
@@ -2854,7 +2862,7 @@
     var h = BACKBTN+'<div class="panel-head"><h3>Testing Instrument Calibration</h3></div>';
     if(l.length) h += '<div class="audcard"><div class="stats"><span>Instruments <b>'+l.length+'</b></span><span>Overdue <b style="color:#b3261e">'+cnt.od+'</b></span><span>Due in 30 days <b style="color:#8a5a00">'+cnt.ds+'</b></span><span>OK <b style="color:#1a7f37">'+cnt.ok+'</b></span><span>Not recorded <b>'+cnt.nr+'</b></span></div></div>';
     if(master) h += '<div class="assign-form"><h4>Add instrument</h4><div class="agrid">'+calibFields()+'</div><p class="error" id="ciErr"></p><button class="btn" id="ciAdd" type="button">Add instrument</button></div>';
-    else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add instruments. The last calibration date can be updated by the employees Master has selected; next due date updates automatically.</p>';
+    else h += '';
     if(!l.length) h += '<div class="empty">No instruments added yet.'+(master ? ' Add the first one above.' : '')+'</div>';
     else {
       h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Instrument name</th><th>Last calibration date</th><th>Frequency</th><th>Next due date</th><th>Status</th><th>Remarks</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
@@ -2862,7 +2870,7 @@
         var st = calibState(c);
         h += '<tr><td data-label="#">'+(i+1)+'</td><td data-label="Instrument name"><b>'+esc(c.name)+'</b></td>'+
           '<td data-label="Last calibration date"><input type="date" data-cdone="'+esc(c.id)+'" max="'+today()+'" value="'+esc(c.lastDone||"")+'" aria-label="Last calibration date">'+
-            (c.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(c.updatedBy)+(c.updated ? ', '+esc(fmtStamp(c.updated)) : '')+'</small>' : '')+'</td>'+
+            (c.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(cleanNm(c.updatedBy))+(c.updated ? ', '+esc(fmtStamp(c.updated)) : '')+'</small>' : '')+'</td>'+
           '<td data-label="Frequency">'+esc(calibFreqLabel(c.freq))+'</td>'+
           '<td data-label="Next due date">'+(st.next ? '<b>'+esc(fmtDate(st.next))+'</b>' : '&ndash;')+'</td><td data-label="Status"><span class="oilb '+st.k+'">'+esc(st.label)+'</span></td>'+
           '<td data-label="Remarks">'+(c.remarks ? esc(c.remarks) : '&ndash;')+'</td>'+
@@ -2943,13 +2951,13 @@
     var h = BACKBTN+'<div class="panel-head"><h3>Fire Extinguishers</h3></div>';
     if(l.length) h += '<div class="audcard"><div class="stats"><span>Extinguishers <b>'+l.length+'</b></span><span>Overdue <b style="color:#b3261e">'+c.od+'</b></span><span>Due in 30 days <b style="color:#8a5a00">'+c.ds+'</b></span><span>OK <b style="color:#1a7f37">'+c.ok+'</b></span><span>Not recorded <b>'+c.nr+'</b></span></div><small style="color:var(--muted)">Counts include both refill and pressure test dates.</small></div>';
     if(master) h += '<div class="assign-form"><h4>Add fire extinguisher</h4><div class="agrid">'+fxFields()+'</div><p class="error" id="fxErr"></p><button class="btn" id="fxAdd" type="button">Add fire extinguisher</button></div>';
-    else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add or edit fire extinguishers. The last refill and last pressure test dates can be updated by the employees Master has selected; next due dates and due-in days update automatically.</p>';
+    else h += '';
     if(!l.length) h += '<div class="empty">No fire extinguishers added yet.'+(master ? ' Add the first one above.' : '')+'</div>';
     else {
       h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>Sl. No.</th><th>Description</th><th>Type</th><th>Weight (kg)</th><th>Last refill</th><th>Refill frequency</th><th>Next refill date</th><th>Refill due in</th>'+
         '<th>Last pressure test</th><th>Test frequency</th><th>Next pressure test due</th><th>Test due in</th>'+(master?'<th></th>':'')+'</tr></thead><tbody>';
       l.forEach(function(x,i){
-        var r = fxDue(x.lastRefill, x.refillFreq), t = fxDue(x.lastTest, x.testFreq), by = x.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(x.updatedBy)+(x.updated ? ', '+esc(fmtStamp(x.updated)) : '')+'</small>' : '';
+        var r = fxDue(x.lastRefill, x.refillFreq), t = fxDue(x.lastTest, x.testFreq), by = x.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(cleanNm(x.updatedBy))+(x.updated ? ', '+esc(fmtStamp(x.updated)) : '')+'</small>' : '';
         h += '<tr><td data-label="Sl. No.">'+(i+1)+'</td><td data-label="Description"><b>'+esc(x.description)+'</b></td><td data-label="Type">'+esc(x.type)+'</td><td data-label="Weight (kg)">'+esc(x.weight)+'</td>'+
           '<td data-label="Last refill"><input type="date" data-fxr="'+esc(x.id)+'" max="'+today()+'" value="'+esc(x.lastRefill||"")+'" aria-label="Last refill date"></td>'+
           '<td data-label="Refill frequency">'+esc(calibFreqLabel(x.refillFreq))+'</td><td data-label="Next refill date">'+(r.next ? '<b>'+esc(fmtDate(r.next))+'</b>' : '&ndash;')+'</td><td data-label="Refill due in">'+fxBadge(r)+'</td>'+
@@ -3023,7 +3031,7 @@
     var h = BACKBTN+'<div class="panel-head"><h3>Relay Test Due</h3><div class="stats"><span>Bays <b>'+bays.length+'</b></span></div></div>';
     if(bays.length) h += '<div class="audcard">'+rlyStatsHTML(rlyCount(state.rly))+'</div>';
     if(master) h += '<div class="assign-form"><h4>Add bay / equipment / line</h4><div class="agrid"><div class="field span2"><label for="rbName">Name</label><input type="text" id="rbName" maxlength="100" placeholder="e.g. 400 kV KOZHIKODE-ARECODE LINE 1"></div></div><p class="error" id="rbErr"></p><button class="btn" id="rbAdd" type="button">Add bay</button></div>';
-    else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add bays and relays. Open a bay to see its relays; the last test date can be updated by the employees Master has selected.</p>';
+    else h += '';
     if(!bays.length) h += '<div class="empty">No bays added yet.</div>';
     else bays.forEach(function(b){
       h += '<div class="audcard"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h4>'+esc(b.name)+'</h4><div><button class="btn small" data-rbopen="'+esc(b.id)+'" type="button">Open</button>'+
@@ -3061,7 +3069,7 @@
         var st = fxDue(x.lastTest, x.freq);
         h += '<tr><td data-label="#">'+(i+1)+'</td><td data-label="Type of relay"><b>'+esc(x.type)+'</b></td>'+
           '<td data-label="Last test date"><input type="date" data-rlyd="'+esc(x.id)+'" max="'+today()+'" value="'+esc(x.lastTest||"")+'" aria-label="Last test date">'+
-            (x.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(x.updatedBy)+(x.updated ? ', '+esc(fmtStamp(x.updated)) : '')+'</small>' : '')+'</td>'+
+            (x.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(cleanNm(x.updatedBy))+(x.updated ? ', '+esc(fmtStamp(x.updated)) : '')+'</small>' : '')+'</td>'+
           '<td data-label="Frequency">'+esc(calibFreqLabel(x.freq))+'</td><td data-label="Next due date">'+(st.next ? '<b>'+esc(fmtDate(st.next))+'</b>' : '&ndash;')+'</td><td data-label="Balance days">'+fxBadge(st)+'</td>'+
           (master ? '<td class="act"><button class="btn ghost small" data-rled="'+esc(x.id)+'" type="button">Edit</button> <button class="btn danger small" data-rldel="'+esc(x.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
       });
@@ -3193,7 +3201,7 @@
     if(eq.length) h += '<div class="audcard">'+oilSummaryHTML(oilCount(state.oilTests))+'<div style="margin-top:8px"><button class="btn small" id="oilExpAll" type="button">Export schedule (PDF)</button></div></div>';
     if(master) h += '<div class="assign-form"><h4>Add equipment</h4><div class="agrid"><div class="field span2"><label for="oilName">Equipment name</label>'+
       '<input type="text" id="oilName" maxlength="100" placeholder="e.g. ICT-1"></div></div><p class="error" id="oilErr"></p><button class="btn" id="oilAdd" type="button">Add equipment</button></div>';
-    else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add equipment and tests. Open an equipment to update the date a test was done.</p>';
+    else h += '';
     if(!eq.length) h += '<div class="empty">No equipment added yet.</div>';
     else eq.slice().sort(function(a,b){ return (a.created||0)-(b.created||0); }).forEach(function(e){
       h += '<div class="audcard"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h4>'+esc(e.name)+'</h4><div>'+
@@ -3257,7 +3265,7 @@
         var s = oilState(t);
         h += '<tr><td data-label="#">'+(i+1)+'</td><td data-label="Test type"><b>'+esc(t.test)+'</b></td>'+
           '<td data-label="Last done"><input type="date" data-odone="'+esc(t.id)+'" max="'+today()+'" value="'+esc(t.lastDone||"")+'" aria-label="Last done date">'+
-            (t.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(t.updatedBy)+(t.updated ? ', '+esc(fmtStamp(t.updated)) : '')+'</small>' : '')+'</td>'+
+            (t.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(cleanNm(t.updatedBy))+(t.updated ? ', '+esc(fmtStamp(t.updated)) : '')+'</small>' : '')+'</td>'+
           '<td data-label="Frequency">'+esc(oilFreq(t))+'</td>'+
           '<td data-label="Next due">'+(s.next ? '<b>'+esc(fmtDate(s.next))+'</b>' : '–')+'</td><td data-label="Status">'+oilBadge(t)+'</td>'+
           (master ? '<td class="act"><button class="btn ghost small" data-oted="'+esc(t.id)+'" type="button">Edit</button> <button class="btn danger small" data-otdel="'+esc(t.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
@@ -3394,7 +3402,7 @@
             return '<tr><td>'+(i+1)+'</td><td class="l" style="white-space:pre-wrap">'+esc(x.desc)+'</td><td>'+esc(x.dept)+'</td>'+
               '<td style="color:'+(STC[x.status]||"#000")+';font-weight:700">'+esc(AUD_ST[x.status] || x.status)+'</td>'+
               '<td class="l lk">'+(okLink(x.link) ? '<a href="'+esc(x.link)+'">'+esc(x.link)+'</a>' : '&ndash;')+'</td>'+
-              '<td><small>'+(x.updatedBy ? esc(x.updatedBy)+'<br>' : '')+(x.updated ? esc(fmtStamp(x.updated)) : '')+'</small></td></tr>';
+              '<td><small>'+(x.updatedBy ? esc(cleanNm(x.updatedBy))+'<br>' : '')+(x.updated ? esc(fmtStamp(x.updated)) : '')+'</small></td></tr>';
           }).join("")+'</tbody></table></div>';
       }
     });
@@ -3413,7 +3421,7 @@
     if(master) h += '<div class="assign-form"><h4>Add audit</h4><div class="agrid"><div class="field span2"><label for="audName">Audit name</label>'+
       '<input type="text" id="audName" maxlength="200" placeholder="e.g. Internal Safety Audit 2026"></div></div>'+
       '<p class="error" id="audErr"></p><button class="btn" id="audAdd" type="button">Add audit</button></div>';
-    else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add audits and audit points. Open an audit to update the status or document link of any point.</p>';
+    else h += '';
     var shown = audits.filter(function(a){ return audMatch(a, audLF); });
     if(audits.length) h += audListBar(shown.length, audits.length);
     if(!audits.length) h += '<div class="empty">No audits added yet.</div>';
@@ -3472,7 +3480,7 @@
           '<td data-label="Description"><span class="wt" style="white-space:pre-wrap">'+esc(x.desc)+'</span></td>'+
           '<td data-label="Department">'+esc(x.dept)+'</td>'+
           '<td data-label="Status"><select class="stsel" data-apst="'+esc(x.id)+'" aria-label="Status">'+stOpts(AUD_ST, x.status)+'</select>'+
-            (x.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(x.updatedBy)+(x.updated ? ', '+esc(fmtStamp(x.updated)) : '')+'</small>' : '')+'</td>'+
+            (x.updatedBy ? '<small style="display:block;color:var(--muted)">'+esc(cleanNm(x.updatedBy))+(x.updated ? ', '+esc(fmtStamp(x.updated)) : '')+'</small>' : '')+'</td>'+
           '<td data-label="Document">'+(okLink(x.link) ? '<a class="doclink" href="'+esc(x.link)+'" target="_blank" rel="noopener noreferrer">Open document</a><br>' : '<span style="color:var(--muted)">No document</span><br>')+
             '<button class="btn ghost small" data-aplk="'+esc(x.id)+'" type="button">'+(x.link ? 'Change link' : 'Add link')+'</button></td>'+
           (master ? '<td class="act"><button class="btn ghost small" data-aped="'+esc(x.id)+'" type="button">Edit</button> <button class="btn danger small" data-apdel="'+esc(x.id)+'" type="button">Delete</button></td>' : '')+'</tr>';
@@ -3541,7 +3549,7 @@
         '<div class="field"><label for="scComp">Last completion date (optional)</label><input type="date" id="scComp" max="'+t+'"></div>'+
         '<div class="field span2"><label for="scDesc">Description</label><input type="text" id="scDesc" maxlength="300" placeholder="Activity / maintenance description"></div></div>'+
         '<p class="error" id="scErr"></p><button class="btn" id="scAdd" type="button">Add</button></div>';
-    } else h += '<p style="margin:0 0 14px;padding:10px 12px;background:#f5f7f9;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-size:.9rem">Only Master can add or edit entries. You can update the completion date; next due date and balance days update automatically.</p>';
+    } else h += '';
     if(!list.length) h += '<div class="empty">Nothing added yet.</div>';
     else {
       var groups = {}, order = [];
@@ -3831,8 +3839,9 @@
       })();
     }); });
   }
-  function vendorOptions(cur){
-    return '<option value="">Select vendor</option>' + claimsData.vendors.map(function(v){ return '<option value="'+esc(v.id)+'"'+(v.id === cur ? ' selected' : '')+'>'+esc(v.name)+'</option>'; }).join("") +
+  function vendorMatch(v, q){ q = String(q || "").trim().toLowerCase(); return !q || (v.name+" "+v.gst+" "+v.business+" "+v.phone+" "+(v.city || "")).toLowerCase().indexOf(q) >= 0; }
+  function vendorOptions(cur, q){
+    return '<option value="">Select vendor</option>' + claimsData.vendors.filter(function(v){ return v.id === cur || vendorMatch(v, q); }).map(function(v){ return '<option value="'+esc(v.id)+'"'+(v.id === cur ? ' selected' : '')+'>'+esc(v.name)+'</option>'; }).join("") +
       '<option value="__new__">+ Vendor not available (add new vendor)</option>';
   }
   /* fetch the newest vendor list (Master may have added vendors after this screen was loaded) and update an open claim form without touching what was typed */
@@ -3842,7 +3851,7 @@
       if(claimBusy) return;
       claimsData.vendors = r.json.vendors || claimsData.vendors; claimsData.loaded = true;
       var sel = $("clVen"); if(!sel) return;
-      var cur = sel.value; sel.innerHTML = vendorOptions(cur); sel.value = cur;
+      var cur = sel.value; sel.innerHTML = vendorOptions(cur, ($("clVenQ") || {}).value); sel.value = cur;
       var info = $("clVenInfo"); if(info) info.innerHTML = claimsData.vendors.length ? vendorInfo(vendorById(sel.value)) : "No vendors yet. Choose &lsquo;Vendor not available&rsquo; to add one.";
     }).catch(function(){});
   }
@@ -3869,7 +3878,7 @@
       var pid = c.payerId || me;
       if(pid === me){ s.mine += a; s.nMine++; return; }
       s.others += a; s.nOthers++;
-      var w = map[pid]; if(!w){ var pe = emp(pid); w = map[pid] = { id: pid, name: c.payerName || (pe ? pe.name : "Unknown"), amt:0, n:0, na:0, ap:0 }; s.who.push(w); }
+      var w = map[pid]; if(!w){ var pe = emp(pid); w = map[pid] = { id: pid, name: cleanNm(c.payerName) || (pe ? cleanNm(pe.name) : "Unknown"), amt:0, n:0, na:0, ap:0 }; s.who.push(w); }
       w.amt += a; w.n++; if(applied) w.ap += a; else w.na += a;
     });
     s.who.sort(function(a, b){ return b.amt - a.amt || a.name.localeCompare(b.name); });
@@ -3899,7 +3908,7 @@
       var rows = [["Sl. no.","Date","Claim type","Claim name","Vendor","Material description","Qty","Invoice no.","Invoice date","Amount (Rs)","Payer","Status","Remarks"]];
       L.forEach(function(c){
         rows.push([c.serial, fmtDate(c.date), c.type, c.typeName || "", c.vendorName, c.desc, c.qty, c.invNo || "", c.invDate ? fmtDate(c.invDate) : "",
-                   c.amount === "" || c.amount == null ? "" : Number(c.amount), c.payerName || (e ? e.name : ""), c.status, c.remarks || ""]);
+                   c.amount === "" || c.amount == null ? "" : Number(c.amount), cleanNm(c.payerName) || (e ? e.name : ""), c.status, c.remarks || ""]);
       });
       var tot = r2(L.reduce(function(m, c){ return m + (Number(c.amount) || 0); }, 0));
       rows.push(["","","","","","","","","TOTAL", { t:"n", v: tot, f: "SUM(J2:J"+(L.length + 1)+")" }, "","",""]);
@@ -3948,7 +3957,7 @@
   function claimFilterBar(L, shown){
     var n = clPanelCount(), types = CLAIM_TYPES.filter(function(t){ return L.some(function(c){ return c.type === t; }); }), pay = [], ven = [];
     L.forEach(function(c){
-      var pid = c.payerId || myEmpId(); if(!pay.some(function(x){ return x.id === pid; })){ var pe = emp(pid); pay.push({ id: pid, name: c.payerName || (pe ? pe.name : "Unknown") }); }
+      var pid = c.payerId || myEmpId(); if(!pay.some(function(x){ return x.id === pid; })){ var pe = emp(pid); pay.push({ id: pid, name: cleanNm(c.payerName) || (pe ? cleanNm(pe.name) : "Unknown") }); }
       if(c.vendorName && ven.indexOf(c.vendorName) < 0) ven.push(c.vendorName);
     });
     pay.sort(function(a, b){ return a.name.localeCompare(b.name); }); ven.sort(function(a, b){ return a.localeCompare(b); });
@@ -3995,13 +4004,13 @@
          '<span style="display:flex;gap:6px"><button class="btn ghost" id="clXl" type="button">'+(clActive() ? "Export filtered" : "Export Excel")+'</button><button class="btn" id="clNew" type="button">Add claim</button></span></div>';
     if(claimsData.loaded && L.length) h += claimDash(L)+claimFilterBar(L, shown);
     if(!claimsData.loaded) h += '<div class="empty">Loading…</div>';
-    else if(!L.length) h += '<div class="empty">No claims yet. Tap <b>Add claim</b> to note a bill you have to claim.<br><small>Only you can see this list.</small></div>';
+    else if(!L.length) h += '<div class="empty">No claims yet. Tap <b>Add claim</b> to note a bill you have to claim.</div>';
     else if(!shown.length) h += '<div class="empty">No claims match this filter.</div>';
     else h += shown.map(function(c){
       return '<div class="clm"><div class="clm-top"><b>#'+c.serial+'</b><span>'+fmtDate(c.date)+'</span><span class="clm-type">'+esc(claimTypeText(c))+'</span></div>'+
         '<div class="clm-v">'+esc(c.vendorName)+'<small>'+vendorInfo(vendorById(c.vendorId))+'</small></div>'+
         '<div class="clm-d">'+esc(c.desc)+' <span class="clm-q">&times; '+esc(c.qty)+'</span></div>'+
-        (c.payerName ? '<div class="clm-rem">Payer: <b>'+esc(c.payerName)+'</b></div>' : '')+
+        (c.payerName ? '<div class="clm-rem">Payer: <b>'+esc(cleanNm(c.payerName))+'</b></div>' : '')+
         ((c.invNo || c.invDate || c.amount) ? '<div class="clm-rem">'+[c.invNo ? "Inv "+esc(c.invNo) : "", c.invDate ? fmtDate(c.invDate) : "", c.amount ? "&#8377; "+inr(c.amount) : ""].filter(Boolean).join(" &middot; ")+'</div>' : '')+
         (c.remarks ? '<div class="clm-rem">'+esc(c.remarks)+'</div>' : '')+
         '<div class="clm-act"><select data-clst="'+esc(c.id)+'" data-v="'+esc(c.status)+'" aria-label="Settlement status">'+
@@ -4077,10 +4086,11 @@
         CLAIM_TYPES.map(function(t){ return '<option'+(t===d.type?' selected':'')+'>'+t+'</option>'; }).join("")+'</select></div>'+
       '<div class="field" id="clNameF"><label for="clName">Name for this claim</label><input type="text" id="clName" maxlength="60" placeholder="e.g. Tour advance, Diwali cleaning" value="'+esc(d.typeName)+'"></div>'+
       '<div class="field"><label for="clPayer">Payer name</label><select id="clPayer">'+payerOpts+'</select></div>'+
-      '<div class="field"><label for="clVen">Vendor</label><select id="clVen">'+vendorOptions(d.vendorId)+'</select>'+
+      '<div class="field"><label for="clVenQ">Vendor</label><input type="text" id="clVenQ" maxlength="60" autocomplete="off" placeholder="Search vendor by name, GST, business, phone…" style="margin-bottom:6px"><select id="clVen" aria-label="Vendor">'+vendorOptions(d.vendorId)+'</select>'+
         '<small id="clVenInfo" style="display:block;color:var(--muted);margin-top:4px">'+(claimsData.vendors.length ? vendorInfo(vendorById(d.vendorId)) : 'Loading vendors…')+'</small></div>'+
       '<div class="field"><label for="clInv">Invoice no.</label><input type="text" id="clInv" maxlength="40" value="'+esc(d.invNo||"")+'"></div>'+
       '<div class="field"><label for="clInvD">Invoice date</label><input type="date" id="clInvD" value="'+esc(d.invDate||"")+'"></div>'+
+      '<p id="clDup" style="display:none;margin:-4px 0 10px;padding:8px 10px;background:#fff6e0;border:1px solid #f0d58a;border-radius:6px;color:#6b4e00;font-size:.9rem"></p>'+
       '<div class="field"><label for="clAmt">Amount (&#8377;)</label><input type="number" id="clAmt" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="'+esc(d.amount||"")+'"></div>'+
       '<div class="field"><label for="clDesc">Material description</label><textarea id="clDesc" maxlength="500">'+esc(d.desc)+'</textarea></div>'+
       '<div class="field"><label for="clQty">Quantity</label><input type="text" id="clQty" maxlength="30" placeholder="e.g. 5 nos" value="'+esc(d.qty)+'"></div>'+
@@ -4106,6 +4116,27 @@
       }
       $("clVenInfo").innerHTML = vendorInfo(vendorById(this.value));
     };
+    $("clVenQ").oninput = function(){                       // search the vendor list
+      var sel = $("clVen"), q = this.value.trim();
+      sel.innerHTML = vendorOptions(sel.value, q);
+      sel.size = q ? Math.min(6, sel.options.length) : 1;
+    };
+    $("clVen").addEventListener("change", function(){ this.size = 1; });
+    /* same invoice no. + same invoice date already entered: warn (the person can still save) */
+    var dupOk = false;
+    function dupInv(){
+      var no = $("clInv").value.trim().toLowerCase(), dt = $("clInvD").value;
+      if(!no || !dt) return null;
+      return claimsData.claims.find(function(x){ return x.id !== d.id && String(x.invNo || "").trim().toLowerCase() === no && x.invDate === dt; }) || null;
+    }
+    function dupPaint(){
+      dupOk = false; var b = $("mOk"); if(b) b.textContent = "Save";
+      var x = dupInv(), n = $("clDup"); if(!n) return;
+      if(x){ n.style.display = ""; n.innerHTML = "&#9888; Invoice no. <b>"+esc(x.invNo)+"</b> dated <b>"+esc(fmtDate(x.invDate))+"</b> is already entered in claim #"+esc(x.serial)+(x.vendorName ? " ("+esc(x.vendorName)+")" : "")+". Please check before saving again."; }
+      else { n.style.display = "none"; n.innerHTML = ""; }
+    }
+    $("clInv").oninput = dupPaint; $("clInvD").onchange = dupPaint; $("clInvD").oninput = dupPaint;
+    dupPaint();
     claimVendorsRefresh();                                  // always show the newest vendor list
     $("mNo").onclick = closeModal;
     $("mOk").onclick = function(){
@@ -4119,7 +4150,8 @@
       if(!desc){ er.textContent = "Enter the material description."; return; }
       if(!qty){ er.textContent = "Enter the quantity."; return; }
       var amt = $("clAmt").value.trim(); if(amt !== "" && !(Number(amt) >= 0)){ er.textContent = "Enter a valid amount."; return; }
-      var item = { id: d.id, serial: isNew ? nextNo : d.serial, invNo: $("clInv").value.trim(), invDate: $("clInvD").value, amount: amt === "" ? "" : Number(amt).toFixed(2), date: date, type: type, typeName: CLAIM_NAMED.indexOf(type) >= 0 ? name : "", vendorId: v.id, vendorName: v.name, payerId: pe.id, payerName: pe.name,
+      if(dupInv() && !dupOk){ dupOk = true; $("mOk").textContent = "Save anyway"; er.textContent = "This invoice no. and date already exist (see the warning above). Press Save anyway to continue."; return; }
+      var item = { id: d.id, serial: isNew ? nextNo : d.serial, invNo: $("clInv").value.trim(), invDate: $("clInvD").value, amount: amt === "" ? "" : Number(amt).toFixed(2), date: date, type: type, typeName: CLAIM_NAMED.indexOf(type) >= 0 ? name : "", vendorId: v.id, vendorName: v.name, payerId: pe.id, payerName: cleanNm(pe.name),
                    desc: desc, qty: qty, status: $("clStat").value, remarks: $("clRem").value.trim(), created: d.created || Date.now() };
       claimsData.claims = claimsData.claims.filter(function(x){ return x.id !== item.id; }).concat([item]);
       clLast = { type: item.type, typeName: item.typeName, vendorId: item.vendorId };
@@ -4240,10 +4272,10 @@
     var isNew = !v, d = v || { id: uid(), name: "", registered: "Registered", gst: "", address: "", city: "", phone: "", business: "" };
     var biz = BUSINESS.slice(); claimsData.vendors.forEach(function(x){ if(x.business && biz.indexOf(x.business) < 0) biz.push(x.business); });
     openModal('<h3>'+(isNew ? (opts.fromClaim ? 'Add new vendor' : 'Add vendor') : 'Edit vendor')+'</h3>'+
-      (opts.fromClaim ? '<p style="margin:0 0 10px;color:var(--muted);font-size:.88rem">The vendor you add here is saved in the common vendor list and can be picked by everyone. Please check the details carefully; only Master can edit them later.</p>' : '')+
+      (opts.fromClaim ? '<p style="margin:0 0 10px;color:var(--muted);font-size:.88rem">The vendor you add here is saved in the common vendor list and can be picked by everyone. Please check the details carefully.</p>' : '')+
       '<div class="field"><label for="vnName">Vendor name</label><input type="text" id="vnName" maxlength="100" value="'+esc(d.name)+'"></div>'+
       '<div class="field"><label for="vnReg">GST registration</label><select id="vnReg"><option'+(d.registered==="Registered"?' selected':'')+'>Registered</option><option'+(d.registered!=="Registered"?' selected':'')+'>Non registered</option></select></div>'+
-      '<div class="field" id="vnGstF"><label for="vnGst">GST number</label><input type="text" id="vnGst" maxlength="15" autocapitalize="characters" placeholder="15 characters" value="'+esc(d.gst)+'"></div>'+
+      '<div class="field" id="vnGstF"><label for="vnGst">GST number</label><input type="text" id="vnGst" maxlength="15" autocapitalize="characters" placeholder="15 characters" value="'+esc(d.gst)+'"><p id="vnDup" style="display:none;margin:6px 0 0;padding:8px 10px;background:#fff6e0;border:1px solid #f0d58a;border-radius:6px;color:#6b4e00;font-size:.9rem"></p></div>'+
       '<div class="field"><label for="vnBiz">Type of business</label><input type="text" id="vnBiz" list="vnBizList" maxlength="60" placeholder="e.g. Electrical" value="'+esc(d.business)+'"><datalist id="vnBizList">'+biz.map(function(b){ return '<option value="'+esc(b)+'">'; }).join("")+'</datalist></div>'+
       '<div class="field"><label for="vnPh">Phone no.</label><input type="tel" id="vnPh" maxlength="25" value="'+esc(d.phone)+'"></div>'+
       '<div class="field"><label for="vnAd">Address</label><textarea id="vnAd" maxlength="300">'+esc(d.address)+'</textarea></div>'+
@@ -4251,13 +4283,27 @@
       '<p class="error" id="vnErr"></p>'+
       '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
     function gstShow(){ $("vnGstF").style.display = $("vnReg").value === "Registered" ? "" : "none"; }
-    gstShow(); $("vnReg").onchange = gstShow;
+    var gDupOk = false;
+    function gstDup(){
+      if($("vnReg").value !== "Registered") return null;
+      var g = $("vnGst").value.trim().toUpperCase().replace(/\s+/g, ""); if(!g) return null;
+      return claimsData.vendors.find(function(x){ return x.id !== d.id && String(x.gst || "").toUpperCase() === g; }) || null;
+    }
+    function gstPaint(){
+      gDupOk = false; var b = $("mOk"); if(b) b.textContent = "Save";
+      var x = gstDup(), n = $("vnDup");
+      if(x){ n.style.display = ""; n.innerHTML = "&#9888; This GST number already exists for vendor <b>"+esc(x.name)+"</b>. "+(opts.fromClaim ? "Please pick that vendor from the list instead of adding it again." : "Please check before saving."); }
+      else { n.style.display = "none"; n.innerHTML = ""; }
+    }
+    gstShow(); $("vnReg").onchange = function(){ gstShow(); gstPaint(); };
+    $("vnGst").oninput = gstPaint; gstPaint();
     $("mNo").onclick = opts.onCancel ? function(){ closeModal(); opts.onCancel(); } : closeModal;
     $("mOk").onclick = function(){
       var er = $("vnErr"), name = $("vnName").value.trim(), reg = $("vnReg").value, gst = $("vnGst").value.trim().toUpperCase().replace(/\s+/g, "");
       if(!name){ er.textContent = "Enter the vendor name."; return; }
       if(reg === "Registered" && !/^[0-9A-Z]{15}$/.test(gst)){ er.textContent = "Enter the 15 character GST number."; return; }
       if(claimsData.vendors.some(function(x){ return x.id !== d.id && x.name.trim().toLowerCase() === name.toLowerCase(); })){ er.textContent = "A vendor with this name already exists."; return; }
+      if(gstDup() && !gDupOk){ gDupOk = true; $("mOk").textContent = "Save anyway"; er.textContent = "This GST number already exists (see the warning above). Press Save anyway to continue."; return; }
       var item = { id: d.id, name: name, registered: reg, gst: reg === "Registered" ? gst : "", address: $("vnAd").value.trim(), city: $("vnCity").value.trim(), phone: $("vnPh").value.trim(), business: $("vnBiz").value.trim() };
       claimsData.vendors = claimsData.vendors.filter(function(x){ return x.id !== item.id; }).concat([item]).sort(function(a,b){ return a.name.localeCompare(b.name); });
       if(opts.onSave){ closeModal(); claimSend({ action: "vendorPut", item: item }); opts.onSave(item); return; }
@@ -4439,7 +4485,7 @@
   }, 20000);
   /* active = today falls inside the permit dates and the permit is not yet CLOSED */
   function permitActive(p){ var t = today(); return p.status !== "CLOSED" && p.from <= t && t <= p.to; }
-  function permitPgNames(p){ return p.pgIds.map(function(id, i){ var e = emp(id); return (e ? e.name : (p.pgNames[i] || "")); }).filter(Boolean); }
+  function permitPgNames(p){ return p.pgIds.map(function(id, i){ var e = emp(id); return (e ? cleanNm(e.name) : cleanNm(p.pgNames[i])); }).filter(Boolean); }
   function permitMsg(p){
     var L = ["*PERMIT NUMBER :* "+p.no,
              "*PERMIT DATE :* "+fmtDate(p.from)+" TO "+fmtDate(p.to),
@@ -4467,7 +4513,7 @@
         '<button class="btn" id="pmNew" type="button">Add permit</button></div>'+
       '<div class="filters"><input type="text" id="pmQ" maxlength="60" placeholder="Search permit no., work, person, staff…" value="'+esc(pmQ)+'" aria-label="Search permits"></div>';
     if(!permitsData.loaded) h += '<div class="empty">Loading…</div>';
-    else if(!all.length) h += '<div class="empty">No permits yet. Tap <b>Add permit</b> to record one.<br><small>Every employee can see and add permits.</small></div>';
+    else if(!all.length) h += '<div class="empty">No permits yet. Tap <b>Add permit</b> to record one.</div>';
     else if(!L.length) h += '<div class="empty">No permit matches.</div>';
     else h += L.map(function(x){
       var act = permitActive(x), msg = permitMsg(x);
@@ -4477,7 +4523,7 @@
         '<div class="pm-row"><b>Work details</b><span style="white-space:pre-wrap">'+esc(x.work)+'</span></div>'+
         '<div class="pm-row"><b>PG person</b><span>'+esc(permitPgNames(x).join(", "))+'</span></div>'+
         '<div class="pm-row"><b>AMC/Labour</b><span>'+(x.staff ? esc(x.staff) : '&ndash;')+'</span></div></div>'+
-        '<div class="clm-rem">Added by '+esc(x.byName || "–")+(x.updatedBy && x.updated ? ' &middot; updated by '+esc(x.updatedBy)+', '+esc(fmtStamp(x.updated)) : '')+'</div>'+
+        '<div class="clm-rem">Added by '+esc(cleanNm(x.byName) || "–")+(x.updatedBy && x.updated ? ' &middot; updated by '+esc(cleanNm(x.updatedBy))+', '+esc(fmtStamp(x.updated)) : '')+'</div>'+
         '<div class="clm-act"><select data-pmst="'+esc(x.id)+'" data-v="'+esc(x.status)+'" aria-label="Permit status">'+PERMIT_ST.map(function(s){ return '<option'+(s===x.status?' selected':'')+'>'+s+'</option>'; }).join("")+'</select>'+
         '<a class="btn small" target="_blank" rel="noopener" style="text-decoration:none;'+(act ? 'background:#1b7f3b;border-color:#1b7f3b' : '')+'" href="https://wa.me/?text='+encodeURIComponent(msg)+'">WhatsApp</a>'+
         '<button class="btn ghost small" data-pmcp="'+esc(x.id)+'" type="button">Copy</button>'+
@@ -4490,7 +4536,7 @@
     $("pmQ").oninput = function(){ pmQ = this.value; var pos = this.selectionStart; render(); var n = $("pmQ"); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(x){} } };
     Array.prototype.forEach.call(p.querySelectorAll("[data-pmf]"),function(b){ b.onclick = function(){ pmFilter = b.getAttribute("data-pmf"); render(); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-pmst]"),function(sel){
-      sel.onchange = function(){ var x = byId(sel.getAttribute("data-pmst")); if(!x) return; x.status = sel.value; x.updatedBy = isMaster() ? "Master" : (emp(myEmpId()) ? emp(myEmpId()).name : ""); x.updated = Date.now(); render(); permitSend({ action: "permitPut", item: x }); };
+      sel.onchange = function(){ var x = byId(sel.getAttribute("data-pmst")); if(!x) return; x.status = sel.value; x.updatedBy = isMaster() ? "Master" : (emp(myEmpId()) ? cleanNm(emp(myEmpId()).name) : ""); x.updated = Date.now(); render(); permitSend({ action: "permitPut", item: x }); };
     });
     Array.prototype.forEach.call(p.querySelectorAll("[data-pmcp]"),function(b){ b.onclick = function(){ var x = byId(b.getAttribute("data-pmcp")); if(x) copyText(permitMsg(x), function(){ b.textContent = "Copied \u2713"; }); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-pmed]"),function(b){ b.onclick = function(){ permitForm(byId(b.getAttribute("data-pmed"))); }; });
@@ -4525,8 +4571,8 @@
       if(!work){ er.textContent = "Enter the work details."; return; }
       if(!ids.length){ er.textContent = "Select at least one POWERGRID person."; return; }
       if(permitsData.permits.some(function(x){ return x.id !== d.id && x.no.trim().toLowerCase() === no.toLowerCase(); })){ er.textContent = "A permit with this number already exists."; return; }
-      var me = isMaster() ? "Master" : (emp(myEmpId()) ? emp(myEmpId()).name : "");
-      var item = { id: d.id, no: no, from: fr, to: to, work: work, pgIds: ids, pgNames: ids.map(function(i){ return emp(i) ? emp(i).name : ""; }), staff: $("pmStaff").value.trim(), status: $("pmSt").value,
+      var me = isMaster() ? "Master" : (emp(myEmpId()) ? cleanNm(emp(myEmpId()).name) : "");
+      var item = { id: d.id, no: no, from: fr, to: to, work: work, pgIds: ids, pgNames: ids.map(function(i){ return emp(i) ? cleanNm(emp(i).name) : ""; }), staff: $("pmStaff").value.trim(), status: $("pmSt").value,
                    by: d.by || (isMaster() ? "master" : myEmpId()), byName: d.byName || me, created: d.created || Date.now(), updated: Date.now(), updatedBy: me };
       permitsData.permits = permitsData.permits.filter(function(x){ return x.id !== item.id; }).concat([item]);
       closeModal(); render();
@@ -4591,7 +4637,7 @@
       '<div class="pm-row"><b>Description</b><span style="white-space:pre-wrap">'+esc(x.desc)+'</span></div>'+
       '<div class="pm-row"><b>Linked shutdown</b><span>'+(x.shutdown ? esc(x.shutdown) : '&ndash;')+'</span></div>'+
       (x.comment ? '<div class="pm-row"><b>Comment</b><span style="white-space:pre-wrap">'+esc(x.comment)+'</span></div>' : '')+'</div>'+
-      '<div class="clm-rem">Added by '+esc(x.byName || "–")+(x.updatedBy && x.updated && x.updated !== x.created ? ' &middot; updated by '+esc(x.updatedBy)+', '+esc(fmtStamp(x.updated)) : '')+'</div>'+
+      '<div class="clm-rem">Added by '+esc(cleanNm(x.byName) || "–")+(x.updatedBy && x.updated && x.updated !== x.created ? ' &middot; updated by '+esc(cleanNm(x.updatedBy))+', '+esc(fmtStamp(x.updated)) : '')+'</div>'+
       '<div class="clm-act"><button class="btn ghost small" data-dfed="'+esc(x.id)+'" type="button">Edit</button>'+
       (isMaster() ? '<button class="btn ghost small" data-dfdel="'+esc(x.id)+'" type="button">Delete</button>' : '')+'</div></div>';
   }
@@ -4733,7 +4779,7 @@
       if(!obj){ er.textContent = "Select the object."; return; }
       if(!eq){ er.textContent = "Select the equipment."; return; }
       if(!desc){ er.textContent = "Enter the description."; return; }
-      var me = isMaster() ? "Master" : (emp(myEmpId()) ? emp(myEmpId()).name : "");
+      var me = isMaster() ? "Master" : (emp(myEmpId()) ? cleanNm(emp(myEmpId()).name) : "");
       var item = { id: d.id, date: date, object: obj, equipment: eq, desc: desc, shutdown: $("dfShut").value, status: $("dfSt").value, comment: $("dfCmt").value.trim(),
                    by: d.by || (isMaster() ? "master" : myEmpId()), byName: d.byName || me, created: d.created || Date.now(), updated: Date.now(), updatedBy: me };
       defectsData.items = defectsData.items.filter(function(x){ return x.id !== item.id; }).concat([item]);
@@ -5214,13 +5260,12 @@
       '</tbody></table></div>'+
       (mst ? '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="gpEdit" type="button">Edit details</button><button class="btn danger" id="gpDel" type="button">Delete</button></div>' : '')+'</div>'+
       '<h3 class="sec">Items</h3>';
-    if(mine && !mst) h += '<p style="margin:0 0 10px;color:var(--muted);font-size:.9rem">You can add items. Editing or deleting this gate pass or its items can be done by Master only.</p>';
     if(mine) h += '<div class="assign-form"><h4>Add item</h4><div class="agrid">'+
       '<div class="field span2"><label for="giDesc">Description</label><input type="text" id="giDesc" maxlength="200" placeholder="e.g. DCRM kit with accessories"></div>'+
       '<div class="field"><label for="giQty">Quantity</label><input type="number" id="giQty" min="0" step="any" inputmode="decimal"></div>'+
       '<div class="field"><label for="giUnit">Unit</label><select id="giUnit">'+GP_UNITS.map(function(u){ return '<option>'+u+'</option>'; }).join("")+'</select></div></div>'+
       '<p class="error" id="giErr"></p><button class="btn" id="giAdd" type="button">Add item</button></div>';
-    else h += '<p style="margin:0 0 12px;color:var(--muted);font-size:.9rem">Only Master can change this gate pass. Anyone can download it once items are added.</p>';
+    else h += '';
     if(mine && heldRows().some(function(r){ return !r.it.ret; })) h += '<div style="margin:-6px 0 14px"><button class="btn ghost" id="gpFromIn" type="button">Add from inward entries (other station / firm material)…</button></div>';
     if(!items.length) h += '<div class="empty">No items added yet.</div>';
     else h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Description</th><th>Quantity</th>'+(mst?'<th></th>':'')+'</tr></thead><tbody>'+
@@ -6472,7 +6517,7 @@
          '<span class="dlabel">'+esc(dayLabel(viewDate))+'</span></div>';
 
     if(!canW){
-      h += '<div class="carry"><div class="carry-txt" style="color:var(--muted)">View only &mdash; only '+esc(e.name)+' and Master can add or update these works.'+(overdue.length ? ' ('+overdue.length+' pending from earlier dates)' : '')+'</div></div>';
+      if(overdue.length) h += '<div class="carry"><div class="carry-txt" style="color:var(--muted)">'+overdue.length+' pending from earlier dates</div></div>';
     } else if(!overdue.length){
       h += '<div class="carry"><div class="carry-txt" style="color:var(--muted)">No pending works from earlier dates.</div>'+
            '<button class="btn small" type="button" disabled>Bring all to '+fmtDate(viewDate)+'</button></div>';
