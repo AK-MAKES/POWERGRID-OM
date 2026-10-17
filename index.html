@@ -12,6 +12,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script>
+/* If a saved, unexpired login exists, mark the page as "restoring" before the first paint so the sign-in form never flashes. */
+(function(){try{var t=localStorage.getItem("kss_auth")||sessionStorage.getItem("kss_auth");if(!t)return;var a=JSON.parse(t);if(a&&a.id&&(!a.exp||a.exp>Date.now()))document.documentElement.classList.add("restoring");}catch(e){}})();
+</script>
 <style>
   :root{
     --ink:#16212b; --muted:#5d6b78; --line:#d5dce2; --bg:#eef1f4; --panel:#ffffff;
@@ -25,6 +29,15 @@
   button{cursor:pointer}
   :focus-visible{outline:3px solid var(--amber);outline-offset:2px}
   .hidden{display:none !important}
+
+  /* ---------- Session-restore splash: while a saved login is being re-checked, show this instead of the login page ---------- */
+  #restoreView{display:none;min-height:100vh;place-items:center;text-align:center;color:#fff;padding:20px;
+    background:linear-gradient(160deg,var(--steel) 0%,#12273a 100%)}
+  #restoreView .rs-spin{width:38px;height:38px;margin:0 auto 14px;border:4px solid rgba(255,255,255,.25);border-top-color:var(--amber);border-radius:50%;animation:rsspin .8s linear infinite}
+  #restoreView p{margin:0;font-size:.95rem;opacity:.9;letter-spacing:.3px}
+  @keyframes rsspin{to{transform:rotate(360deg)}}
+  html.restoring #loginView{display:none !important}
+  html.restoring #restoreView{display:grid}
 
   /* ---------- Login ---------- */
   #loginView{min-height:100vh;display:grid;place-items:center;padding:20px;
@@ -200,6 +213,19 @@
   .dff.open .dff-ch{transform:rotate(90deg)}
   .dff-b{display:none;padding:10px 10px 0;border-top:1px solid var(--line)}
   .dff.open .dff-b{display:block}
+  .wps{display:flex;align-items:center;gap:10px;margin:18px 0 10px;padding:8px 12px;background:var(--steel);color:#fff;border-radius:8px;font-size:1rem}
+  .wps .wps-n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--amber);color:#2a2000;font-weight:700;font-size:.9rem;flex:0 0 auto}
+  .wps small{margin-left:auto;font-weight:400;opacity:.8;font-size:.78rem}
+  .wpnext{margin:4px 0 6px}
+  .wpt{border:1px solid var(--line);border-radius:10px;background:#fff;margin:0 0 12px;overflow:hidden}
+  .wpt-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;background:#f4f7fa;color:var(--steel);font-size:1rem}
+  .wpt-b{padding:10px}
+  .wpmem{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+  .wpm{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border:1px solid var(--line);border-radius:999px;background:#eef3f7;font-size:.85rem;color:var(--steel)}
+  .wpm button{border:0;background:transparent;font-size:1.1rem;line-height:1;color:#a33;cursor:pointer;padding:0 4px}
+  .wpw{border:1px solid var(--line);border-radius:8px;padding:10px;margin:0 0 10px;background:#fbfcfd}
+  .wpacts{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:4px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:#f5f7f9}
+  @media(max-width:420px){.wpacts{grid-template-columns:1fr}}
   .pm-row{display:flex;gap:6px;font-size:.9rem;margin:0 0 3px}.pm-row b{min-width:98px;color:var(--steel);flex:none}.pm-row span{overflow-wrap:anywhere}
   .clm-act select[data-v="INITIATED"]{color:#5d6b78;background:#eef1f4}.clm-act select[data-v="APPROVED"]{color:#1d4f91;background:#e8f1fc}
   .clm-act select[data-v="ISSUED"]{color:#8a5a00;background:#fff1cc}.clm-act select[data-v="RETURNED"]{color:#6a3a9a;background:#f1e8fb}.clm-act select[data-v="CLOSED"]{color:#1b7f3b;background:#e6f5ea}
@@ -446,6 +472,8 @@
 <body>
 
 <!-- ================= LOGIN ================= -->
+<section id="restoreView" aria-live="polite"><div><div class="rs-spin"></div><p>Restoring your session…</p></div></section>
+
 <section id="loginView">
   <div class="login-card">
     <div class="login-head">
@@ -509,7 +537,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.36";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.39";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -954,6 +982,7 @@
     session = { role: role, id: id, displayName: profile.displayName || (linked ? linked.name : id), employeeId: profile.employeeId || (linked ? linked.id : ''), contractId: profile.contractId || '' };
     activeTab = "home"; empView = "work"; supView = "home"; amcSub = "staff";
     filter = "all"; viewDate = today();
+    document.documentElement.classList.remove("restoring");
     $("loginView").classList.add("hidden");
     $("appView").classList.remove("hidden");
     $("manageUsersBtn").classList.toggle("hidden", !isMaster());
@@ -1076,12 +1105,15 @@
   document.addEventListener("visibilitychange",function(){ if(!document.hidden){ sessPaint(); pull(); } });
 
   /* restore session after page refresh (sync mode) */
+  function endRestore(){ document.documentElement.classList.remove("restoring"); }
+  if(!SYNC) endRestore();
   if(SYNC){
     try{
       var saved = authStoreGet();
       if(saved && saved.exp && saved.exp < Date.now()){
         authStoreClear(); saved = null;                  // expired: show the normal sign-in page, no message
       }
+      if(!saved) endRestore();
       if(saved){
         var restoreTry = 0;
         (function restore(){
@@ -1090,13 +1122,13 @@
             applyData(r.json.data); lastText = r.text; lastTok = r.json.tok || ""; lastFullAt = Date.now(); enterApp(r.json.role || auth.role, auth.id, r.json.user);
           }).catch(function(err){
             auth = null;
-            if(err && err.server){ authStoreClear(); $("loginErr").textContent = "Your login is no longer valid. Please sign in again."; return; }   // wrong/changed password
+            if(err && err.server){ authStoreClear(); endRestore(); $("loginErr").textContent = "Your login is no longer valid. Please sign in again."; return; }   // wrong/changed password
             if(++restoreTry < 4){ setTimeout(restore, 3000); return; }                                                                                // network hiccup: keep the saved login and retry
-            $("loginErr").textContent = "Cannot reach the server. Refresh the page to continue your session.";
+            endRestore(); $("loginErr").textContent = "Cannot reach the server. Refresh the page to continue your session.";
           });
         })();
       }
-    }catch(e){}
+    }catch(e){ endRestore(); }
   }
 
   /* ---------- Notices (Master sets one or more; shown in the ticker and on Home) ---------- */
@@ -4874,6 +4906,504 @@
     }, function(){ err("Could not load the Excel library. Check your internet connection and try again."); });
   }
 
+  /* ---------- Workplan Overview (Miscellaneous) ----------
+     Every employee login (not Support Staff) adds and edits; Master (or the employee who added it) deletes.
+     One plan = Equipment type + Shutdown description + Date of work + Teams (Team-A, Team-B ...).
+     Each team has a worklist: Object type -> Object -> Maintenance activities (several can be ticked).
+     Master uploads the dropdown lists from one Excel file (Equipment Type / Object / Activities sheets). */
+  var wpData = { items: [], types: [], objs: [], acts: [], loaded: false }, wpBusy = 0, wpChain = Promise.resolve(), wpQ = "", wpFilter = "upcoming", wpOpenC = {}, wpDraft = null, wpEditId = "";
+  function wpApply(j){ wpData.items = j.plans || []; wpData.types = j.types || []; wpData.objs = j.objs || []; wpData.acts = j.acts || []; wpData.loaded = true; }
+  function wpFetch(){
+    if(!SYNC || isSupport()) return;
+    api({ action: "wpList" }).then(function(r){
+      if(wpBusy) return;
+      wpApply(r.json);
+      if(!modalOpen() && activeTab === "misc" && (miscView === "wp" || miscView === "menu") && !(document.activeElement && document.activeElement.id === "wpQ")) render();
+    }).catch(onSyncError);
+  }
+  function wpSend(body){
+    wpBusy++;
+    wpChain = wpChain.then(function(){ return new Promise(function(done){
+      var tries = 0;
+      (function go(){
+        tries++;
+        api(body).then(function(r){
+          wpBusy--;
+          if(!wpBusy){ wpApply(r.json); if(!modalOpen() && !(activeTab === "misc" && miscView === "wpForm")) render(); }
+          done();
+        }).catch(function(err){
+          if(err && err.server && err.message === "auth"){ wpBusy--; onSyncError(err); done(); return; }
+          if(!(err && err.server) && tries < 3){ setTimeout(go, 3000); return; }
+          wpBusy--;
+          try{ toast("Not saved" + (err && err.server && err.message ? ": " + err.message : " (no connection)") + "."); }catch(x){}
+          wpFetch(); done();
+        });
+      })();
+    }); });
+  }
+  setInterval(function(){
+    if(!session || !SYNC || document.hidden || modalOpen()) return;
+    if(activeTab === "misc" && miscView === "wp") wpFetch();
+  }, 20000);
+  function wpObjTypes(){ var o = []; wpData.objs.concat(wpData.acts).forEach(function(x){ if(o.indexOf(x.objType) < 0) o.push(x.objType); }); return o.sort(dfCmp); }
+  function wpObjectsOf(t){ return wpData.objs.filter(function(x){ return x.objType === t; }).map(function(x){ return x.object; }).sort(dfCmp); }
+  function wpActsOf(t){ return wpData.acts.filter(function(x){ return x.objType === t; }).map(function(x){ return x.activity; }); }
+  function wpMemLabel(m){ return m.kind === "amc" ? m.name+" (AMC)" : m.name+(m.desig ? " \u2013 "+m.desig : ""); }
+  function wpMemKey(m){ return m.kind === "other" ? "o:"+String(m.name).toLowerCase()+"|"+String(m.desig).toLowerCase() : m.kind+":"+m.id; }
+  function wpPeople(){
+    var emps = (state.employees || []).map(function(e){ return { kind: "emp", id: e.id, name: cleanNm(e.name), desig: e.desig || "" }; });
+    var amc = amcAssignees().map(function(x){ return { kind: "amc", id: x.id, name: x.name, desig: "" }; });
+    return { emps: emps, amc: amc };
+  }
+  function wpTeamName(i){ return "Team-" + String.fromCharCode(65 + i); }
+  function wpCount(x){ var n = 0; (x.teams || []).forEach(function(t){ n += (t.works || []).length; }); return n; }
+  function wpMatch(x, q){
+    if(!q) return true;
+    var s = x.equipType+" "+x.shutdown+" "+x.byName+" "+fmtDate(x.date);
+    (x.teams || []).forEach(function(t){ s += " "+t.name; (t.members || []).forEach(function(m){ s += " "+m.name+" "+(m.desig || ""); }); (t.works || []).forEach(function(w){ s += " "+w.objType+" "+w.object+" "+(w.acts || []).join(" "); }); });
+    return s.toLowerCase().indexOf(q) >= 0;
+  }
+  function wpCard(x){
+    var open = !!wpOpenC[x.id], past = x.date < today(), nW = wpCount(x), nT = (x.teams || []).length;
+    var canDel = isMaster() || x.by === myEmpId();
+    var body = '';
+    if(open) body = '<div style="margin-top:8px">'+(x.teams || []).map(function(t){
+      return '<div style="margin:0 0 8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#f8fafc"><b style="color:var(--steel)">'+esc(t.name)+'</b>'+
+        ((t.members || []).length ? '<div style="font-size:.86rem;color:var(--muted);margin:3px 0 2px">'+(t.members || []).map(function(m){ return esc(wpMemLabel(m)); }).join("; ")+'</div>' : '')+
+        (t.works || []).map(function(w){
+          return '<div class="pm-row" style="margin-top:4px"><b style="min-width:84px">'+esc(w.objType)+' '+esc(w.object)+'</b><span>'+(w.acts || []).map(esc).join(", ")+'</span></div>';
+        }).join("")+'</div>';
+    }).join("")+'</div>';
+    if(open) body += wpExtraHtml(x);
+    return '<div class="clm"><div class="clm-top"><b>'+esc(x.equipType)+' &middot; '+esc(fmtDate(x.date))+'</b><span class="clm-type" style="'+(past ? 'background:#eceff2;color:#5b6b79' : 'background:#e3f4e8;color:#1b7f3b')+'">'+(x.date === today() ? 'Today' : past ? 'Past' : 'Upcoming')+'</span></div>'+
+      '<div style="margin-top:6px"><div class="pm-row"><b>Shutdown</b><span style="white-space:pre-wrap">'+esc(x.shutdown)+'</span></div>'+
+      '<div class="pm-row"><b>Teams</b><span>'+nT+' team'+(nT===1?'':'s')+' &middot; '+nW+' work'+(nW===1?'':'s')+'</span></div></div>'+body+
+      '<div class="clm-rem">Added by '+esc(cleanNm(x.byName) || "–")+(x.updatedBy && x.updated && x.updated !== x.created ? ' &middot; updated by '+esc(cleanNm(x.updatedBy))+', '+esc(fmtStamp(x.updated)) : '')+'</div>'+
+      '<div class="clm-act"><button class="btn ghost small" data-wpt="'+esc(x.id)+'" type="button">'+(open ? 'Hide worklist' : 'Show worklist')+'</button>'+
+      '<button class="btn ghost small" data-wped="'+esc(x.id)+'" type="button">Edit</button>'+
+      '<button class="btn ghost small" data-wppdf="'+esc(x.id)+'" type="button">PDF</button>'+(canDel ? '<button class="btn ghost small" data-wpdel="'+esc(x.id)+'" type="button">Delete</button>' : '')+'</div></div>';
+  }
+  function renderWp(){
+    var p = $("panel"), q = wpQ.trim().toLowerCase(), all = wpData.items.slice(), t0 = today();
+    var nUp = all.filter(function(x){ return x.date >= t0; }).length;
+    var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Workplan Overview</h3></div>'+
+      '<div class="clmbar"><div class="clmchips">'+
+        [["upcoming","Upcoming ("+nUp+")"],["past","Past ("+(all.length-nUp)+")"],["all","All ("+all.length+")"]].map(function(f){
+          return '<button type="button" data-wpf="'+f[0]+'" class="'+(wpFilter===f[0]?"on":"")+'">'+f[1]+'</button>'; }).join("")+'</div>'+
+        '<button class="btn" id="wpNew" type="button">Add workplan</button></div>'+
+      (isMaster() ? '<div class="clmbar" style="margin-top:-4px"><div class="clmchips"><button type="button" id="wpDl">Download list Excel</button><button type="button" id="wpUp">Upload list Excel</button></div>'+
+        '<input type="file" id="wpFile" accept=".xlsx,.xls" style="display:none"></div><p class="error" id="wpXErr" style="margin:-6px 0 8px"></p>' : '')+
+      '<div class="filters"><input type="text" id="wpQ" maxlength="60" placeholder="Search equipment type, shutdown, object, activity…" value="'+esc(wpQ)+'" aria-label="Search workplans"></div>';
+    if(!wpData.loaded) h += '<div class="empty">Loading…</div>';
+    else if(!all.length) h += '<div class="empty">No workplan yet. Tap <b>Add workplan</b> to create one.'+(wpData.types.length && wpObjTypes().length ? '' : '<br><small>'+(isMaster() ? 'First upload the lists (equipment types, objects, activities) with <b>Upload list Excel</b>.' : 'Master has not uploaded the lists yet.')+'</small>')+'</div>';
+    else {
+      var L = all.filter(function(x){
+        if(wpFilter === "upcoming" && x.date < t0) return false;
+        if(wpFilter === "past" && x.date >= t0) return false;
+        return wpMatch(x, q);
+      }).sort(function(a,b){ var d = a.date < b.date ? -1 : a.date > b.date ? 1 : 0; return wpFilter === "upcoming" ? d : -d; });
+      h += L.length ? L.map(wpCard).join("") : '<div class="empty">No workplan matches.</div>';
+    }
+    p.innerHTML = h; gpBind("menu");
+    function byId(id){ return wpData.items.find(function(x){ return x.id === id; }); }
+    $("wpNew").onclick = function(){ wpEditId = ""; wpDraft = null; miscView = "wpForm"; render(); };
+    $("wpQ").oninput = function(){ wpQ = this.value; var pos = this.selectionStart; render(); var n = $("wpQ"); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(x){} } };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-wpf]"),function(b){ b.onclick = function(){ wpFilter = b.getAttribute("data-wpf"); render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-wpt]"),function(b){ b.onclick = function(){ var k = b.getAttribute("data-wpt"); wpOpenC[k] = !wpOpenC[k]; render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-wped]"),function(b){ b.onclick = function(){ wpEditId = b.getAttribute("data-wped"); wpDraft = null; miscView = "wpForm"; render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-wppdf]"),function(b){ b.onclick = function(){ var x = byId(b.getAttribute("data-wppdf")); if(x) wpPrint(x); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-wpdel]"),function(b){
+      b.onclick = function(){ var x = byId(b.getAttribute("data-wpdel")); if(!x) return;
+        confirmModal("Delete this workplan ("+x.equipType+", "+fmtDate(x.date)+")?", function(){ wpData.items = wpData.items.filter(function(y){ return y.id !== x.id; }); render(); wpSend({ action: "wpDel", id: x.id }); }); };
+    });
+    if(isMaster()){
+      var xe = function(t){ var n = $("wpXErr"); if(n) n.textContent = t || ""; };
+      $("wpDl").onclick = function(){ xe("Preparing…"); wpListDownload(xe); };
+      $("wpUp").onclick = function(){ $("wpFile").click(); };
+      $("wpFile").onchange = function(){ var f = this.files[0]; this.value = ""; if(f){ xe("Reading file…"); wpListUpload(f, xe); } };
+    }
+  }
+  /* ---- Previous year test results + Note (bottom of the form), card extras and the PDF ---- */
+  function wpPrevSync(d, el){
+    var f = el.getAttribute("data-wf");
+    if(f !== "pobj" && f !== "ptest" && f !== "pres" && f !== "pdate") return false;
+    var r = d.prev[+el.getAttribute("data-pi")]; if(r) r[f === "pobj" ? "object" : f === "ptest" ? "test" : f === "pdate" ? "date" : "result"] = el.value;
+    return true;
+  }
+  /* Validation per section: 1 = basics, 2 = teams & members, 3 = works, 4 = previous year results (everything is re-checked on Save) */
+  function wpValidate(d, upTo){
+    if(upTo >= 1){
+      if(!d.equipType) return "Select the equipment type.";
+      if(!(d.shutdown || "").trim()) return "Enter the shutdown description.";
+      if(!d.date) return "Pick the date of work.";
+    }
+    if(upTo >= 2){
+      for(var ti = 0; ti < d.teams.length; ti++) if(!d.teams[ti].members.length) return wpTeamName(ti)+" has no team member. Add at least one member.";
+    }
+    if(upTo >= 3){
+      for(var tj = 0; tj < d.teams.length; tj++){
+        var t = d.teams[tj];
+        if(!t.works.length) return wpTeamName(tj)+" has no work. Add a work or remove the team.";
+        for(var wi = 0; wi < t.works.length; wi++){
+          var w = t.works[wi], tag = wpTeamName(tj)+", work "+(wi+1)+": ";
+          if(!w.objType) return tag+"select the object type.";
+          if(!w.object) return tag+"select the object.";
+          var oth = (w.otherOn ? (w.other || "").trim() : "");
+          if(w.otherOn && !oth) return tag+"you ticked Others: type the work, or untick Others.";
+          if(!w.acts.length && !oth) return tag+"tick at least one maintenance activity.";
+        }
+      }
+    }
+    if(upTo >= 4){
+      for(var pi = 0; pi < d.prev.length; pi++){
+        var pr = d.prev[pi];
+        if(((pr.object || "").trim() || pr.date) && !(pr.test || "").trim() && !(pr.result || "").trim()) return "Previous year test result "+(pi+1)+": enter the test or the result (or remove the row).";
+      }
+    }
+    return "";
+  }
+  function wpSecHead(n, title, sub){ return '<div class="wps"><span class="wps-n">'+n+'</span><b>'+title+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</div>'; }
+  function wpBottomHtml(d){
+    var objs = [];
+    d.teams.forEach(function(t){ t.works.forEach(function(w){ if(w.objType && w.object){ var k = w.objType+" "+w.object; if(objs.indexOf(k) < 0) objs.push(k); } }); });
+    return '<datalist id="wpObjDl">'+objs.map(function(o){ return '<option value="'+esc(o)+'"></option>'; }).join("")+'</datalist>'+
+      wpSecHead(4, "Previous year results &amp; remarks", "optional")+
+      '<div class="wpt"><div class="wpt-h"><b>Previous year test results</b><span style="font-size:.78rem;color:var(--muted);font-weight:400">if required</span></div><div class="wpt-b">'+
+      (d.prev.length ? d.prev.map(function(r, i){
+        return '<div class="wpw"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="color:var(--steel);font-size:.9rem">Result '+(i+1)+'</b>'+
+          '<button class="btn ghost small" type="button" data-wpa="delprev" data-pi="'+i+'">Remove</button></div>'+
+          '<div class="field"><label>Date of test</label><input type="date" data-wf="pdate" data-pi="'+i+'" value="'+esc(r.date || "")+'"></div>'+
+          '<div class="field"><label>Object (pick from the worklist or type)</label><input type="text" list="wpObjDl" maxlength="80" data-wf="pobj" data-pi="'+i+'" value="'+esc(r.object || "")+'"></div>'+
+          '<div class="field"><label>Test</label><input type="text" maxlength="120" placeholder="e.g. CRM, Tan delta, IR value" data-wf="ptest" data-pi="'+i+'" value="'+esc(r.test || "")+'"></div>'+
+          '<div class="field" style="margin-bottom:0"><label>Result</label><input type="text" maxlength="200" placeholder="e.g. 45 &micro;&Omega;" data-wf="pres" data-pi="'+i+'" value="'+esc(r.result || "")+'"></div></div>'; }).join("") :
+        '<small style="display:block;color:var(--muted);margin-bottom:4px">No previous year test result added.</small>')+
+      '<div style="margin-top:8px"><button class="btn ghost small" type="button" data-wpa="addprev">+ Add previous year test result</button></div></div></div>'+
+      '<div class="field"><label for="wpNote">Remarks</label><textarea id="wpNote" maxlength="1000" placeholder="Any remarks for this workplan">'+esc(d.notes || "")+'</textarea></div>';
+  }
+  function wpExtraHtml(x){
+    var h = '';
+    if((x.prev || []).length) h += '<div style="margin-top:8px"><b style="color:var(--steel);font-size:.9rem">Previous year test results</b>'+(x.prev || []).map(function(r){
+      return '<div class="pm-row" style="margin-top:3px"><b style="min-width:84px">'+esc(r.object || "–")+'</b><span>'+(r.date ? '<i style="color:var(--muted)">'+esc(fmtDate(r.date))+' &middot; </i>' : '')+esc(r.test || "")+(r.test && r.result ? ': ' : '')+'<b style="min-width:0;color:inherit">'+esc(r.result || "")+'</b></span></div>'; }).join("")+'</div>';
+    if(x.notes) h += '<div style="margin-top:8px"><b style="color:var(--steel);font-size:.9rem">Remarks</b><div style="white-space:pre-wrap;font-size:.9rem">'+esc(x.notes)+'</div></div>';
+    return h;
+  }
+  /* PDF of one workplan: opens the print window (choose "Save as PDF"), then share the file in WhatsApp */
+  function wpPrint(x){
+    var logo = (document.querySelector(".login-logo") || {}).src || "";
+    var dt = parseISO(x.date), dayTxt = dt ? dt.toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) : fmtDate(x.date);
+    var nW = wpCount(x), nT = (x.teams || []).length;
+    var css = '@page{size:A4;margin:11mm}*{box-sizing:border-box}body{font-family:"Segoe UI",Arial,sans-serif;color:#1c2833;font-size:10pt;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+      '.bn{background:#1f3a52;color:#fff;border-radius:10px 10px 0 0;padding:12px 16px;display:flex;align-items:center;gap:14px;border-bottom:4px solid #e0a100}'+
+      '.bn .lg{background:#fff;border-radius:8px;padding:5px 8px;display:flex;align-items:center}.bn img{height:40px;width:auto;display:block}'+
+      '.bn .tt{flex:1}.bn h1{margin:0;font-size:17pt;letter-spacing:2.2px;font-weight:600}.bn p{margin:3px 0 0;font-size:9.5pt;letter-spacing:1.2px;color:#e8c766;text-transform:uppercase}'+
+      '.card{border:1px solid #d5dde5;border-top:0;border-radius:0 0 10px 10px;padding:12px 16px;margin-bottom:14px;background:#fbfcfd}'+
+      '.g{display:flex;gap:10px;margin-bottom:10px}.g>div{flex:1;background:#fff;border:1px solid #e1e7ed;border-radius:8px;padding:8px 11px}'+
+      '.k{font-size:7.5pt;letter-spacing:1.3px;text-transform:uppercase;color:#7b8a98;margin-bottom:2px}.v{font-size:11.5pt;font-weight:600;color:#1f3a52}'+
+      '.sd{background:#fff;border:1px solid #e1e7ed;border-left:4px solid #e0a100;border-radius:8px;padding:8px 11px}.sd .v{font-size:10.5pt;font-weight:500;color:#1c2833;white-space:pre-wrap}'+
+      '.sm{margin:10px 0 0;font-size:8.5pt;color:#5d6b78}.sm b{color:#1f3a52}'+
+      '.tm{border:1px solid #d5dde5;border-radius:10px;margin:0 0 12px;overflow:hidden;page-break-inside:avoid}'+
+      '.th{background:#eaf0f6;padding:7px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #d5dde5}'+
+      '.tb{background:#1f3a52;color:#fff;font-weight:700;letter-spacing:1.4px;font-size:9.5pt;border-radius:6px;padding:3px 11px}'+
+      '.th .n{margin-left:auto;font-size:8.5pt;color:#5d6b78}'+
+      '.mb{padding:7px 12px 2px;font-size:8.5pt}.mb .k{margin-bottom:4px}.ch{display:inline-block;background:#fff6e0;border:1px solid #efd9a1;color:#6b4a00;border-radius:999px;padding:2px 10px;margin:0 5px 5px 0;font-size:8.5pt}'+
+      'table{width:100%;border-collapse:collapse;table-layout:fixed}.tm th:nth-child(1),.pv th:nth-child(1){width:30px}.tm th:nth-child(2){width:30%}.pv th:nth-child(2){width:28%}.pv th:nth-child(3){width:36%}th{background:#1f3a52;color:#fff;text-align:left;padding:6px 9px;font-size:8.5pt;letter-spacing:.8px;text-transform:uppercase;font-weight:600}'+
+      'td{padding:6px 9px;border-bottom:1px solid #e3e9ee;vertical-align:top;font-size:9.5pt}tr:nth-child(even) td{background:#f6f9fb}tr{page-break-inside:avoid}'+
+      'td.o{font-weight:700;color:#1f3a52;white-space:nowrap}.pl{display:inline-block;background:#e6f0f8;border:1px solid #c5d9ea;color:#1f3a52;border-radius:5px;padding:1px 8px;margin:0 4px 3px 0;font-size:8.8pt}'+
+      '.sec{margin:14px 0 6px;font-size:10pt;font-weight:700;color:#1f3a52;letter-spacing:1.2px;text-transform:uppercase;border-bottom:2px solid #e0a100;padding-bottom:3px;display:inline-block}'+
+      '.pv{border:1px solid #d5dde5;border-radius:10px;overflow:hidden;page-break-inside:avoid}.pv th{background:#6b4a00}'+
+      '.nt{margin-top:14px;background:#fff9e8;border:1px solid #efd9a1;border-left:5px solid #e0a100;border-radius:8px;padding:9px 13px;page-break-inside:avoid}'+
+      '.nt .k{color:#8a5a00}.nt div.t{white-space:pre-wrap;font-size:10pt}'+
+      '.ft{margin-top:16px;padding-top:7px;border-top:1px solid #d5dde5;display:flex;justify-content:space-between;font-size:8pt;color:#7b8a98}';
+    var teams = (x.teams || []).map(function(t){
+      var mem = (t.members || []).map(function(m){ return '<span class="ch">'+esc(m.name)+(m.kind === "amc" ? ' (AMC)' : (m.desig ? ' &ndash; '+esc(m.desig) : ''))+'</span>'; }).join("");
+      var rows = (t.works || []).map(function(w, i){
+        return '<tr><td style="width:26px;color:#7b8a98">'+(i+1)+'</td><td class="o">'+esc(w.objType)+' '+esc(w.object)+'</td><td>'+(w.acts || []).map(function(a){ return '<span class="pl">'+esc(a)+'</span>'; }).join("")+'</td></tr>'; }).join("");
+      return '<div class="tm"><div class="th"><span class="tb">'+esc(String(t.name).toUpperCase())+'</span><span class="n">'+(t.members || []).length+' member'+((t.members || []).length === 1 ? '' : 's')+' &middot; '+(t.works || []).length+' work'+((t.works || []).length === 1 ? '' : 's')+'</span></div>'+
+        (mem ? '<div class="mb"><div class="k">Team members</div>'+mem+'</div>' : '')+
+        '<table><thead><tr><th>#</th><th>Object</th><th>Maintenance activities</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    }).join("");
+    var prev = (x.prev || []).length ? '<div class="sec">Previous year test results</div><div class="pv"><table><thead><tr><th>#</th><th>Date</th><th>Object</th><th>Test</th><th>Result</th></tr></thead><tbody>'+
+      (x.prev || []).map(function(r, i){ return '<tr><td style="width:26px;color:#7b8a98">'+(i+1)+'</td><td>'+(r.date ? esc(fmtDate(r.date)) : "–")+'</td><td class="o">'+esc(r.object || "–")+'</td><td>'+esc(r.test || "–")+'</td><td><b>'+esc(r.result || "–")+'</b></td></tr>'; }).join("")+'</tbody></table></div>' : '';
+    var note = x.notes ? '<div class="nt"><div class="k">Note</div><div class="t">'+esc(x.notes)+'</div></div>' : '';
+    var body = '<div class="bn">'+(logo ? '<div class="lg"><img src="'+esc(logo)+'" alt=""></div>' : '')+'<div class="tt"><h1>WORKPLAN OVERVIEW</h1><p>KOZHIKODE SS &nbsp;|&nbsp; Shutdown work plan</p></div></div>'+
+      '<div class="card"><div class="g"><div><div class="k">Equipment type</div><div class="v">'+esc(x.equipType)+'</div></div><div><div class="k">Date of work</div><div class="v">'+esc(dayTxt)+'</div></div></div>'+
+      '<div class="sd"><div class="k">Shutdown description</div><div class="v">'+esc(x.shutdown)+'</div></div>'+
+      '<p class="sm"><b>'+nT+'</b> team'+(nT === 1 ? '' : 's')+' &nbsp;&middot;&nbsp; <b>'+nW+'</b> work'+(nW === 1 ? '' : 's')+'</p></div>'+
+      teams+prev+note+
+      '<div class="ft"><span>Prepared by '+esc(cleanNm(x.byName) || "–")+' &middot; Generated on '+esc(fmtStamp(Date.now()))+'</span><span>For information</span></div>';
+    printDoc("Workplan_"+(x.equipType || "").replace(/[^A-Za-z0-9]+/g, "_")+"_"+fmtDate(x.date), css, body);
+  }
+
+  /* ---- Add / edit form: one full page; every field is copied to wpDraft as it changes, so a background refresh never loses typing ---- */
+  function wpNewDraft(){ return { id: uid(), equipType: "", shutdown: "", date: today(), teams: [{ members: [], works: [{ objType: "", object: "", acts: [] }] }], prev: [], notes: "", step: 1 }; }
+  function wpOptHtml(list, cur, ph){
+    var l = list.slice(); if(cur && l.indexOf(cur) < 0) l.unshift(cur);
+    return '<option value="">'+esc(ph)+'</option>'+l.map(function(x){ return '<option value="'+esc(x)+'"'+(x === cur ? ' selected' : '')+'>'+esc(x)+'</option>'; }).join("");
+  }
+  function renderWpForm(){
+    var p = $("panel"), edit = wpEditId ? wpData.items.find(function(x){ return x.id === wpEditId; }) : null;
+    if(wpEditId && !edit && !wpDraft){ miscView = "wp"; wpEditId = ""; renderWp(); return; }
+    if(!wpDraft){ wpDraft = edit ? JSON.parse(JSON.stringify(edit)) : wpNewDraft(); if(edit) wpDraft.step = 4; }
+    wpDraft.teams.forEach(function(t){ t.members = t.members || []; }); wpDraft.prev = wpDraft.prev || []; wpDraft.notes = wpDraft.notes || "";
+    var d = wpDraft, ppl = wpPeople(), types = wpData.types.slice().sort(dfCmp), otypes = wpObjTypes();
+    var h = gpBackBtn("wp","Workplan Overview")+'<div class="panel-head"><h3>'+(edit ? 'Edit workplan' : 'New workplan')+'</h3></div><div id="wpRoot" class="assign-form">';
+    h += '<div class="field"><label for="wpEq">Equipment type</label><select id="wpEq">'+wpOptHtml(types, d.equipType, "Select equipment type")+'</select>'+
+      (types.length ? '' : '<small style="display:block;color:#a33;margin-top:4px">Master has not uploaded the equipment type list yet.</small>')+'</div>'+
+      '<div class="field"><label for="wpSd">Shutdown description</label><textarea id="wpSd" maxlength="600">'+esc(d.shutdown)+'</textarea></div>'+
+      '<div class="field"><label for="wpDate">Date of work</label><input type="date" id="wpDate" value="'+esc(d.date)+'"></div>';
+    var st = d.step || 1;
+    function nextBtn(n, label){ return '<p class="error" id="wpErr'+n+'"></p><div class="wpnext"><button class="btn" type="button" data-wpa="next" data-st="'+n+'">'+label+'</button></div>'; }
+    /* ---- 1. Basic details ---- */
+    h = h.replace(/(<div class="field"><label for="wpEq">)/, wpSecHead(1, "Workplan basic details") + '$1');
+    if(st === 1) h += nextBtn(1, "Continue to Team formation");
+    /* ---- 2. Team formation ---- */
+    if(st >= 2){
+      h += wpSecHead(2, "Team formation");
+      d.teams.forEach(function(t, ti){
+        h += '<div class="wpt"><div class="wpt-h"><b>'+wpTeamName(ti)+'</b>'+(ti === d.teams.length - 1 && d.teams.length > 1 ? '<button class="btn ghost small" type="button" data-wpa="delteam" data-ti="'+ti+'">Remove team</button>' : '')+'</div><div class="wpt-b">';
+      var have = {}; t.members.forEach(function(m){ have[wpMemKey(m)] = 1; });
+      function pOpt(x){ return have[wpMemKey(x)] ? "" : '<option value="'+esc(x.kind+":"+x.id)+'">'+esc(wpMemLabel(x))+'</option>'; }
+      h += '<div class="field"><label>Team members</label>'+
+        (t.members.length ? '<div class="wpmem">'+t.members.map(function(m, mi){
+          return '<span class="wpm">'+esc(wpMemLabel(m))+'<button type="button" aria-label="Remove member" data-wpa="delmem" data-ti="'+ti+'" data-mi="'+mi+'">&times;</button></span>'; }).join("")+'</div>' : '<small style="display:block;color:var(--muted);margin-bottom:4px">No member added yet.</small>')+
+        '<select data-wf="addmem" data-ti="'+ti+'"><option value="">Add team member…</option>'+
+          (ppl.emps.length ? '<optgroup label="Employees">'+ppl.emps.map(pOpt).join("")+'</optgroup>' : '')+
+          (ppl.amc.length ? '<optgroup label="AMC / Contract users">'+ppl.amc.map(pOpt).join("")+'</optgroup>' : '')+
+          '<option value="__other__">Other (type name &amp; designation)</option></select>'+
+        (t.otherOpen ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><input type="text" maxlength="60" placeholder="Name" data-wf="oname" data-ti="'+ti+'" value="'+esc(t.oName || "")+'" style="flex:1 1 140px">'+
+          '<input type="text" maxlength="60" placeholder="Designation" data-wf="odesig" data-ti="'+ti+'" value="'+esc(t.oDesig || "")+'" style="flex:1 1 140px">'+
+          '<button class="btn small" type="button" data-wpa="addother" data-ti="'+ti+'">Add</button></div>' : '')+'</div>';
+        h += '</div></div>';
+      });
+      h += '<div style="margin:0 0 12px">'+(d.teams.length < 26 ? '<button class="btn ghost" type="button" data-wpa="addteam">+ Add '+wpTeamName(d.teams.length)+'</button>' : '')+'</div><p class="error" id="wpErr2"></p>';
+      if(st === 2) h += '<div class="wpnext"><button class="btn" type="button" data-wpa="next" data-st="2">Continue to Work addition</button></div>';
+    }
+    /* ---- 3. Work addition ---- */
+    if(st >= 3){
+      h += wpSecHead(3, "Work addition");
+      d.teams.forEach(function(t, ti){
+        h += '<div class="wpt"><div class="wpt-h"><b>'+wpTeamName(ti)+'</b><span style="font-size:.78rem;color:var(--muted);font-weight:400">'+esc(t.members.map(function(m){ return m.name; }).join(", "))+'</span></div><div class="wpt-b">';
+      t.works.forEach(function(w, wi){
+        var objs = w.objType ? wpObjectsOf(w.objType) : [], acts = w.objType ? wpActsOf(w.objType) : [];
+        if(w.other === undefined){          // first time this work is drawn: anything not in the master's list is a manually written ("Others") work
+          var cust = (w.acts || []).filter(function(a){ return acts.indexOf(a) < 0; });
+          w.acts = (w.acts || []).filter(function(a){ return acts.indexOf(a) >= 0; });
+          w.other = cust.join(", "); w.otherOn = cust.length > 0;
+        }
+        h += '<div class="wpw"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="color:var(--steel);font-size:.9rem">Work '+(wi+1)+'</b>'+
+          (t.works.length > 1 ? '<button class="btn ghost small" type="button" data-wpa="delwork" data-ti="'+ti+'" data-wi="'+wi+'">Remove</button>' : '')+'</div>'+
+          '<div class="field"><label>Object type</label><select data-wf="type" data-ti="'+ti+'" data-wi="'+wi+'">'+wpOptHtml(otypes, w.objType, "Select object type")+'</select></div>'+
+          '<div class="field"><label>Object</label><select data-wf="obj" data-ti="'+ti+'" data-wi="'+wi+'">'+wpOptHtml(objs, w.object, w.objType ? "Select object" : "Select object type first")+'</select></div>'+
+          '<div class="field" style="margin-bottom:0"><label>Maintenance activities (tick one or more)</label>'+
+          (!w.objType ? '<small style="color:var(--muted)">Select the object type first.</small>' :
+            '<div class="wpacts">'+acts.map(function(a){
+              return '<label class="chkitem"><input type="checkbox" data-wf="act" data-ti="'+ti+'" data-wi="'+wi+'" value="'+esc(a)+'"'+((w.acts || []).indexOf(a) >= 0 ? ' checked' : '')+'><span>'+esc(a)+'</span></label>'; }).join("")+
+            '<label class="chkitem"><input type="checkbox" data-wf="actother" data-ti="'+ti+'" data-wi="'+wi+'"'+(w.otherOn ? ' checked' : '')+'><span>Others (write the work)</span></label></div>'+
+            (acts.length ? '' : '<small style="display:block;color:var(--muted);margin-top:4px">No activities are listed for this object type. Tick Others and write the work.</small>')+
+            (w.otherOn ? '<input type="text" maxlength="150" placeholder="Type the work / activity" data-wf="othertxt" data-ti="'+ti+'" data-wi="'+wi+'" value="'+esc(w.other || "")+'" style="width:100%;margin-top:6px">' : ''))+'</div></div>';
+      });
+        h += '<button class="btn ghost small" type="button" data-wpa="addwork" data-ti="'+ti+'">+ Add work to '+wpTeamName(ti)+'</button></div></div>';
+      });
+      h += '<p class="error" id="wpErr3"></p>';
+      if(st === 3) h += '<div class="wpnext"><button class="btn" type="button" data-wpa="next" data-st="3">Continue to Previous year results &amp; remarks</button></div>';
+    }
+    /* ---- 4. Previous year results + remarks, then save ---- */
+    if(st >= 4) h += wpBottomHtml(d)+'<p class="error" id="wpErr"></p><button class="btn" id="wpSave" type="button">'+(edit ? 'Save changes' : 'Save workplan')+'</button>';
+    h += '</div>';
+    p.innerHTML = h;
+    $("gBack").onclick = function(){ wpDraft = null; wpEditId = ""; miscView = "wp"; render(); };
+    var root = $("wpRoot");
+    function W(el){ var t = d.teams[+el.getAttribute("data-ti")]; return t ? t.works[+el.getAttribute("data-wi")] : null; }
+    root.oninput = function(ev){
+      var el = ev.target;
+      if(el.id === "wpSd") d.shutdown = el.value; else if(el.id === "wpDate") d.date = el.value;
+      else if(el.id === "wpNote") d.notes = el.value;
+      else if(wpPrevSync(d, el)) { }
+      else { var f = el.getAttribute("data-wf"), tm = d.teams[+el.getAttribute("data-ti")]; if(tm && f === "oname") tm.oName = el.value; else if(tm && f === "odesig") tm.oDesig = el.value; else if(tm && f === "othertxt"){ var ow = tm.works[+el.getAttribute("data-wi")]; if(ow) ow.other = el.value; } }
+    };
+    root.onchange = function(ev){
+      var el = ev.target, k = el.getAttribute("data-wf");
+      if(el.id === "wpEq"){ d.equipType = el.value; return; }
+      if(el.id === "wpSd"){ d.shutdown = el.value; return; }
+      if(el.id === "wpDate"){ d.date = el.value; return; }
+      if(el.id === "wpNote"){ d.notes = el.value; return; }
+      if(wpPrevSync(d, el)) return;
+      if(k === "oname" || k === "odesig"){ var tt = d.teams[+el.getAttribute("data-ti")]; if(tt) tt[k === "oname" ? "oName" : "oDesig"] = el.value; return; }
+      if(k === "addmem"){
+        var tm = d.teams[+el.getAttribute("data-ti")], v = el.value; if(!tm || !v) return;
+        if(v === "__other__"){ tm.otherOpen = true; render(); return; }
+        var all = ppl.emps.concat(ppl.amc), pick = all.filter(function(x){ return x.kind+":"+x.id === v; })[0];
+        if(pick) tm.members.push({ kind: pick.kind, id: pick.id, name: pick.name, desig: pick.desig });
+        render(); return;
+      }
+      var w = k ? W(el) : null; if(!w) return;
+      if(k === "type"){ w.objType = el.value; w.object = ""; w.acts = []; w.other = ""; w.otherOn = false; render(); }
+      else if(k === "actother"){
+        w.otherOn = el.checked; render();
+        if(el.checked){ var oi = document.querySelector('#wpRoot input[data-wf="othertxt"][data-ti="'+el.getAttribute("data-ti")+'"][data-wi="'+el.getAttribute("data-wi")+'"]'); if(oi) oi.focus(); }
+      }
+      else if(k === "obj") w.object = el.value;
+      else if(k === "othertxt") w.other = el.value;
+      else if(k === "act"){ var i = w.acts.indexOf(el.value); if(el.checked && i < 0) w.acts.push(el.value); if(!el.checked && i >= 0) w.acts.splice(i, 1); }
+    };
+    root.onclick = function(ev){
+      var b = ev.target.closest ? ev.target.closest("[data-wpa]") : null; if(!b || !root.contains(b)) return;
+      var a = b.getAttribute("data-wpa"), ti = +b.getAttribute("data-ti"), wi = +b.getAttribute("data-wi");
+      var tcur = d.teams[ti];
+      if(a === "next"){
+        var stp = +b.getAttribute("data-st"), msg = wpValidate(d, stp), er9 = $("wpErr"+stp);
+        if(msg){ if(er9) er9.textContent = msg; return; }
+        d.step = Math.max(d.step || 1, stp + 1); render();
+        var hs = document.querySelectorAll("#wpRoot .wps"); if(hs.length && hs[hs.length - 1].scrollIntoView) hs[hs.length - 1].scrollIntoView({ block: "start" });
+        return;
+      }
+      if(a === "addprev"){ d.prev.push({ date: "", object: "", test: "", result: "" }); }
+      else if(a === "delprev"){ d.prev.splice(+b.getAttribute("data-pi"), 1); }
+      else if(a === "delmem"){ tcur.members.splice(+b.getAttribute("data-mi"), 1); }
+      else if(a === "addother"){
+        var on = (tcur.oName || "").trim(), od = (tcur.oDesig || "").trim(), er0 = $("wpErr2");
+        if(!on || !od){ er0.textContent = "Enter both the name and the designation for 'Other'."; return; }
+        var nm = { kind: "other", id: "", name: on, desig: od };
+        if(!tcur.members.some(function(m){ return wpMemKey(m) === wpMemKey(nm); })) tcur.members.push(nm);
+        tcur.oName = ""; tcur.oDesig = ""; tcur.otherOpen = false;
+      }
+      else if(a === "addteam"){ d.teams.push({ members: [], works: [{ objType: "", object: "", acts: [] }] }); }
+      else if(a === "delteam"){ d.teams.pop(); }                          // only the last team can go, so names stay Team-A, Team-B ... in order
+      else if(a === "addwork"){ d.teams[ti].works.push({ objType: "", object: "", acts: [] }); }
+      else if(a === "delwork"){ d.teams[ti].works.splice(wi, 1); }
+      render();
+    };
+    $("wpSave").onclick = function(){
+      var er = $("wpErr"); er.textContent = "";
+      d.shutdown = $("wpSd").value; d.date = $("wpDate").value; d.equipType = $("wpEq").value;
+      var vm = wpValidate(d, 4);
+      if(vm){ er.textContent = vm; return; }
+      var me = isMaster() ? "Master" : (emp(myEmpId()) ? cleanNm(emp(myEmpId()).name) : "");
+      var item = { id: d.id, equipType: d.equipType, shutdown: d.shutdown.trim(), date: d.date,
+        teams: d.teams.map(function(t, i){ return { name: wpTeamName(i), members: t.members.map(function(m){ return { kind: m.kind, id: m.id || "", name: m.name, desig: m.desig || "" }; }), works: t.works.map(function(w){ var oth = (w.otherOn ? (w.other || "").trim() : ""), ac = w.acts.slice(); if(oth && ac.indexOf(oth) < 0) ac.push(oth); return { objType: w.objType, object: w.object, acts: ac }; }) }; }),
+        by: (edit && edit.by) || (isMaster() ? "master" : myEmpId()), byName: (edit && edit.byName) || me, created: (edit && edit.created) || Date.now(), updated: Date.now(), updatedBy: me };
+      item.prev = d.prev.filter(function(r){ return (r.object || "").trim() || (r.test || "").trim() || (r.result || "").trim(); }).map(function(r){ return { date: r.date || "", object: (r.object || "").trim(), test: (r.test || "").trim(), result: (r.result || "").trim() }; });
+      item.notes = (d.notes || "").trim();
+      wpData.items = wpData.items.filter(function(x){ return x.id !== item.id; }).concat([item]);
+      wpDraft = null; wpEditId = ""; miscView = "wp"; render();
+      wpSend({ action: "wpPut", item: item });
+    };
+  }
+
+  /* ---- Master: dropdown lists <-> Excel (sheet 'Equipment Type', sheet 'Object', sheet 'Activities') ---- */
+  var WP_SAMPLE_TYPES = ["LINE","ICT","BUS","CAPACITOR BANK","REACTOR"];
+  var WP_SAMPLE_OBJS = [["CB","20152"],["CB","20252"],["CB","20352"],["ISOLATOR","20189"],["ISOLATOR","20289"],["CT","20114"],["CT","20214"],["TRANSFORMER","ICT-1"],["TRANSFORMER","ICT-2"]];
+  var WP_SAMPLE_ACTS = [["CB","CRM"],["CB","DCRM"],["CB","Timing test"],["CB","Oil/gas sampling"],["ISOLATOR","Contact resistance"],["ISOLATOR","Cleaning and lubrication"],["CT","IR value"],["CT","Tan delta"],["TRANSFORMER","DGA"],["TRANSFORMER","Winding resistance"]];
+  function wpListDownload(err){
+    loadXLSX(function(){
+      var X = window.XLSX, hasData = wpData.types.length || wpData.objs.length || wpData.acts.length;
+      var types = hasData ? wpData.types : WP_SAMPLE_TYPES;
+      var objs = hasData ? wpData.objs.slice().sort(function(a,b){ return dfCmp(a.objType,b.objType) || dfCmp(a.object,b.object); }).map(function(x){ return [x.objType, x.object]; }) : WP_SAMPLE_OBJS;
+      var acts = hasData ? wpData.acts.map(function(x){ return [x.objType, x.activity]; }) : WP_SAMPLE_ACTS;
+      var w1 = X.utils.aoa_to_sheet([["Equipment Type"]].concat(types.map(function(x){ return [x]; }))); w1["!cols"] = [{ wch: 30 }];
+      var w2 = X.utils.aoa_to_sheet([["Object Type","Object"]].concat(objs)); w2["!cols"] = [{ wch: 24 }, { wch: 24 }];
+      var w3 = X.utils.aoa_to_sheet([["Object Type","Maintenance Activity"]].concat(acts)); w3["!cols"] = [{ wch: 24 }, { wch: 44 }];
+      var help = X.utils.aoa_to_sheet([["How to fill this workbook"],
+        ["Sheet 'Equipment Type': one equipment type per row in column A (e.g. LINE, ICT). Employees pick one of these for each workplan."],
+        ["Sheet 'Object': one row per object. Column A = Object Type (e.g. CB), column B = Object (e.g. 20152). Repeat the Object Type on every row."],
+        ["Sheet 'Activities': one row per maintenance activity. Column A = Object Type (must be spelt exactly as on the 'Object' sheet), column B = the activity (e.g. CRM, DCRM)."],
+        ["In the form, employees pick the Object Type, then see only the Objects of that type, and can tick one or more Activities listed for that type."],
+        ["Keep the first row (headings) of each sheet as it is. Replace the sample rows with your own; delete rows you do not need."],
+        ["Upload with the 'Upload list Excel' button in Miscellaneous > Workplan Overview. You see a preview first. The upload REPLACES the old lists; workplans already entered are not changed."],
+        ["Tip: to change the lists later, press 'Download list Excel' (it gives the current lists), edit and upload again."]]);
+      help["!cols"] = [{ wch: 140 }];
+      var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, w1, "Equipment Type"); X.utils.book_append_sheet(wb, w2, "Object"); X.utils.book_append_sheet(wb, w3, "Activities"); X.utils.book_append_sheet(wb, help, "How to fill");
+      X.writeFile(wb, hasData ? "Workplan_lists_"+today()+".xlsx" : "Workplan_lists_sample.xlsx");
+      err("");
+    }, function(){ err("Could not load the Excel library. Check your internet connection and try again."); });
+  }
+  function parseWpWorkbook(buf){
+    var X = window.XLSX, wb = X.read(buf, { type: "array" }), names = wb.SheetNames;
+    if(!names.length) throw new Error("The file has no sheet.");
+    function find(re, not){ return names.filter(function(s){ var k = s.toLowerCase(); return re.test(k) && !(not && not.test(k)); })[0]; }
+    var sT = find(/equip/), sO = find(/obj/, /equip|activ|maint/), sA = find(/activ|maint/);
+    if(!sT && !sO && !sA) throw new Error("Could not find the \"Equipment Type\", \"Object\" or \"Activities\" sheet. Use the Excel from the Download list Excel button.");
+    function rowsOf(sn){ return X.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: "", raw: false, blankrows: false }); }
+    function findHead(data, ALIAS){
+      for(var r = 0; r < Math.min(data.length, 6); r++){
+        var m = {}; data[r].forEach(function(c, i){ var k = vnKey(c); Object.keys(ALIAS).forEach(function(f){ if(m[f] === undefined && ALIAS[f].indexOf(k) >= 0) m[f] = i; }); });
+        if(Object.keys(ALIAS).every(function(f){ return m[f] !== undefined; })) return { row: r, col: m };
+      }
+      return null;
+    }
+    function cell(row, i){ return String(row[i] == null ? "" : row[i]).trim(); }
+    var errors = [], warns = [], types = wpData.types.slice(), objs = wpData.objs.slice(), acts = wpData.acts.slice(), keep = [];
+    if(sT){
+      var d0 = rowsOf(sT), h0 = findHead(d0, { name: ["equipmenttype","equipmenttypes","equipment","type","types"] }), seen0 = {};
+      if(!h0) throw new Error("Could not find the \"Equipment Type\" column on the Equipment Type sheet.");
+      types = [];
+      for(var i = h0.row + 1; i < d0.length; i++){
+        var t = cell(d0[i], h0.col.name); if(!t) continue;
+        if(seen0[t.toLowerCase()]){ errors.push("Equipment Type row "+(i+1)+": \""+t+"\" is repeated."); continue; }
+        seen0[t.toLowerCase()] = 1; types.push(t.slice(0, 60));
+      }
+    } else keep.push("equipment types");
+    if(sO){
+      var d1 = rowsOf(sO), h1 = findHead(d1, { objType: ["objecttype","objecttypes","type"], object: ["object","objects","objectno","objectname"] }), seen1 = {};
+      if(!h1) throw new Error("Could not find the \"Object Type\" and \"Object\" columns on the Object sheet.");
+      objs = [];
+      for(var j = h1.row + 1; j < d1.length; j++){
+        var ty = cell(d1[j], h1.col.objType), ob = cell(d1[j], h1.col.object);
+        if(!ty && !ob) continue;
+        if(!ty || !ob){ errors.push("Object row "+(j+1)+": "+(ty ? "object is empty." : "object type is empty.")); continue; }
+        var k1 = ty.toLowerCase()+"|"+ob.toLowerCase();
+        if(seen1[k1]){ errors.push("Object row "+(j+1)+": "+ty+" / "+ob+" is repeated."); continue; }
+        seen1[k1] = 1; objs.push({ objType: ty.slice(0, 60), object: ob.slice(0, 80) });
+      }
+    } else keep.push("objects");
+    if(sA){
+      var d2 = rowsOf(sA), h2 = findHead(d2, { objType: ["objecttype","objecttypes","type"], activity: ["maintenanceactivity","maintenanceactivities","activity","activities"] }), seen2 = {};
+      if(!h2) throw new Error("Could not find the \"Object Type\" and \"Maintenance Activity\" columns on the Activities sheet.");
+      acts = [];
+      for(var m = h2.row + 1; m < d2.length; m++){
+        var ty2 = cell(d2[m], h2.col.objType), ac = cell(d2[m], h2.col.activity);
+        if(!ty2 && !ac) continue;
+        if(!ty2 || !ac){ errors.push("Activities row "+(m+1)+": "+(ty2 ? "activity is empty." : "object type is empty.")); continue; }
+        var k2 = ty2.toLowerCase()+"|"+ac.toLowerCase();
+        if(seen2[k2]){ errors.push("Activities row "+(m+1)+": "+ty2+" / "+ac+" is repeated."); continue; }
+        seen2[k2] = 1; acts.push({ objType: ty2.slice(0, 60), activity: ac.slice(0, 120) });
+      }
+    } else keep.push("activities");
+    if(objs.length > 5000) throw new Error("Too many object rows (maximum 5000).");
+    if(acts.length > 3000) throw new Error("Too many activity rows (maximum 3000).");
+    if(types.length > 200) throw new Error("Too many equipment types (maximum 200).");
+    // object types that have objects but no activities (or the other way round) are usually a spelling mismatch
+    var oT = {}, aT = {}; objs.forEach(function(x){ oT[x.objType.toLowerCase()] = x.objType; }); acts.forEach(function(x){ aT[x.objType.toLowerCase()] = x.objType; });
+    Object.keys(oT).forEach(function(k){ if(!aT[k]) warns.push("\""+oT[k]+"\" has objects but no activities."); });
+    Object.keys(aT).forEach(function(k){ if(!oT[k]) warns.push("\""+aT[k]+"\" has activities but no objects (check the spelling against the Object sheet)."); });
+    return { types: types, objs: objs, acts: acts, errors: errors, warns: warns, keep: keep, nOT: Object.keys(oT).length };
+  }
+  function wpListPreview(res){
+    var ok = res.types.length || res.objs.length || res.acts.length;
+    openModal('<h3>Upload Workplan lists</h3>'+
+      '<p style="margin:0 0 8px"><b>'+res.types.length+'</b> equipment type'+(res.types.length===1?'':'s')+' &middot; <b>'+res.nOT+'</b> object type'+(res.nOT===1?'':'s')+' &middot; <b>'+res.objs.length+'</b> object'+(res.objs.length===1?'':'s')+' &middot; <b>'+res.acts.length+'</b> activit'+(res.acts.length===1?'y':'ies')+
+        (res.keep.length ? ' (current '+esc(res.keep.join(", "))+' kept: sheet not in the file)' : '')+
+        (res.errors.length ? ' &middot; <b style="color:#a33">'+res.errors.length+' row'+(res.errors.length>1?'s':'')+' skipped</b>' : '')+'</p>'+
+      (res.errors.length ? '<div style="max-height:130px;overflow:auto;font-size:.85rem;color:#a33;margin:0 0 10px;padding:8px 10px;background:#fdf1f1;border-radius:6px">'+res.errors.slice(0, 30).map(function(e){ return esc(e); }).join("<br>")+(res.errors.length>30?'<br>…':'')+'</div>' : '')+
+      (res.warns.length ? '<div style="max-height:110px;overflow:auto;font-size:.85rem;color:#8a5a00;margin:0 0 10px;padding:8px 10px;background:#fff6e0;border-radius:6px">'+res.warns.slice(0, 20).map(function(e){ return esc(e); }).join("<br>")+(res.warns.length>20?'<br>…':'')+'</div>' : '')+
+      (ok ? '<p style="margin:0 0 10px;color:var(--muted);font-size:.88rem">This <b>replaces</b> the current dropdown lists. Workplans already entered are not changed.</p>' : '<p class="error">There is nothing valid in this file.</p>')+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button>'+(ok ? '<button class="btn" id="mOk" type="button">Replace lists</button>' : '')+'</div>');
+    $("mNo").onclick = closeModal;
+    if(ok) $("mOk").onclick = function(){
+      wpData.types = res.types; wpData.objs = res.objs; wpData.acts = res.acts;
+      closeModal(); render(); try{ toast("Saving lists…"); }catch(x){}
+      wpSend({ action: "wpLists", types: res.types, objs: res.objs, acts: res.acts });
+    };
+  }
+  function wpListUpload(file, err){
+    loadXLSX(function(){
+      var rd = new FileReader();
+      rd.onload = function(){ try{ var res = parseWpWorkbook(rd.result); err(""); wpListPreview(res); } catch(e){ err(e && e.message ? e.message : "Could not read that file."); } };
+      rd.onerror = function(){ err("Could not read that file."); };
+      rd.readAsArrayBuffer(file);
+    }, function(){ err("Could not load the Excel library. Check your internet connection and try again."); });
+  }
+
   var GP_REASONS = ["Repair","Diversion","Scrap","Oil sample","Other"];
   var GP_MODES = ["Company vehicle","Truck","Courier","By hand"];
   var GP_UNITS = ["Nos","Set","Kg","Litre","Metre","Box","Pair","Drum","Roll","Lot"];
@@ -4883,6 +5413,8 @@
     if(miscView === "vendors" && isMaster()){ renderVendors(); return; }
     if(miscView === "permits"){ renderPermits(); return; }
     if(miscView === "defects"){ renderDefects(); return; }
+    if(miscView === "wp" && !isSupport()){ renderWp(); return; }
+    if(miscView === "wpForm" && !isSupport()){ renderWpForm(); return; }
     if(miscView === "vsearch"){ renderVendorSearch(); return; }
     if(miscView === "backup" && isMaster()){ renderBackup(); return; }
     if(miscView === "gp"){ renderGateList(); return; }
@@ -4900,6 +5432,8 @@
     if(SYNC) cards.push({ go:"permits", ic:"assign", cls:"", t:"Permits & Orders", s: permitsData.loaded ? (permitsData.permits.filter(permitActive).length ? permitsData.permits.filter(permitActive).length+" active today · " : "")+permitsData.permits.length+" permit"+(permitsData.permits.length===1?"":"s") : "Work permits, shutdown details, share on WhatsApp" });
     if(SYNC && !isSupport()){ var dfOpen = defectsData.items.filter(function(x){ return x.status !== "Closed"; }).length;
       cards.push({ go:"defects", ic:"works", cls:"", t:"Defect register", s: defectsData.loaded ? dfOpen+" open \u00b7 "+defectsData.items.length+" defect"+(defectsData.items.length===1?"":"s") : "Log equipment defects and track them to closure" }); }
+    if(SYNC && !isSupport()){ var wpUp = wpData.items.filter(function(x){ return x.date >= today(); }).length;
+      cards.push({ go:"wp", ic:"assign", cls:"", t:"Workplan Overview", s: wpData.loaded ? wpUp+" upcoming \u00b7 "+wpData.items.length+" workplan"+(wpData.items.length===1?"":"s") : "Plan shutdown work: teams, objects and maintenance activities" }); }
     if(SYNC) cards.push({ go:"vsearch", ic:"works", cls:"", t:"Vendor search", s: claimsData.loaded ? "Search "+claimsData.vendors.length+" vendor"+(claimsData.vendors.length===1?"":"s")+" by name, GST no., phone, city" : "Find a vendor by name, GST no., phone, city" });
     if(isMaster() && SYNC) cards.push({ go:"backup", ic:"works", cls:"", t:"Backup", s:"Export all data as Excel and JSON" });
     if(isMaster() && SYNC) cards.push({ go:"vendors", ic:"works", cls:"", t:"Vendor list", s: claimsData.loaded ? claimsData.vendors.length+" vendor"+(claimsData.vendors.length===1?"":"s")+" · used in employee Claims" : "Vendors employees pick in their Claims" });
@@ -4907,7 +5441,7 @@
       return '<button type="button" class="hcard '+c.cls+'" data-miv="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
     }).join("")+'</div>';
     Array.prototype.forEach.call(p.querySelectorAll("[data-miv]"),function(b){
-      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); if(miscView === "vendors" || miscView === "vsearch") claimFetch(); if(miscView === "permits") permitFetch(); if(miscView === "defects") defectFetch(); };
+      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); if(miscView === "vendors" || miscView === "vsearch") claimFetch(); if(miscView === "permits") permitFetch(); if(miscView === "defects") defectFetch(); if(miscView === "wp") wpFetch(); };
     });
   }
   function gpMine(g){ return isMaster() || (session && g.createdBy === session.id); }
