@@ -187,13 +187,22 @@
   .clm-d{margin:0 0 4px;white-space:pre-wrap;overflow-wrap:anywhere}
   .clm-q{color:var(--muted);white-space:nowrap}
   .clm-rem{font-size:.85rem;color:var(--muted);margin:0 0 4px;white-space:pre-wrap}
-  .cld{border:1px solid var(--line);border-radius:10px;background:#fff;padding:12px;margin:0 0 12px}
-  .cld-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-  .cld-box{background:#f5f7fa;border-radius:8px;padding:8px 10px}
-  .cld-box small{display:block;color:var(--muted);font-size:.78rem}
-  .cld-box b{font-size:1.08rem;color:var(--ink)}
-  .cld-box.big{grid-column:1/-1;background:#fff4e8}.cld-box.big b{font-size:1.3rem;color:#b3541e}
-  .cld h4{margin:12px 0 6px;font-size:.9rem;color:var(--steel)}
+  .cld{border:1px solid var(--line);border-radius:14px;background:#fff;margin:0 0 12px;box-shadow:0 2px 10px rgba(31,58,82,.07);overflow:hidden}
+  .cld-head{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border:0;background:linear-gradient(135deg,#1f3a52,#2f5778);color:#fff;font-size:.98rem;font-weight:600;cursor:pointer;text-align:left}
+  .cld-head small{display:block;font-weight:400;opacity:.8;font-size:.78rem;margin-top:2px}
+  .cld-head .chev{transition:transform .2s;font-size:1.1rem}.cld.open .cld-head .chev{transform:rotate(180deg)}
+  .cld-body{display:none;padding:14px}.cld.open .cld-body{display:block}
+  .cld-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .cld-box{background:#f5f7fa;border-radius:10px;padding:10px 12px;border-left:4px solid #c3ccd6}
+  .cld-box small{display:block;color:var(--muted);font-size:.76rem;letter-spacing:.02em}
+  .cld-box b{font-size:1.1rem;color:var(--ink);display:block;margin-top:2px}
+  .cld-box em{display:block;font-style:normal;font-size:.78rem;color:var(--muted);margin-top:1px}
+  .cld-box.big{grid-column:1/-1;background:#eef3f8;border-left-color:#1f3a52}.cld-box.big b{font-size:1.4rem;color:#1f3a52}
+  .cld-box.ok{background:#eef8f1;border-left-color:#1a7f37}.cld-box.ok b{color:#1a7f37}
+  .cld-box.pend{background:#fff4e8;border-left-color:#b3541e}.cld-box.pend b{color:#b3541e}
+  .cld-bar{grid-column:1/-1;height:8px;border-radius:99px;background:#fde3cc;overflow:hidden}.cld-bar i{display:block;height:100%;background:#1a7f37;border-radius:99px}
+  .cld-sub{grid-column:1/-1;font-size:.76rem;color:var(--muted);margin:-4px 0 0}
+  .cld h4{margin:14px 0 6px;font-size:.9rem;color:var(--steel)}
   .cld-ppl button{display:flex;width:100%;justify-content:space-between;gap:8px;align-items:center;text-align:left;padding:8px 10px;margin:0 0 5px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:.9rem;color:var(--ink)}
   .cld-ppl button.on{border-color:var(--steel);background:#eef3f8}
   .cld-ppl small{display:block;color:var(--muted)}
@@ -537,7 +546,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.39";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.44";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -1148,9 +1157,7 @@
       .slice(0,8)
       .map(function(ev){
         var when = dayLabel(ev.date) + (ev.time ? " – " + ev.time : "");
-        var kind = CATS[catOf(ev)] || "Other";
-        var note = ev.note ? " — " + ev.note : "";
-        return "Office Calendar: " + when + " — " + ev.title + " [" + kind + "]" + note;
+        return when + " — " + ev.title;
       });
   }
 
@@ -3639,16 +3646,86 @@
       closeModal(); schedSave(s); render();
     };
   }
-  function renderMaintSummary(){
-    var p = $("panel"), rows = maintDue();
-    var h = BACKBTN+'<div class="panel-head"><h3>Summary &ndash; activities due till today</h3><div class="stats"><span>Due <b'+(rows.length?' style="color:var(--red)"':'')+'>'+rows.length+'</b></span></div></div>';
-    if(!rows.length) h += '<div class="empty">Nothing is due. All scheduled activities are up to date.</div>';
-    else {
-      h += '<table class="atable"><thead><tr><th>#</th><th>Type</th><th>Branch / Plan / Frequency</th><th>Description</th><th>Due day</th><th>Balance</th></tr></thead><tbody>'+
-        rows.map(function(r,i){ return '<tr class="late"><td data-label="#">'+(i+1)+'</td><td data-label="Type">'+esc(r.type)+'</td><td data-label="Group"><b>'+esc(r.grp)+'</b></td>'+
-          '<td data-label="Description">'+esc(r.desc)+'</td><td data-label="Due day">'+(r.next?fmtDate(r.next):'–')+'</td><td data-label="Balance">'+r.txt+'</td></tr>'; }).join("")+'</tbody></table>';
+  /* ---------- Summary: every due item (schedules, AMP, oil, fire extinguishers, relays, calibration) grouped, filterable, PDF ---------- */
+  var sumF = { cat:"all", win:"0", q:"" };
+  var SEC_ORDER = ["Daily","Weekly","Fortnightly","Monthly","3-Monthly","4-Monthly","6-Monthly","Yearly","Other frequency","Other scheduled activities","AMP","Oil sampling","Fire extinguishers","Relay tests","Instrument calibration"];
+  var SUM_CATS = [["all","All"],["sched","Scheduled maintenance"],["other","Other scheduled activities"],["amp","AMP"],["oil","Oil sampling"],["fext","Fire extinguishers"],["rly","Relay tests"],["calib","Instrument calibration"]];
+  var SUM_WINS = [["0","Due till today"],["7","Due within 7 days"],["30","Due within 30 days"],["99999","All with a due date"]];
+  function sumBalTxt(bal, none){
+    if(bal === null || bal <= -99999) return none || "Not recorded";
+    if(bal < 0) return "Overdue by "+(-bal)+" day"+(bal===-1?"":"s");
+    if(bal === 0) return "Due today";
+    return "In "+bal+" day"+(bal===1?"":"s");
+  }
+  function sumRows(){
+    var t = today(), lim = +sumF.win, out = [], q = sumF.q.trim().toLowerCase();
+    function add(cat, sec, grp, desc, next, bal, none){
+      if(bal === null || bal === undefined) bal = -99999;
+      if(bal > lim) return;
+      out.push({ cat:cat, sec:sec, grp:grp, desc:desc||"–", next:next||"", bal:bal, txt:sumBalTxt(bal, none) });
     }
+    (state.sched||[]).forEach(function(s){
+      var st = schedState(s); if(st.bal === null && st.txt === "Completed") return;
+      var other = s.kind === "other", f = +s.freq || 0;
+      var sec = other ? "Other scheduled activities" : (FREQ[f] && f > 0 && f !== 12 || f === 12 ? FREQ[f] : "Other frequency");
+      if(!other && ["Daily","Weekly","Fortnightly","Monthly","3-Monthly","4-Monthly","6-Monthly","Yearly"].indexOf(sec) < 0) sec = "Other frequency";
+      add(other ? "other" : "sched", sec, other ? (s.branch||"GENERAL") : freqLabel(s.freq), s.desc, st.next, st.bal, "Not done yet");
+    });
+    ampMigrate();
+    state.amp.forEach(function(a){
+      if((a.status === "pending" || a.status === "planned") && a.due) add("amp","AMP","Plan "+a.plan, a.desc, a.due, daysBetween(t, a.due));
+    });
+    var eqName = {}; (state.oilEquip||[]).forEach(function(e){ eqName[e.id] = e.name; });
+    (state.oilTests||[]).forEach(function(x){ var s = oilState(x); add("oil","Oil sampling", eqName[x.equipId]||"Equipment", x.test+" ("+oilFreq(x)+")", s.next, s.next ? oilDays(s.next) : null); });
+    (state.fext||[]).forEach(function(x){
+      var g = (x.type||"")+(x.weight ? " "+x.weight+" kg" : ""), r = fxDue(x.lastRefill, x.refillFreq), p = fxDue(x.lastTest, x.testFreq);
+      add("fext","Fire extinguishers", "Refill", x.description+(g ? " – "+g : ""), r.next, r.days);
+      add("fext","Fire extinguishers", "Pressure test", x.description+(g ? " – "+g : ""), p.next, p.days);
+    });
+    var bayName = {}; (state.rlyBays||[]).forEach(function(b){ bayName[b.id] = b.name; });
+    (state.rly||[]).forEach(function(x){ var d = fxDue(x.lastTest, x.freq); add("rly","Relay tests", bayName[x.bayId]||"Bay", x.type, d.next, d.days); });
+    (state.calib||[]).forEach(function(c){ var n = calibNext(c); add("calib","Instrument calibration","Instruments", c.name, n, n ? daysBetween(t, n) : null); });
+    return out.filter(function(r){
+      return (sumF.cat === "all" || r.cat === sumF.cat) && (!q || (r.sec+" "+r.grp+" "+r.desc).toLowerCase().indexOf(q) >= 0);
+    }).sort(function(a,b){
+      var ia = SEC_ORDER.indexOf(a.sec), ib = SEC_ORDER.indexOf(b.sec);
+      return ia - ib || a.grp.localeCompare(b.grp) || a.bal - b.bal;
+    });
+  }
+  function sumGrouped(rows){
+    var secs = [], idx = {};
+    rows.forEach(function(r){ if(!(r.sec in idx)){ idx[r.sec] = secs.length; secs.push({ sec:r.sec, rows:[] }); } secs[idx[r.sec]].rows.push(r); });
+    return secs;
+  }
+  function renderMaintSummary(){
+    var p = $("panel"), rows = sumRows(), od = rows.filter(function(r){ return r.bal < 0; }).length;
+    var h = BACKBTN+'<div class="panel-head"><h3>Summary &ndash; maintenance due</h3><div class="stats"><span>Items <b>'+rows.length+'</b></span><span>Overdue <b'+(od?' style="color:var(--red)"':'')+'>'+od+'</b></span></div></div>'+
+      '<div class="assign-form"><div class="agrid">'+
+      '<div class="field"><label for="sfCat">Type</label><select id="sfCat">'+SUM_CATS.map(function(c){ return '<option value="'+c[0]+'"'+(sumF.cat===c[0]?' selected':'')+'>'+c[1]+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label for="sfWin">Period</label><select id="sfWin">'+SUM_WINS.map(function(c){ return '<option value="'+c[0]+'"'+(sumF.win===c[0]?' selected':'')+'>'+c[1]+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field span2"><label for="sfQ">Search</label><input type="text" id="sfQ" placeholder="Description, bay, equipment…" value="'+esc(sumF.q)+'"></div></div>'+
+      '<div class="row"><button class="btn" id="sfPdf" type="button">Export PDF</button></div></div>';
+    if(!rows.length) h += '<div class="empty">Nothing found for the selected filters.</div>';
+    else sumGrouped(rows).forEach(function(g){
+      h += '<h4 style="margin:16px 0 6px">'+esc(g.sec)+' <small style="color:var(--muted)">('+g.rows.length+')</small></h4><div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Group</th><th>Description</th><th>Due day</th><th>Balance</th></tr></thead><tbody>'+
+        g.rows.map(function(r,i){ return '<tr'+(r.bal<=0?' class="late"':'')+'><td data-label="#">'+(i+1)+'</td><td data-label="Group"><b>'+esc(r.grp)+'</b></td><td data-label="Description">'+esc(r.desc)+'</td><td data-label="Due day">'+(r.next?fmtDate(r.next):'–')+'</td><td data-label="Balance">'+esc(r.txt)+'</td></tr>'; }).join("")+'</tbody></table></div>';
+    });
     p.innerHTML = h; bindBack();
+    $("sfCat").onchange = function(){ sumF.cat = this.value; renderMaintSummary(); };
+    $("sfWin").onchange = function(){ sumF.win = this.value; renderMaintSummary(); };
+    $("sfQ").onchange = function(){ sumF.q = this.value; renderMaintSummary(); };
+    $("sfPdf").onclick = sumExport;
+  }
+  function sumExport(){
+    var rows = sumRows(); if(!rows.length){ alert("There is nothing to export for the selected filters."); return; }
+    var catN = (SUM_CATS.filter(function(c){ return c[0]===sumF.cat; })[0]||[])[1], winN = (SUM_WINS.filter(function(c){ return c[0]===sumF.win; })[0]||[])[1];
+    var body = docHead("Maintenance status &ndash; Summary", "Kozhikode SS &middot; generated "+esc(fmtDate(today())))+
+      '<p class="sm"><b>Type:</b> '+esc(catN)+' &nbsp; <b>Period:</b> '+esc(winN)+(sumF.q.trim() ? ' &nbsp; <b>Search:</b> '+esc(sumF.q.trim()) : '')+' &nbsp; <b>Items:</b> '+rows.length+'</p>';
+    sumGrouped(rows).forEach(function(g){
+      body += '<h3 style="margin:12px 0 4px;font-size:11pt;color:#1f3a52">'+esc(g.sec)+' ('+g.rows.length+')</h3><table><thead><tr><th>#</th><th>Group</th><th>Description</th><th>Due day</th><th>Balance</th></tr></thead><tbody>'+
+        g.rows.map(function(r,i){ return '<tr><td>'+(i+1)+'</td><td class="l"><b>'+esc(r.grp)+'</b></td><td class="l">'+esc(r.desc)+'</td><td>'+(r.next?esc(fmtDate(r.next)):'–')+'</td><td class="'+(r.bal<0?'ab':'')+'">'+esc(r.txt)+'</td></tr>'; }).join("")+'</tbody></table>';
+    });
+    printDoc("Maintenance summary", listCss(true), body);
   }
 
   /* ---------- AMP: transfer to next month / completion date ---------- */
@@ -3871,9 +3948,9 @@
       })();
     }); });
   }
-  function vendorMatch(v, q){ q = String(q || "").trim().toLowerCase(); return !q || (v.name+" "+v.gst+" "+v.business+" "+v.phone+" "+(v.city || "")).toLowerCase().indexOf(q) >= 0; }
+  function claimVendorMatch(v, q){ q = String(q || "").trim().toLowerCase(); if(!q) return true; var h = [v.name, v.gst, v.business, v.phone, v.city, v.address].map(function(x){ return x == null ? "" : String(x); }).join(" ").toLowerCase(); return q.split(/\s+/).every(function(w){ return h.indexOf(w) >= 0; }); }
   function vendorOptions(cur, q){
-    return '<option value="">Select vendor</option>' + claimsData.vendors.filter(function(v){ return v.id === cur || vendorMatch(v, q); }).map(function(v){ return '<option value="'+esc(v.id)+'"'+(v.id === cur ? ' selected' : '')+'>'+esc(v.name)+'</option>'; }).join("") +
+    return '<option value="">Select vendor</option>' + claimsData.vendors.filter(function(v){ return v.id === cur || claimVendorMatch(v, q); }).map(function(v){ return '<option value="'+esc(v.id)+'"'+(v.id === cur ? ' selected' : '')+'>'+esc(v.name)+'</option>'; }).join("") +
       '<option value="__new__">+ Vendor not available (add new vendor)</option>';
   }
   /* fetch the newest vendor list (Master may have added vendors after this screen was loaded) and update an open claim form without touching what was typed */
@@ -3916,21 +3993,25 @@
     s.who.sort(function(a, b){ return b.amt - a.amt || a.name.localeCompare(b.name); });
     return s;
   }
+  var clDashOpen = false;
   function claimDash(L){
-    var s = claimStats(L), R = "&#8377; ";
-    var h = '<div class="cld"><div class="cld-grid">'+
-      '<div class="cld-box big"><small>Not yet settled ('+s.n+' claim'+(s.n === 1 ? "" : "s")+')</small><b>'+R+inr(s.total)+'</b></div>'+
+    var s = claimStats(L), R = "&#8377; ", tn = s.n + s.nSettled, ta = s.total + s.settled, pc = ta > 0 ? Math.round(s.settled / ta * 100) : 0;
+    var h = '<div class="cld'+(clDashOpen ? ' open' : '')+'" id="cldBox"><button type="button" class="cld-head" id="cldTgl" aria-expanded="'+(clDashOpen ? 'true' : 'false')+'"><span>Claims dashboard<small>'+tn+' claim'+(tn === 1 ? '' : 's')+' &middot; '+R+inr(ta)+' claimed &middot; tap to '+(clDashOpen ? 'hide' : 'view')+'</small></span><span class="chev">&#9662;</span></button><div class="cld-body"><div class="cld-grid">'+
+      '<div class="cld-box big"><small>TOTAL CLAIMED</small><b>'+R+inr(ta)+'</b><em>'+tn+' claim'+(tn === 1 ? '' : 's')+'</em></div>'+
+      '<div class="cld-box ok"><small>SETTLED</small><b>'+R+inr(s.settled)+'</b><em>'+s.nSettled+' claim'+(s.nSettled === 1 ? '' : 's')+'</em></div>'+
+      '<div class="cld-box pend"><small>PENDING</small><b>'+R+inr(s.total)+'</b><em>'+s.n+' claim'+(s.n === 1 ? '' : 's')+'</em></div>'+
+      '<div class="cld-bar" title="'+pc+'% settled"><i style="width:'+pc+'%"></i></div><div class="cld-sub">'+pc+'% of the claimed amount is settled</div>'+
       '<div class="cld-box"><small>Not applied</small><b>'+R+inr(s.na)+'</b></div>'+
       '<div class="cld-box"><small>Applied, awaiting settlement</small><b>'+R+inr(s.ap)+'</b></div>'+
-      '<div class="cld-box"><small>Paid by you ('+s.nMine+')</small><b>'+R+inr(s.mine)+'</b></div>'+
-      '<div class="cld-box"><small>Belongs to other employees ('+s.nOthers+')</small><b>'+R+inr(s.others)+'</b></div></div>';
+      '<div class="cld-box"><small>Pending &ndash; paid by you ('+s.nMine+')</small><b>'+R+inr(s.mine)+'</b></div>'+
+      '<div class="cld-box"><small>Pending &ndash; other employees ('+s.nOthers+')</small><b>'+R+inr(s.others)+'</b></div></div>';
     h += '<h4>Belongs to other employees &ndash; not settled</h4>';
     if(!s.who.length) h += '<div class="clm-rem">No unsettled claim belongs to another employee.</div>';
     else h += '<div class="cld-ppl">'+s.who.map(function(w){
       return '<button type="button" data-clpay="'+esc(w.id)+'" class="'+(clF.payer.indexOf(w.id) >= 0 ? "on" : "")+'"><span><b>'+esc(w.name)+'</b><small>'+w.n+' claim'+(w.n === 1 ? "" : "s")+' &middot; not applied '+R+inr(w.na)+' &middot; applied '+R+inr(w.ap)+'</small></span><b>'+R+inr(w.amt)+'</b></button>'; }).join("")+'</div>';
     if(s.who.length) h += '<div class="clm-rem">Tap a name to filter the list by that payer.</div>';
     if(s.noAmt) h += '<div class="clm-rem" style="color:#a33">'+s.noAmt+' unsettled claim'+(s.noAmt === 1 ? " has" : "s have")+' no amount entered, so the totals are low. Edit the claim to add it.</div>';
-    return h + '</div>';
+    return h + '</div></div>';
   }
   function claimsExcel(e, list, filtered){
     var L = (list || claimsData.claims).slice().sort(function(a, b){ return a.serial - b.serial; });
@@ -4053,6 +4134,7 @@
     }).join("");
     p.innerHTML = h;
     bindHead(e, done);
+    var tg = $("cldTgl"); if(tg) tg.onclick = function(){ clDashOpen = !clDashOpen; var bx = $("cldBox"); bx.classList.toggle("open", clDashOpen); tg.setAttribute("aria-expanded", clDashOpen ? "true" : "false"); var sm = tg.querySelector("small"); if(sm) sm.innerHTML = sm.innerHTML.replace(/tap to (view|hide)/, "tap to " + (clDashOpen ? "hide" : "view")); };
     $("clNew").onclick = function(){ claimForm(null); };
     $("clXl").onclick = function(){ claimsExcel(e, shown, clActive()); };
     claimFilterBind(p);
@@ -5091,46 +5173,50 @@
   function wpPrint(x){
     var logo = (document.querySelector(".login-logo") || {}).src || "";
     var dt = parseISO(x.date), dayTxt = dt ? dt.toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }) : fmtDate(x.date);
-    var nW = wpCount(x), nT = (x.teams || []).length;
-    var css = '@page{size:A4;margin:11mm}*{box-sizing:border-box}body{font-family:"Segoe UI",Arial,sans-serif;color:#1c2833;font-size:10pt;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
-      '.bn{background:#1f3a52;color:#fff;border-radius:10px 10px 0 0;padding:12px 16px;display:flex;align-items:center;gap:14px;border-bottom:4px solid #e0a100}'+
-      '.bn .lg{background:#fff;border-radius:8px;padding:5px 8px;display:flex;align-items:center}.bn img{height:40px;width:auto;display:block}'+
-      '.bn .tt{flex:1}.bn h1{margin:0;font-size:17pt;letter-spacing:2.2px;font-weight:600}.bn p{margin:3px 0 0;font-size:9.5pt;letter-spacing:1.2px;color:#e8c766;text-transform:uppercase}'+
-      '.card{border:1px solid #d5dde5;border-top:0;border-radius:0 0 10px 10px;padding:12px 16px;margin-bottom:14px;background:#fbfcfd}'+
-      '.g{display:flex;gap:10px;margin-bottom:10px}.g>div{flex:1;background:#fff;border:1px solid #e1e7ed;border-radius:8px;padding:8px 11px}'+
-      '.k{font-size:7.5pt;letter-spacing:1.3px;text-transform:uppercase;color:#7b8a98;margin-bottom:2px}.v{font-size:11.5pt;font-weight:600;color:#1f3a52}'+
-      '.sd{background:#fff;border:1px solid #e1e7ed;border-left:4px solid #e0a100;border-radius:8px;padding:8px 11px}.sd .v{font-size:10.5pt;font-weight:500;color:#1c2833;white-space:pre-wrap}'+
-      '.sm{margin:10px 0 0;font-size:8.5pt;color:#5d6b78}.sm b{color:#1f3a52}'+
-      '.tm{border:1px solid #d5dde5;border-radius:10px;margin:0 0 12px;overflow:hidden;page-break-inside:avoid}'+
-      '.th{background:#eaf0f6;padding:7px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #d5dde5}'+
-      '.tb{background:#1f3a52;color:#fff;font-weight:700;letter-spacing:1.4px;font-size:9.5pt;border-radius:6px;padding:3px 11px}'+
-      '.th .n{margin-left:auto;font-size:8.5pt;color:#5d6b78}'+
-      '.mb{padding:7px 12px 2px;font-size:8.5pt}.mb .k{margin-bottom:4px}.ch{display:inline-block;background:#fff6e0;border:1px solid #efd9a1;color:#6b4a00;border-radius:999px;padding:2px 10px;margin:0 5px 5px 0;font-size:8.5pt}'+
-      'table{width:100%;border-collapse:collapse;table-layout:fixed}.tm th:nth-child(1),.pv th:nth-child(1){width:30px}.tm th:nth-child(2){width:30%}.pv th:nth-child(2){width:28%}.pv th:nth-child(3){width:36%}th{background:#1f3a52;color:#fff;text-align:left;padding:6px 9px;font-size:8.5pt;letter-spacing:.8px;text-transform:uppercase;font-weight:600}'+
-      'td{padding:6px 9px;border-bottom:1px solid #e3e9ee;vertical-align:top;font-size:9.5pt}tr:nth-child(even) td{background:#f6f9fb}tr{page-break-inside:avoid}'+
-      'td.o{font-weight:700;color:#1f3a52;white-space:nowrap}.pl{display:inline-block;background:#e6f0f8;border:1px solid #c5d9ea;color:#1f3a52;border-radius:5px;padding:1px 8px;margin:0 4px 3px 0;font-size:8.8pt}'+
-      '.sec{margin:14px 0 6px;font-size:10pt;font-weight:700;color:#1f3a52;letter-spacing:1.2px;text-transform:uppercase;border-bottom:2px solid #e0a100;padding-bottom:3px;display:inline-block}'+
-      '.pv{border:1px solid #d5dde5;border-radius:10px;overflow:hidden;page-break-inside:avoid}.pv th{background:#6b4a00}'+
-      '.nt{margin-top:14px;background:#fff9e8;border:1px solid #efd9a1;border-left:5px solid #e0a100;border-radius:8px;padding:9px 13px;page-break-inside:avoid}'+
-      '.nt .k{color:#8a5a00}.nt div.t{white-space:pre-wrap;font-size:10pt}'+
-      '.ft{margin-top:16px;padding-top:7px;border-top:1px solid #d5dde5;display:flex;justify-content:space-between;font-size:8pt;color:#7b8a98}';
-    var teams = (x.teams || []).map(function(t){
-      var mem = (t.members || []).map(function(m){ return '<span class="ch">'+esc(m.name)+(m.kind === "amc" ? ' (AMC)' : (m.desig ? ' &ndash; '+esc(m.desig) : ''))+'</span>'; }).join("");
+    var nW = wpCount(x), nT = (x.teams || []).length, nM = 0, seen = {};
+    (x.teams || []).forEach(function(t){ (t.members || []).forEach(function(m){ var k = m.name || ""; if(k && !seen[k]){ seen[k] = 1; nM++; } }); });
+    var css = '@page{size:A4;margin:14mm 13mm 16mm;@bottom-left{content:"KOZHIKODE SS \\2022  Workplan";font:8pt "Segoe UI",Arial,sans-serif;color:#7b8a98}@bottom-right{content:"Page " counter(page) " of " counter(pages);font:8pt "Segoe UI",Arial,sans-serif;color:#7b8a98}}'+
+      '*{box-sizing:border-box}body{font-family:"Segoe UI",Arial,sans-serif;color:#1c2833;font-size:9.8pt;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;line-height:1.35}'+
+      '.top{display:flex;align-items:center;gap:14px;padding-bottom:10px;border-bottom:2.5px solid #1f3a52;position:relative}'+
+      '.top:after{content:"";position:absolute;left:0;bottom:-6px;width:90px;height:3px;background:#c9971c}'+
+      '.top img{height:44px;width:auto;display:block}.top .tt{flex:1}'+
+      '.top h1{margin:0;font-size:18pt;font-weight:600;letter-spacing:3px;color:#1f3a52}.top p{margin:3px 0 0;font-size:8.5pt;letter-spacing:1.6px;color:#8a6a14;text-transform:uppercase}'+
+      '.top .rf{text-align:right;font-size:8.5pt;color:#5d6b78;line-height:1.5}.top .rf b{color:#1f3a52}'+
+      '.info{margin:20px 0 14px;display:grid;grid-template-columns:1fr 1fr;border:1px solid #cfd8e1;border-radius:8px;overflow:hidden}'+
+      '.info>div{padding:9px 13px;border-bottom:1px solid #e3e9ee}.info>div:nth-child(odd){border-right:1px solid #e3e9ee}.info .w{grid-column:1/-1;border-right:0}.info>div:nth-last-child(-n+1){border-bottom:0}'+
+      '.k{font-size:7.3pt;letter-spacing:1.4px;text-transform:uppercase;color:#7b8a98;margin-bottom:2px;font-weight:600}.v{font-size:11pt;font-weight:600;color:#1f3a52}.v.n{font-weight:500;color:#1c2833;font-size:10pt;white-space:pre-wrap}'+
+      '.st{display:flex;gap:0;margin:0 0 16px;border:1px solid #cfd8e1;border-radius:8px;overflow:hidden;background:#f4f7fa}'+
+      '.st>div{flex:1;text-align:center;padding:8px 6px;border-right:1px solid #d9e1e8}.st>div:last-child{border-right:0}.st b{display:block;font-size:15pt;color:#1f3a52;line-height:1.1}.st span{font-size:7.5pt;letter-spacing:1.2px;text-transform:uppercase;color:#7b8a98}'+
+      '.sec{display:flex;align-items:center;gap:10px;margin:18px 0 8px;font-size:9.5pt;font-weight:700;color:#1f3a52;letter-spacing:1.6px;text-transform:uppercase}.sec:after{content:"";flex:1;height:1px;background:#cfd8e1}'+
+      '.tm{margin:0 0 14px;page-break-inside:avoid;border:1px solid #cfd8e1;border-radius:8px;overflow:hidden}'+
+      '.th{display:flex;align-items:center;gap:10px;background:#1f3a52;color:#fff;padding:7px 12px}.th .no{width:22px;height:22px;border-radius:50%;background:#c9971c;color:#1f3a52;font-weight:700;font-size:9.5pt;text-align:center;line-height:22px}.th b{font-size:10.5pt;letter-spacing:1.6px}.th .n{margin-left:auto;font-size:8.3pt;color:#cdd9e5}'+
+      '.mb{display:flex;gap:10px;padding:8px 12px;background:#f4f7fa;border-bottom:1px solid #e3e9ee;font-size:9pt}.mb .k{margin:2px 0 0;white-space:nowrap}.mb div.l{flex:1}.mb span.m{display:inline-block;margin:0 14px 2px 0}.mb span.m:before{content:"\\25CF";color:#c9971c;font-size:6pt;margin-right:5px;vertical-align:2px}'+
+      'table{width:100%;border-collapse:collapse;table-layout:fixed}thead th{background:#eaf0f6;color:#1f3a52;text-align:left;padding:6px 10px;font-size:7.8pt;letter-spacing:1.2px;text-transform:uppercase;font-weight:700;border-bottom:1.5px solid #1f3a52}'+
+      'td{padding:7px 10px;border-bottom:1px solid #e8edf2;vertical-align:top;font-size:9.5pt}tbody tr:last-child td{border-bottom:0}tr{page-break-inside:avoid}'+
+      '.tm th:nth-child(1),.pv th:nth-child(1){width:30px}.tm th:nth-child(2){width:30%}.pv th:nth-child(2){width:16%}.pv th:nth-child(3){width:26%}.pv th:nth-child(4){width:28%}'+
+      'td.o{font-weight:700;color:#1f3a52}td.i{color:#9aa7b3}ul.a{margin:0;padding:0;list-style:none}ul.a li{padding:1px 0 1px 13px;position:relative}ul.a li:before{content:"";position:absolute;left:0;top:.55em;width:5px;height:5px;border-radius:50%;background:#1f3a52}'+
+      '.pv{border:1px solid #cfd8e1;border-radius:8px;overflow:hidden;page-break-inside:avoid}'+
+      '.nt{margin-top:14px;border:1px solid #cfd8e1;border-left:4px solid #c9971c;border-radius:6px;padding:9px 13px;page-break-inside:avoid;background:#fffdf6}.nt .k{color:#8a6a14}.nt .t{white-space:pre-wrap;font-size:9.8pt}'+
+      '.sg{display:flex;justify-content:space-between;gap:30px;margin-top:38px;page-break-inside:avoid}.sg div{flex:1;border-top:1px solid #1c2833;padding-top:4px;font-size:8.8pt;color:#44525f;text-align:center}.sg b{display:block;color:#1c2833}'+
+      '.gen{margin-top:14px;font-size:8pt;color:#7b8a98}';
+    var teams = (x.teams || []).map(function(t, ti){
+      var mem = (t.members || []).map(function(m){ return '<span class="m">'+esc(m.name)+(m.kind === "amc" ? ' (AMC)' : (m.desig ? ' <span style="color:#7b8a98">&ndash; '+esc(m.desig)+'</span>' : ''))+'</span>'; }).join("");
       var rows = (t.works || []).map(function(w, i){
-        return '<tr><td style="width:26px;color:#7b8a98">'+(i+1)+'</td><td class="o">'+esc(w.objType)+' '+esc(w.object)+'</td><td>'+(w.acts || []).map(function(a){ return '<span class="pl">'+esc(a)+'</span>'; }).join("")+'</td></tr>'; }).join("");
-      return '<div class="tm"><div class="th"><span class="tb">'+esc(String(t.name).toUpperCase())+'</span><span class="n">'+(t.members || []).length+' member'+((t.members || []).length === 1 ? '' : 's')+' &middot; '+(t.works || []).length+' work'+((t.works || []).length === 1 ? '' : 's')+'</span></div>'+
-        (mem ? '<div class="mb"><div class="k">Team members</div>'+mem+'</div>' : '')+
+        return '<tr><td class="i">'+(i+1)+'</td><td class="o">'+esc(w.objType)+' '+esc(w.object)+'</td><td><ul class="a">'+(w.acts || []).map(function(a){ return '<li>'+esc(a)+'</li>'; }).join("")+'</ul></td></tr>'; }).join("");
+      return '<div class="tm"><div class="th"><span class="no">'+(ti+1)+'</span><b>'+esc(String(t.name).toUpperCase())+'</b><span class="n">'+(t.members || []).length+' member'+((t.members || []).length === 1 ? '' : 's')+' &middot; '+(t.works || []).length+' work'+((t.works || []).length === 1 ? '' : 's')+'</span></div>'+
+        (mem ? '<div class="mb"><div class="k">Team</div><div class="l">'+mem+'</div></div>' : '')+
         '<table><thead><tr><th>#</th><th>Object</th><th>Maintenance activities</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
     }).join("");
     var prev = (x.prev || []).length ? '<div class="sec">Previous year test results</div><div class="pv"><table><thead><tr><th>#</th><th>Date</th><th>Object</th><th>Test</th><th>Result</th></tr></thead><tbody>'+
-      (x.prev || []).map(function(r, i){ return '<tr><td style="width:26px;color:#7b8a98">'+(i+1)+'</td><td>'+(r.date ? esc(fmtDate(r.date)) : "–")+'</td><td class="o">'+esc(r.object || "–")+'</td><td>'+esc(r.test || "–")+'</td><td><b>'+esc(r.result || "–")+'</b></td></tr>'; }).join("")+'</tbody></table></div>' : '';
-    var note = x.notes ? '<div class="nt"><div class="k">Note</div><div class="t">'+esc(x.notes)+'</div></div>' : '';
-    var body = '<div class="bn">'+(logo ? '<div class="lg"><img src="'+esc(logo)+'" alt=""></div>' : '')+'<div class="tt"><h1>WORKPLAN OVERVIEW</h1><p>KOZHIKODE SS &nbsp;|&nbsp; Shutdown work plan</p></div></div>'+
-      '<div class="card"><div class="g"><div><div class="k">Equipment type</div><div class="v">'+esc(x.equipType)+'</div></div><div><div class="k">Date of work</div><div class="v">'+esc(dayTxt)+'</div></div></div>'+
-      '<div class="sd"><div class="k">Shutdown description</div><div class="v">'+esc(x.shutdown)+'</div></div>'+
-      '<p class="sm"><b>'+nT+'</b> team'+(nT === 1 ? '' : 's')+' &nbsp;&middot;&nbsp; <b>'+nW+'</b> work'+(nW === 1 ? '' : 's')+'</p></div>'+
-      teams+prev+note+
-      '<div class="ft"><span>Prepared by '+esc(cleanNm(x.byName) || "–")+' &middot; Generated on '+esc(fmtStamp(Date.now()))+'</span><span>For information</span></div>';
+      (x.prev || []).map(function(r, i){ return '<tr><td class="i">'+(i+1)+'</td><td>'+(r.date ? esc(fmtDate(r.date)) : "–")+'</td><td class="o">'+esc(r.object || "–")+'</td><td>'+esc(r.test || "–")+'</td><td><b>'+esc(r.result || "–")+'</b></td></tr>'; }).join("")+'</tbody></table></div>' : '';
+    var note = x.notes ? '<div class="nt"><div class="k">Remarks</div><div class="t">'+esc(x.notes)+'</div></div>' : '';
+    var body = '<div class="top">'+(logo ? '<img src="'+esc(logo)+'" alt="">' : '')+'<div class="tt"><h1>WORKPLAN</h1><p>KOZHIKODE SS &nbsp;&middot;&nbsp; Shutdown work plan</p></div><div class="rf"><b>'+esc(fmtDate(x.date))+'</b><br>'+esc(x.equipType)+'</div></div>'+
+      '<div class="info"><div><div class="k">Equipment type</div><div class="v">'+esc(x.equipType)+'</div></div><div><div class="k">Date of work</div><div class="v">'+esc(dayTxt)+'</div></div>'+
+      '<div class="w"><div class="k">Shutdown description</div><div class="v n">'+esc(x.shutdown)+'</div></div></div>'+
+      '<div class="st"><div><b>'+nT+'</b><span>Team'+(nT === 1 ? '' : 's')+'</span></div><div><b>'+nW+'</b><span>Work'+(nW === 1 ? '' : 's')+'</span></div><div><b>'+nM+'</b><span>Personnel</span></div></div>'+
+      '<div class="sec">Team-wise work allocation</div>'+teams+prev+note+
+      '<div class="sg"><div><b>'+esc(cleanNm(x.byName) || "–")+'</b>Prepared by</div><div><b>&nbsp;</b>Reviewed by</div><div><b>&nbsp;</b>Approved by</div></div>'+
+      '<div class="gen">Generated on '+esc(fmtStamp(Date.now()))+'</div>';
     printDoc("Workplan_"+(x.equipType || "").replace(/[^A-Za-z0-9]+/g, "_")+"_"+fmtDate(x.date), css, body);
   }
 
