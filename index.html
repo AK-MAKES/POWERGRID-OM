@@ -172,6 +172,16 @@
   textarea{width:100%;padding:10px 12px;border:1px solid #b9c3cc;border-radius:4px;font:inherit;resize:vertical;min-height:84px;background:#fff;color:var(--ink)}
   tr.done{background:#f6fbf8}
   .doneat{display:block;font-size:.78rem;color:var(--green);text-decoration:none}
+  .stb{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;min-width:0;min-height:0;padding:0;margin:0 2px;border:1px solid #c9a227;background:#fff;border-radius:50%;cursor:pointer;vertical-align:middle;line-height:0}
+  .stb svg{width:21px;height:21px;display:block}
+  .stb .sp{fill:none;stroke:#b8860b;stroke-width:1.4;stroke-linejoin:round}
+  .stb .sl{font:700 9px/1 Arial,sans-serif;fill:#8a6a00}
+  .stb.on{background:#fff3c4;border-color:#b8860b}
+  .stb.on .sp{fill:#f2b705}
+  .stb.on .sl{fill:#3b2a00}
+  .stag{display:inline-block;font-size:.72rem;font-weight:700;color:#8a6a00;background:#fff3c4;border:1px solid #e0c060;border-radius:99px;padding:0 7px;margin:3px 4px 0 0}
+  .stpick{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:2px 0 12px;font-size:.85rem;color:var(--muted)}
+  .stpick span.l{display:inline-flex;align-items:center;gap:4px}
   .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1f3a52;color:#fff;padding:10px 16px;border-radius:8px;font-size:.9rem;z-index:99999;max-width:90vw;box-shadow:0 4px 14px rgba(0,0,0,.25);transition:opacity .6s}
   .toast.off{opacity:0}
   .clmbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:0 0 12px}
@@ -222,6 +232,20 @@
   .dff.open .dff-ch{transform:rotate(90deg)}
   .dff-b{display:none;padding:10px 10px 0;border-top:1px solid var(--line)}
   .dff.open .dff-b{display:block}
+  .dcf{border:1px solid var(--line);border-radius:10px;background:#fff;margin:0 0 8px;overflow:hidden}
+  .dcf-h{display:flex;align-items:stretch;background:#f4f7fa}
+  .dcf-t{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:11px 12px;background:transparent;border:0;text-align:left;font-size:.95rem;color:var(--steel);cursor:pointer}
+  .dcf-t.leaf{cursor:default}
+  .dcf-t .dcf-ic{flex:none;font-size:1.1rem}
+  .dcf-t b{flex:1;min-width:0;overflow-wrap:anywhere}
+  .dcf-t .dcf-n{flex:none;background:#e6eef6;color:#1f3a52;border-radius:999px;padding:2px 10px;font-size:.78rem;font-weight:700}
+  .dcf-t .dcf-ch{flex:none;transition:transform .15s}
+  .dcf.open>.dcf-h .dcf-ch{transform:rotate(90deg)}
+  .dcf-go{flex:none;align-self:center;margin:0 10px 0 0;padding:6px 14px;border-radius:999px;background:#1f3a52;color:#fff;font-size:.82rem;font-weight:700;text-decoration:none;white-space:nowrap}
+  .dcf-b{display:none;padding:10px 10px 2px 14px;border-top:1px solid var(--line)}
+  .dcf.open>.dcf-b{display:block}
+  .dcf-act{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+  .dcf-url{margin:0 0 10px;font-size:.78rem;color:var(--muted);overflow-wrap:anywhere}
   .wps{display:flex;align-items:center;gap:10px;margin:18px 0 10px;padding:8px 12px;background:var(--steel);color:#fff;border-radius:8px;font-size:1rem}
   .wps .wps-n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--amber);color:#2a2000;font-weight:700;font-size:.9rem;flex:0 0 auto}
   .wps small{margin-left:auto;font-weight:400;opacity:.8;font-size:.78rem}
@@ -546,7 +570,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.44";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.46";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -730,7 +754,7 @@
     (d.works || []).forEach(function(w){
       if(map[w.empId]) map[w.empId].works.push({
         id: w.id, text: w.text, date: w.date, done: !!w.done, doneAt: w.doneAt || null,
-        movedFrom: w.movedFrom || "", comment: w.comment || "", created: w.created || 0,
+        movedFrom: w.movedFrom || "", comment: w.comment || "", created: w.created || 0, apr: !!w.apr, mh: !!w.mh,
         priority: (w.priority === "high" || w.priority === "urgent") ? w.priority : "normal",
         xferFrom: w.xferFrom || ""
       });
@@ -883,7 +907,7 @@
   function wput(e,w){
     return { t: "work.put", work: { id: w.id, empId: e.id, date: w.date, text: w.text, done: !!w.done,
              doneAt: w.doneAt || null, movedFrom: w.movedFrom || "", comment: w.comment || "", created: w.created,
-             priority: wpri(w), xferFrom: w.xferFrom || "" } };
+             priority: wpri(w), xferFrom: w.xferFrom || "", apr: !!w.apr, mh: !!w.mh } };
   }
   /* priority of a daily work: normal (black) | high (yellow) | urgent (red) */
   function wpri(w){ return (w && (w.priority === "high" || w.priority === "urgent")) ? w.priority : "normal"; }
@@ -4988,6 +5012,119 @@
     }, function(){ err("Could not load the Excel library. Check your internet connection and try again."); });
   }
 
+  /* ---------- Documents (Miscellaneous) ----------
+     A folder tree (sub folders allowed). Every folder / sub folder carries ONE hyperlink (for example a Google Drive link).
+     Everyone logged in can open the links; ONLY Master can add, edit or delete folders. */
+  var docsData = { items: [], loaded: false }, docBusy = 0, docChain = Promise.resolve(), docOpenF = {};
+  function docApply(j){ docsData.items = j.docs || []; docsData.loaded = true; }
+  function docFetch(){
+    if(!SYNC || isSupport()) return;
+    api({ action: "docList" }).then(function(r){
+      if(docBusy) return;
+      docApply(r.json);
+      if(!modalOpen() && activeTab === "misc" && (miscView === "docs" || miscView === "menu")) render();
+    }).catch(onSyncError);
+  }
+  function docSend(body){
+    docBusy++;
+    docChain = docChain.then(function(){ return new Promise(function(done){
+      var tries = 0;
+      (function go(){
+        tries++;
+        api(body).then(function(r){
+          docBusy--;
+          if(!docBusy){ docApply(r.json); if(!modalOpen()) render(); }
+          done();
+        }).catch(function(err){
+          if(err && err.server && err.message === "auth"){ docBusy--; onSyncError(err); done(); return; }
+          if(!(err && err.server) && tries < 3){ setTimeout(go, 3000); return; }
+          docBusy--;
+          try{ toast("Not saved" + (err && err.server && err.message ? ": " + err.message : " (no connection)") + "."); }catch(x){}
+          docFetch(); done();
+        });
+      })();
+    }); });
+  }
+  setInterval(function(){
+    if(!session || !SYNC || document.hidden || modalOpen()) return;
+    if(activeTab === "misc" && miscView === "docs") docFetch();
+  }, 30000);
+  function docSafeUrl(u){ u = String(u || "").trim(); return /^https?:\/\/[^\s<>"']+$/i.test(u) ? u : ""; }
+  function docKids(pid){
+    return docsData.items.filter(function(x){ return (x.parentId || "") === (pid || ""); })
+      .sort(function(a,b){ return String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: "base" }); });
+  }
+  function docDescendants(id){
+    var out = [], stack = [id];
+    while(stack.length){ var cur = stack.pop(); docKids(cur).forEach(function(k){ out.push(k); stack.push(k.id); }); }
+    return out;
+  }
+  function docNode(x){
+    var kids = docKids(x.id), url = docSafeUrl(x.link), canOpen = kids.length > 0 || isMaster(), open = canOpen && !!docOpenF[x.id];
+    var h = '<div class="dcf'+(open ? ' open' : '')+'"><div class="dcf-h">'+
+      '<button type="button" class="dcf-t'+(canOpen ? '' : ' leaf')+'" '+(canOpen ? 'data-dctog="'+esc(x.id)+'" aria-expanded="'+open+'"' : 'tabindex="-1"')+'>'+
+        '<span class="dcf-ic">'+(open ? '&#128194;' : '&#128193;')+'</span><b>'+esc(x.name)+'</b>'+
+        (kids.length ? '<span class="dcf-n">'+kids.length+'</span>' : '')+(canOpen ? '<span class="dcf-ch">&rsaquo;</span>' : '')+'</button>'+
+      (url ? '<a class="dcf-go" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Open &#8599;</a>' : '')+'</div>';
+    if(canOpen){
+      h += '<div class="dcf-b">';
+      if(url) h += '<div class="dcf-url">'+esc(url)+'</div>';
+      else if(isMaster()) h += '<div class="dcf-url">No link added to this folder.</div>';
+      if(isMaster()) h += '<div class="dcf-act"><button class="btn ghost small" data-dcsub="'+esc(x.id)+'" type="button">Add subfolder</button>'+
+        '<button class="btn ghost small" data-dced="'+esc(x.id)+'" type="button">Edit</button>'+
+        '<button class="btn ghost small" data-dcdel="'+esc(x.id)+'" type="button">Delete</button></div>';
+      h += kids.map(docNode).join("");
+      h += '</div>';
+    }
+    return h+'</div>';
+  }
+  function renderDocs(){
+    var p = $("panel"), roots = docKids(""), total = docsData.items.length;
+    var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Documents</h3>'+(isMaster() ? '<button class="btn" id="dcNew" type="button">Add folder</button>' : '')+'</div>';
+    if(!docsData.loaded) h += '<div class="empty">Loading…</div>';
+    else if(!total) h += '<div class="empty">No folders yet.'+(isMaster() ? ' Tap <b>Add folder</b> to create one and paste its link.' : '')+'</div>';
+    else h += '<p style="margin:0 0 8px;color:var(--muted);font-size:.85rem">'+total+' folder'+(total===1?'':'s')+'. Tap a folder to see what is inside; tap <b>Open</b> to go to its link.</p>'+roots.map(docNode).join("");
+    p.innerHTML = h; gpBind("menu");
+    function byId(id){ return docsData.items.find(function(x){ return x.id === id; }); }
+    if(isMaster() && $("dcNew")) $("dcNew").onclick = function(){ docForm(null, ""); };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dctog]"),function(b){ b.onclick = function(){ var k = b.getAttribute("data-dctog"); docOpenF[k] = !docOpenF[k]; render(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dcsub]"),function(b){ b.onclick = function(){ docForm(null, b.getAttribute("data-dcsub")); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dced]"),function(b){ b.onclick = function(){ var x = byId(b.getAttribute("data-dced")); if(x) docForm(x, x.parentId); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dcdel]"),function(b){
+      b.onclick = function(){
+        var x = byId(b.getAttribute("data-dcdel")); if(!x) return;
+        var n = docDescendants(x.id).length;
+        confirmModal("Delete folder \""+x.name+"\""+(n ? " and the "+n+" subfolder"+(n>1?"s":"")+" inside it" : "")+"?", function(){
+          var gone = {}; gone[x.id] = 1; docDescendants(x.id).forEach(function(k){ gone[k.id] = 1; });
+          docsData.items = docsData.items.filter(function(y){ return !gone[y.id]; }); render();
+          docSend({ action: "docDel", id: x.id });
+        });
+      };
+    });
+  }
+  function docForm(c, parentId){
+    if(!isMaster()) return;
+    var isNew = !c, d = c || { id: uid(), parentId: parentId || "", name: "", link: "" };
+    var par = d.parentId ? docsData.items.find(function(x){ return x.id === d.parentId; }) : null;
+    openModal('<h3>'+(isNew ? (par ? 'Add subfolder' : 'Add folder') : 'Edit folder')+'</h3>'+
+      (par ? '<p style="margin:0 0 10px;color:var(--muted);font-size:.85rem">Inside: <b>'+esc(par.name)+'</b></p>' : '')+
+      '<div class="field"><label for="dcName">Folder name</label><input type="text" id="dcName" maxlength="80" value="'+esc(d.name)+'" autocomplete="off"></div>'+
+      '<div class="field"><label for="dcLink">Link (Google Drive or any web link)</label><input type="url" id="dcLink" maxlength="1000" placeholder="https://drive.google.com/..." value="'+esc(d.link)+'" autocomplete="off"></div>'+
+      '<p class="error" id="dcErr"></p>'+
+      '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Save</button></div>');
+    $("mNo").onclick = closeModal;
+    $("mOk").onclick = function(){
+      var er = $("dcErr"), name = $("dcName").value.trim(), link = $("dcLink").value.trim();
+      if(!name){ er.textContent = "Enter the folder name."; return; }
+      if(link && !docSafeUrl(link)){ er.textContent = "The link must start with https://"; return; }
+      var item = { id: d.id, parentId: d.parentId || "", name: name, link: link, created: d.created || Date.now(), updated: Date.now() };
+      docsData.items = docsData.items.filter(function(x){ return x.id !== item.id; }).concat([item]);
+      if(item.parentId) docOpenF[item.parentId] = true;
+      closeModal(); render();
+      docSend({ action: "docPut", item: item });
+    };
+  }
+
   /* ---------- Workplan Overview (Miscellaneous) ----------
      Every employee login (not Support Staff) adds and edits; Master (or the employee who added it) deletes.
      One plan = Equipment type + Shutdown description + Date of work + Teams (Team-A, Team-B ...).
@@ -5494,14 +5631,157 @@
   var GP_MODES = ["Company vehicle","Truck","Courier","By hand"];
   var GP_UNITS = ["Nos","Set","Kg","Litre","Metre","Box","Pair","Drum","Roll","Lot"];
   var GP_APPROVER_DESIG = ["Engineer","Assistant Manager","Deputy Manager","Manager","Chief Manager","DGM","Sr. DGM","GM","Sr. GM","CGM"];
+
+  /* ---------- Appraisal (A) and Monthly highlights (M) stars on closed works ---------- */
+  var STAR_PTS = "12,2 15,9 22.5,9.6 16.8,14.4 18.6,21.8 12,17.8 5.4,21.8 7.2,14.4 1.5,9.6 9,9";
+  function starIcon(letter){ return '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon class="sp" points="'+STAR_PTS+'"/><text class="sl" x="12" y="15.4" text-anchor="middle">'+letter+'</text></svg>'; }
+  function starBtn(id, kind, on){
+    return '<button type="button" class="stb'+(on?' on':'')+'" data-star="'+esc(id)+'" data-sk="'+kind+'" aria-pressed="'+(on?'true':'false')+'" title="'+(kind==="apr"?(on?'In Appraisal (tap to remove)':'Add to Appraisal'):(on?'In Monthly highlights (tap to remove)':'Add to Monthly highlights'))+'">'+starIcon(kind==="apr"?"A":"M")+'</button>';
+  }
+  /* tap on a star of a closed work: switch it on / off, save, then call again() */
+  function bindStars(root, e, again){
+    Array.prototype.forEach.call(root.querySelectorAll("[data-star]"),function(b){
+      b.onclick = function(){
+        var w = e.works.find(function(x){ return x.id === b.getAttribute("data-star"); }); if(!w || !w.done) return;
+        var k = b.getAttribute("data-sk"); w[k] = !w[k];
+        commit([wput(e,w)]); again();
+      };
+    });
+  }
+  function wDay(w){ return w.doneAt ? toISO(new Date(w.doneAt)) : w.date; }      // day the work was closed
+  function monthName(ym){ var p = ym.split("-"); return new Date(+p[0], +p[1]-1, 1).toLocaleDateString("en-GB",{month:"long",year:"numeric"}); }
+  function fyStart(iso){ var y = +iso.slice(0,4), m = +iso.slice(5,7); return (m >= 4 ? y : y-1)+"-04-01"; }
+  function starRows(list, withEmp){
+    return list.map(function(r,i){
+      var w = r.w;
+      return '<tr><td>'+(i+1)+'</td><td>'+esc(fmtDate(wDay(w)))+'</td>'+(withEmp ? '<td class="l">'+esc(r.e.name)+'</td>' : '')+
+        '<td class="l"><span'+wpriPrint(w)+'>'+esc(w.text)+'</span></td><td class="l">'+(w.comment ? esc(w.comment) : '')+'</td></tr>';
+    }).join("");
+  }
+  function starSort(a,b){ return (wDay(a.w) < wDay(b.w) ? -1 : wDay(a.w) > wDay(b.w) ? 1 : 0) || (a.w.doneAt||0)-(b.w.doneAt||0); }
+
+  /* Appraisal: closed works of ONE employee that were starred (A) */
+  var ap = { from:"", to:"", init:false };
+  function apprList(e, from, to){
+    return e.works.filter(function(w){ return w.done && w.apr && (!from || wDay(w) >= from) && (!to || wDay(w) <= to); })
+      .map(function(w){ return { e:e, w:w }; }).sort(starSort);
+  }
+  function apprExport(e, from, to){
+    var list = apprList(e, from, to);
+    if(!list.length){ alert("No works added to Appraisal in this period."); return; }
+    var period = (from ? fmtDate(from) : "start")+" to "+(to ? fmtDate(to) : "date");
+    var body = docHead('KOZHIKODE SS &ndash; Appraisal Work Record', esc(e.name)+(e.desig ? ' ('+esc(e.desig)+')' : '')+' &nbsp;|&nbsp; Period: '+esc(period))+
+      '<p class="sm">Works added to Appraisal: <b>'+list.length+'</b></p>'+
+      '<table><thead><tr><th style="width:5%">#</th><th style="width:12%">Completed on</th><th>Work details</th><th style="width:34%">Comment</th></tr></thead><tbody>'+
+      starRows(list,false).replace(/<td class="l"><span/g,'<td class="l"><span')+'</tbody></table>'+
+      '<div class="sg"><div>Employee</div><div>Reporting officer</div></div>'+docFoot();
+    printDoc("Appraisal_"+e.name.replace(/[^A-Za-z0-9]+/g,"_")+"_"+fmtDate(from||today()), listCss(false), body);
+  }
+  function apprView(e, p, h){
+    if(!ap.init){ ap.init = true; ap.from = fyStart(today()); ap.to = today(); }
+    h += '<p style="margin:0 0 12px;color:var(--muted);font-size:.9rem">Works you closed with the <b>&#9733;A</b> button. Choose the period (default: this financial year) and export as PDF.</p>'+
+      '<div class="rgbar"><div class="field"><label for="apFrom">From</label><input type="date" id="apFrom" value="'+esc(ap.from)+'"></div>'+
+      '<div class="field"><label for="apTo">To</label><input type="date" id="apTo" value="'+esc(ap.to)+'"></div></div>'+
+      '<div class="rgq"><button class="btn ghost small" type="button" data-aq="fy">This financial year</button>'+
+      '<button class="btn ghost small" type="button" data-aq="lfy">Last financial year</button>'+
+      '<button class="btn ghost small" type="button" data-aq="month">This month</button>'+
+      '<button class="btn ghost small" type="button" data-aq="all">All dates</button>'+
+      '<button class="btn small" id="apExport" type="button">Export PDF</button></div>'+
+      '<div class="stats" id="apSum" style="margin-bottom:8px"></div><div id="apRes"></div>';
+    p.innerHTML = h; bindHead(e, 0);
+    function draw(){
+      var sum = $("apSum"), res = $("apRes"); if(!sum || !res) return;
+      if(ap.from && ap.to && ap.from > ap.to){ sum.innerHTML = ''; res.innerHTML = '<div class="empty">The From date is after the To date.</div>'; return; }
+      var list = apprList(e, ap.from, ap.to);
+      sum.innerHTML = '<span>Works in Appraisal <b>'+list.length+'</b></span>';
+      if(!list.length){ res.innerHTML = '<div class="empty">Nothing added to Appraisal in this period. Tap the &#9733;A button when closing a work.</div>'; return; }
+      res.innerHTML = '<table><thead><tr><th>#</th><th>Completed</th><th>Work details</th><th>Comment</th><th></th></tr></thead><tbody>'+
+        list.map(function(r,i){ var w = r.w;
+          return '<tr><td>'+(i+1)+'</td><td>'+esc(fmtDate(wDay(w)))+'</td><td class="txt"><span class="wt wp-'+wpri(w)+'">'+esc(w.text)+'</span></td><td>'+(w.comment ? esc(w.comment) : '&ndash;')+'</td><td class="act">'+starBtn(w.id,"apr",true)+'</td></tr>'; }).join("")+'</tbody></table>';
+      bindStars(res, e, draw);
+    }
+    function read(){ ap.from = $("apFrom").value; ap.to = $("apTo").value; draw(); }
+    $("apFrom").addEventListener("change", read); $("apTo").addEventListener("change", read);
+    Array.prototype.forEach.call(p.querySelectorAll("[data-aq]"),function(b){
+      b.onclick = function(){
+        var k = b.getAttribute("data-aq"), t = today(), fs = fyStart(t);
+        if(k === "fy"){ ap.from = fs; ap.to = t; }
+        else if(k === "lfy"){ var y = +fs.slice(0,4)-1; ap.from = y+"-04-01"; ap.to = (y+1)+"-03-31"; }
+        else if(k === "month"){ ap.from = t.slice(0,8)+"01"; ap.to = t; }
+        else { ap.from = ""; ap.to = ""; }
+        $("apFrom").value = ap.from; $("apTo").value = ap.to; draw();
+      };
+    });
+    $("apExport").onclick = function(){ read(); apprExport(e, ap.from, ap.to); };
+    draw();
+  }
+
+  /* Monthly highlights (Miscellaneous): closed works starred (M), by month of completion */
+  var mhl = { month:"", empId:"all" };
+  function mhlList(ym, empId){
+    var out = [];
+    state.employees.forEach(function(e){
+      if(empId !== "all" && e.id !== empId) return;
+      e.works.forEach(function(w){ if(w.done && w.mh && wDay(w).slice(0,7) === ym) out.push({ e:e, w:w }); });
+    });
+    return out.sort(starSort);
+  }
+  function mhlExport(ym, empId){
+    var list = mhlList(ym, empId);
+    if(!list.length){ alert("No monthly highlights for "+monthName(ym)+"."); return; }
+    var one = empId !== "all" ? emp(empId) : null;
+    var body = docHead('KOZHIKODE SS &ndash; Monthly Highlights', 'Month: '+esc(monthName(ym))+(one ? ' &nbsp;|&nbsp; '+esc(one.name) : ''))+
+      '<p class="sm">Highlights: <b>'+list.length+'</b></p>'+
+      '<table><thead><tr><th style="width:5%">#</th><th style="width:12%">Date</th>'+(one ? '' : '<th style="width:18%">Employee</th>')+'<th>Work details</th><th style="width:28%">Comment</th></tr></thead><tbody>'+
+      starRows(list, !one)+'</tbody></table>'+
+      '<div class="sg"><div>Prepared by</div><div>Verified by</div></div>'+docFoot();
+    printDoc("Monthly_Highlights_"+ym, listCss(false), body);
+  }
+  function renderMhl(){
+    var p = $("panel");
+    if(!mhl.month) mhl.month = today().slice(0,7);
+    if(mhl.empId !== "all" && !emp(mhl.empId)) mhl.empId = "all";
+    p.innerHTML = '<div style="margin-bottom:10px"><button class="btn ghost small" id="mhBack" type="button">&lsaquo; Miscellaneous</button></div>'+
+      '<div class="panel-head"><h3>Monthly highlights</h3></div>'+
+      '<p style="margin:0 0 12px;color:var(--muted);font-size:.9rem">Works closed with the <b>&#9733;M</b> button. Select the month and export it as a PDF.</p>'+
+      '<div class="rgbar"><div class="field"><label for="mhMonth">Month</label><input type="month" id="mhMonth" value="'+esc(mhl.month)+'"></div>'+
+      '<div class="field grow"><label for="mhEmp">Employee</label><select id="mhEmp"><option value="all">All employees</option>'+
+        state.employees.map(function(x){ return '<option value="'+esc(x.id)+'"'+(x.id===mhl.empId?' selected':'')+'>'+esc(x.name)+'</option>'; }).join("")+'</select></div>'+
+      '<div class="field"><label>&nbsp;</label><button class="btn small" id="mhExport" type="button">Export PDF</button></div></div>'+
+      '<div class="stats" id="mhSum" style="margin-bottom:8px"></div><div id="mhRes"></div>';
+    $("mhBack").onclick = function(){ miscView = "menu"; render(); };
+    function draw(){
+      var sum = $("mhSum"), res = $("mhRes"); if(!sum || !res) return;
+      var list = mhlList(mhl.month, mhl.empId);
+      sum.innerHTML = '<span>'+esc(mhl.month ? monthName(mhl.month) : "")+'</span><span>Highlights <b>'+list.length+'</b></span>';
+      if(!list.length){ res.innerHTML = '<div class="empty">No highlights for this month. Tap the &#9733;M button when closing a work.</div>'; return; }
+      res.innerHTML = '<table><thead><tr><th>#</th><th>Date</th><th>Employee</th><th>Work details</th><th>Comment</th><th></th></tr></thead><tbody>'+
+        list.map(function(r,i){ var w = r.w;
+          return '<tr><td>'+(i+1)+'</td><td>'+esc(fmtDate(wDay(w)))+'</td><td>'+esc(r.e.name)+'</td><td class="txt"><span class="wt wp-'+wpri(w)+'">'+esc(w.text)+'</span></td><td>'+(w.comment ? esc(w.comment) : '&ndash;')+'</td>'+
+            '<td class="act">'+(canEditWorks(r.e) ? starBtn(w.id,"mh",true) : '')+'</td></tr>'; }).join("")+'</tbody></table>';
+      Array.prototype.forEach.call(res.querySelectorAll("[data-star]"),function(b){      // remove a highlight (own works / Master)
+        b.onclick = function(){
+          var id = b.getAttribute("data-star"), hit = list.find(function(r){ return r.w.id === id; }); if(!hit) return;
+          hit.w.mh = false; commit([wput(hit.e, hit.w)]); draw();
+        };
+      });
+    }
+    function read(){ mhl.month = $("mhMonth").value || mhl.month; mhl.empId = $("mhEmp").value; draw(); }
+    $("mhMonth").addEventListener("change", read); $("mhEmp").addEventListener("change", read);
+    $("mhExport").onclick = function(){ read(); mhlExport(mhl.month, mhl.empId); };
+    draw();
+  }
+
   function renderMisc(){
     if(miscView === "export"){ renderMiscExport(); return; }
+    if(miscView === "mhl" && !isSupport()){ renderMhl(); return; }
     if(miscView === "vendors" && isMaster()){ renderVendors(); return; }
     if(miscView === "permits"){ renderPermits(); return; }
     if(miscView === "defects"){ renderDefects(); return; }
     if(miscView === "wp" && !isSupport()){ renderWp(); return; }
     if(miscView === "wpForm" && !isSupport()){ renderWpForm(); return; }
     if(miscView === "vsearch"){ renderVendorSearch(); return; }
+    if(miscView === "docs" && !isSupport()){ renderDocs(); return; }
     if(miscView === "backup" && isMaster()){ renderBackup(); return; }
     if(miscView === "gp"){ renderGateList(); return; }
     if(miscView === "gpForm"){ renderGateForm(); return; }
@@ -5515,19 +5795,21 @@
       { go:"gp",     ic:"assign", cls:"",     t:"Gate Pass", s: n ? n+" gate pass"+(n>1?"es":"") : "Create and print material exit gate passes" },
       { go:"dio",    ic:"works",  cls:"",     t:"Dispatch / Inward entry", s: (nSent || nHeld) ? nSent+" sent, awaiting return · "+nHeld+" held from others" : "Track returnable assets and material received" }
     ];
+    if(!isSupport()){ var mhN = mhlList(today().slice(0,7), "all").length; cards.splice(1, 0, { go:"mhl", ic:"works", cls:"", t:"Monthly highlights", s: mhN ? mhN+" highlight"+(mhN>1?"s":"")+" this month \u00b7 export PDF" : "Works starred (M) when closed \u00b7 export month as PDF" }); }
     if(SYNC) cards.push({ go:"permits", ic:"assign", cls:"", t:"Permits & Orders", s: permitsData.loaded ? (permitsData.permits.filter(permitActive).length ? permitsData.permits.filter(permitActive).length+" active today · " : "")+permitsData.permits.length+" permit"+(permitsData.permits.length===1?"":"s") : "Work permits, shutdown details, share on WhatsApp" });
     if(SYNC && !isSupport()){ var dfOpen = defectsData.items.filter(function(x){ return x.status !== "Closed"; }).length;
       cards.push({ go:"defects", ic:"works", cls:"", t:"Defect register", s: defectsData.loaded ? dfOpen+" open \u00b7 "+defectsData.items.length+" defect"+(defectsData.items.length===1?"":"s") : "Log equipment defects and track them to closure" }); }
     if(SYNC && !isSupport()){ var wpUp = wpData.items.filter(function(x){ return x.date >= today(); }).length;
       cards.push({ go:"wp", ic:"assign", cls:"", t:"Workplan Overview", s: wpData.loaded ? wpUp+" upcoming \u00b7 "+wpData.items.length+" workplan"+(wpData.items.length===1?"":"s") : "Plan shutdown work: teams, objects and maintenance activities" }); }
     if(SYNC) cards.push({ go:"vsearch", ic:"works", cls:"", t:"Vendor search", s: claimsData.loaded ? "Search "+claimsData.vendors.length+" vendor"+(claimsData.vendors.length===1?"":"s")+" by name, GST no., phone, city" : "Find a vendor by name, GST no., phone, city" });
+    if(SYNC && !isSupport()) cards.push({ go:"docs", ic:"works", cls:"", t:"Documents", s: docsData.loaded ? (docsData.items.length ? docKids("").length+" folder"+(docKids("").length===1?"":"s")+" \u00b7 "+docsData.items.length+" in all" : "No folders yet") : "Folders with links to documents (Drive etc.)" });
     if(isMaster() && SYNC) cards.push({ go:"backup", ic:"works", cls:"", t:"Backup", s:"Export all data as Excel and JSON" });
     if(isMaster() && SYNC) cards.push({ go:"vendors", ic:"works", cls:"", t:"Vendor list", s: claimsData.loaded ? claimsData.vendors.length+" vendor"+(claimsData.vendors.length===1?"":"s")+" · used in employee Claims" : "Vendors employees pick in their Claims" });
     p.innerHTML = '<div class="panel-head"><h3>Miscellaneous</h3></div><div class="hgrid">'+cards.map(function(c){
       return '<button type="button" class="hcard '+c.cls+'" data-miv="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
     }).join("")+'</div>';
     Array.prototype.forEach.call(p.querySelectorAll("[data-miv]"),function(b){
-      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); if(miscView === "vendors" || miscView === "vsearch") claimFetch(); if(miscView === "permits") permitFetch(); if(miscView === "defects") defectFetch(); if(miscView === "wp") wpFetch(); };
+      b.onclick = function(){ miscView = b.getAttribute("data-miv"); if(miscView === "gp") gpRet = "gp"; render(); if(miscView === "gp" || miscView === "dio") ampFetch(); if(miscView === "vendors" || miscView === "vsearch") claimFetch(); if(miscView === "permits") permitFetch(); if(miscView === "defects") defectFetch(); if(miscView === "wp") wpFetch(); if(miscView === "docs") docFetch(); };
     });
   }
   function gpMine(g){ return isMaster() || (session && g.createdBy === session.id); }
@@ -7082,6 +7364,7 @@
     var pct = total ? Math.round(done/total*100) : 0;
     var canClaims = SYNC && !!session && session.role === "user" && e.id === myEmpId();       // Claims: visible to the employee himself only
     if(empView === "claims" && !canClaims) empView = "work";
+    if(empView === "appr" && !canEditWorks(e)) empView = "work";
     var work = empView === "work";
     var canW = canEditWorks(e);       // only the employee himself and Master can add / change these works
 
@@ -7093,6 +7376,7 @@
     h += '<div class="viewsw"><button type="button" data-view="work" class="'+(work?"active":"")+'">Worklist</button>'+
          '<button type="button" data-view="cal" class="'+(empView==="cal"?"active":"")+'">Calendar</button>'+
          '<button type="button" data-view="range" class="'+(empView==="range"?"active":"")+'">Search / Date range</button>'+
+         (canW ? '<button type="button" data-view="appr" class="'+(empView==="appr"?"active":"")+'">Appraisal</button>' : '')+
          (canClaims ? '<button type="button" data-view="claims" class="'+(empView==="claims"?"active":"")+'">Claims</button>' : '')+'</div>';
     if(isMaster()){
       h += '<div class="mbar">'+
@@ -7103,6 +7387,7 @@
 
     if(empView === "claims"){ claimsView(e, p, h, done); return; }
     if(empView === "range"){ rangeView(e, p, h); return; }
+    if(empView === "appr"){ apprView(e, p, h); return; }
     if(!work){
       h += calHTML(e.id);
       p.innerHTML = h;
@@ -7183,8 +7468,9 @@
             (xo?'<span class="xnote">Waiting for '+esc(xo.toName)+' to accept (for '+fmtDate(xo.date)+')</span>':'')+
             (xdc?'<span class="xnote no">Declined by '+esc(xdc.toName)+'</span>':'')+
             (w.done&&w.doneAt?'<span class="doneat">Completed '+fmtStamp(w.doneAt)+'</span>':'')+
-            (w.done&&w.comment?'<span class="cmt">Comment: '+esc(w.comment)+'</span>':'')+'</td>'+
-          '<td class="act">'+(!canW ? '' :
+            (w.done&&w.comment?'<span class="cmt">Comment: '+esc(w.comment)+'</span>':'')+
+            (w.done&&w.apr&&canW?'<span class="stag">&#9733; Appraisal</span>':'')+(w.done&&w.mh?'<span class="stag">&#9733; Monthly highlight</span>':'')+'</td>'+
+          '<td class="act">'+(!canW ? '' : (w.done ? starBtn(w.id,"apr",w.apr)+starBtn(w.id,"mh",w.mh)+' ' : '')+
             (xo ? '<button class="btn ghost small" data-xcan="'+esc(xo.id)+'" type="button">Cancel transfer</button> '
                 : (!w.done?'<button class="btn ghost small" data-move="'+esc(w.id)+'" type="button">Transfer</button> ':''))+
             '<button class="btn ghost small" data-edit="'+esc(w.id)+'" type="button">Edit</button>'+
@@ -7239,11 +7525,12 @@
           c.checked = false;
           completeModal(e,w);
         } else {                            // re-opening a work
-          w.done = false; w.doneAt = null; w.comment = "";
+          w.done = false; w.doneAt = null; w.comment = ""; w.apr = false; w.mh = false;
           commit([wput(e,w)]); render();
         }
       };
     });
+    bindStars(p, e, function(){ render(); });
     Array.prototype.forEach.call(p.querySelectorAll("[data-move]"),function(b){
       b.onclick = function(){ transferModal(e, findWork(b.getAttribute("data-move"))); };
     });
@@ -7370,11 +7657,18 @@
       '<p style="margin-top:0">'+esc(w.text)+'</p>'+
       '<div class="field"><label for="cText">Comment (optional)</label>'+
       '<textarea id="cText" maxlength="300" placeholder="e.g. Replaced fuse, tested OK"></textarea></div>'+
+      '<div class="stpick"><span>Optional:</span>'+
+        '<span class="l">'+starBtn("c","apr",false).replace('data-star="c"','id="cApr"')+' Add to Appraisal</span>'+
+        '<span class="l">'+starBtn("c","mh",false).replace('data-star="c"','id="cMh"')+' Add to Monthly highlights</span></div>'+
       '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Mark complete</button></div>');
     $("cText").focus();
+    Array.prototype.forEach.call([$("cApr"), $("cMh")],function(b){
+      b.onclick = function(){ var on = !b.classList.contains("on"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); };
+    });
     $("mNo").onclick = closeModal;
     $("mOk").onclick = function(){
       w.done = true; w.doneAt = Date.now(); w.comment = $("cText").value.trim();
+      w.apr = $("cApr").classList.contains("on"); w.mh = $("cMh").classList.contains("on");
       closeModal(); commit([wput(e,w)]); render();
     };
   }
