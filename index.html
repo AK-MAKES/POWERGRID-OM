@@ -437,6 +437,30 @@
   .notice-text{display:inline-block;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:1.08rem;
     letter-spacing:.7px;color:#f7dd8c;animation:nflash 1.9s ease-in-out infinite}
   .notice-text::before,.ni::after{content:"\25C6";color:var(--amber);font-style:normal;font-size:.7em;margin:0 16px;vertical-align:middle}
+  .notice a,.nboard a{color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;cursor:pointer}
+  .notice a{color:#ffe9a8}.notice a:hover,.nboard a:hover{text-decoration-thickness:2px}
+  .nboard a{color:#0b5cad}
+  /* ---- Employee Center ---- */
+  .ec-sum{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+  .ec-sum div{flex:1 1 110px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;gap:1px}
+  .ec-sum b{font-size:1.3rem;color:var(--steel);line-height:1.1} .ec-sum span{font-size:.76rem;color:var(--muted);letter-spacing:.3px;text-transform:uppercase}
+  .ec-sum .w b{color:#a87400} .ec-sum .r b{color:var(--red)}
+  .ec-q{display:flex;margin:0 0 10px} .ec-q input{flex:1;min-width:0;border-radius:99px;padding:9px 16px}
+  .ec-list{display:flex;flex-direction:column;gap:8px}
+  .ec-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+  .ec-row:hover{border-color:var(--steel-2);box-shadow:0 3px 10px rgba(31,58,82,.12)}
+  .ec-av{flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:var(--steel);color:#fff;display:grid;place-items:center;font-weight:700;font-size:1rem;position:relative}
+  .ec-av i{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;border:2px solid #fff;background:#9aa6b1}
+  .ec-av i.yes{background:#1f8a4c} .ec-av i.no{background:#c0392b}
+  .ec-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .ec-mid b{font-size:1rem;color:var(--steel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ec-mid small{color:var(--muted);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ec-bar{height:5px;border-radius:99px;background:#e6ebef;overflow:hidden;margin-top:3px;max-width:240px} .ec-bar i{display:block;height:100%;background:var(--green);border-radius:99px}
+  .ec-end{flex:0 0 auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .ec-tag{font-size:.74rem;font-weight:600;padding:2px 9px;border-radius:99px;background:#eef1f4;color:var(--muted);white-space:nowrap}
+  .ec-tag.p{background:var(--amber-bg);color:#8a6500} .ec-tag.o{background:#fde7e4;color:var(--red)} .ec-tag.d{background:var(--green-bg);color:var(--green)}
+  .ec-go{color:#9aa6b1;font-size:1.3rem;line-height:1}
+  @media(max-width:520px){.ec-row{padding:9px 10px;gap:9px}.ec-end{max-width:46%}}
   @keyframes nscroll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
   @keyframes nflash{0%,100%{opacity:1;text-shadow:0 0 10px rgba(224,161,0,.75)}50%{opacity:.5;text-shadow:0 0 0 rgba(224,161,0,0)}}
   @media(prefers-reduced-motion:reduce){
@@ -1166,6 +1190,10 @@
 
   /* ---------- Notices (Master sets one or more; shown in the ticker and on Home) ---------- */
   var NSEP = " \u00A6 ", NMAX = 300;      // notices are stored in one text value, separated by " ¦ "
+  var NLINK = "\u00A4", NLMAX = 1000;     // optional link: "text ¤ https://..." (visible text limit NMAX; stored total limit NLMAX)
+  function safeUrl(u){ u = String(u||"").trim(); if(u && !/^[a-z][a-z0-9+.-]*:/i.test(u)) u = "https://"+u; return /^https?:\/\/[^\s<>"']+$/i.test(u) ? u : ""; }
+  function nSplit(n){ var s = String(n||""), k = s.indexOf(NLINK); return k < 0 ? { t:s.trim(), u:"" } : { t:s.slice(0,k).trim(), u:safeUrl(s.slice(k+1)) }; }
+  function nHtml(n){ var p = nSplit(n); return p.u ? '<a href="'+esc(p.u)+'" target="_blank" rel="noopener noreferrer">'+esc(p.t)+' &#128279;</a>' : esc(p.t); }
   function noticeList(){ return String(state.notice || "").split("\u00A6").map(function(x){ return x.trim(); }).filter(Boolean); }
 
   /* Office Calendar -> automatic Notice ticker.
@@ -1196,7 +1224,7 @@
     noticeShown = txt;
     var bar = $("noticeBar"); if(!bar) return;
     if(!list.length){ bar.classList.add("hidden"); return; }
-    $("noticeText").innerHTML = list.map(function(n){ return '<span class="ni">'+esc(n)+'</span>'; }).join("");
+    $("noticeText").innerHTML = list.map(function(n){ return '<span class="ni">'+nHtml(n)+'</span>'; }).join("");
     bar.classList.remove("hidden");
     var track = $("noticeTrack");
     track.style.animation = "none"; void track.offsetWidth;       // restart from the right edge
@@ -1205,15 +1233,19 @@
   }
 
   function noticeModal(){
-    var items = noticeList(); if(!items.length) items = [""];
-    function clean(arr){ return arr.map(function(x){ return x.replace(/\s+/g," ").trim(); }).filter(Boolean); }
+    var items = noticeList().map(nSplit); if(!items.length) items = [{t:"",u:""}];
+    function clean(arr){ return arr.map(function(x){ var t = x.t.replace(/\s+/g," ").trim(), u = safeUrl(x.u); return t ? (u ? t+NLINK+u : t) : ""; }).filter(Boolean); }
+    function vis(arr){ return arr.map(function(x){ return x.t.replace(/\s+/g," ").trim(); }).filter(Boolean).join(NSEP).length; }
     function collect(){
       var out = [];
-      Array.prototype.forEach.call(document.querySelectorAll("[data-nt]"),function(i){ out.push(i.value.replace(/\u00A6/g,"|")); });
+      Array.prototype.forEach.call(document.querySelectorAll("[data-nt]"),function(i){
+        var l = document.querySelector('[data-nu="'+i.getAttribute("data-nt")+'"]');
+        out.push({ t:i.value.replace(/[\u00A6\u00A4]/g,"|"), u:l ? l.value : "" });
+      });
       return out;
     }
     function count(){
-      var n = clean(collect()).join(NSEP).length, c = $("ntCount");
+      var n = vis(collect()), c = $("ntCount");
       c.textContent = n+" / "+NMAX+" characters"; c.style.color = n > NMAX ? "var(--red)" : "var(--muted)";
     }
     function save(v){
@@ -1224,10 +1256,11 @@
     }
     function draw(focusIdx){
       openModal('<h3>Notices</h3>'+
-        '<p style="margin:0 0 10px;color:var(--muted);font-size:.92rem">These scroll across the top for everyone and are listed on the Home screen. Add as many as fit in the limit below.</p>'+
+        '<p style="margin:0 0 10px;color:var(--muted);font-size:.92rem">These scroll across the top for everyone and are listed on the Home screen. Add as many as fit in the limit below. You may add an optional link to any notice; people can tap the notice to open it.</p>'+
         items.map(function(v,i){
-          return '<div class="row" style="align-items:center;margin-bottom:8px"><input type="text" data-nt="'+i+'" value="'+esc(v)+'" maxlength="300" placeholder="Notice '+(i+1)+'">'+
-                 '<button class="btn danger small" style="flex:0 0 auto" data-ntdel="'+i+'" type="button" aria-label="Remove this notice">&#10005;</button></div>';
+          return '<div style="margin-bottom:10px"><div class="row" style="align-items:center;margin-bottom:4px"><input type="text" data-nt="'+i+'" value="'+esc(v.t)+'" maxlength="300" placeholder="Notice '+(i+1)+'">'+
+                 '<button class="btn danger small" style="flex:0 0 auto" data-ntdel="'+i+'" type="button" aria-label="Remove this notice">&#10005;</button></div>'+
+                 '<input type="text" inputmode="url" data-nu="'+i+'" value="'+esc(v.u)+'" maxlength="250" placeholder="Link (optional) e.g. https://example.com" style="width:100%;font-size:.9rem"></div>';
         }).join("")+
         '<div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 10px">'+
           '<button class="btn ghost small" id="ntAdd" type="button">+ Add another notice</button>'+
@@ -1239,13 +1272,16 @@
       $("mNo").onclick = closeModal;
       Array.prototype.forEach.call(document.querySelectorAll("[data-nt]"),function(i){ i.oninput = count; });
       Array.prototype.forEach.call(document.querySelectorAll("[data-ntdel]"),function(b){
-        b.onclick = function(){ items = collect(); items.splice(+b.getAttribute("data-ntdel"),1); if(!items.length) items = [""]; draw(); };
+        b.onclick = function(){ items = collect(); items.splice(+b.getAttribute("data-ntdel"),1); if(!items.length) items = [{t:"",u:""}]; draw(); };
       });
-      $("ntAdd").onclick = function(){ items = collect(); items.push(""); draw(items.length-1); };
+      $("ntAdd").onclick = function(){ items = collect(); items.push({t:"",u:""}); draw(items.length-1); };
       $("ntClear").onclick = function(){ save(""); };
       $("mOk").onclick = function(){
-        var v = clean(collect()).join(NSEP);
-        if(v.length > NMAX){ $("ntErr").textContent = "Too long by "+(v.length-NMAX)+" characters. Shorten or remove a notice."; return; }
+        var raw = collect(), bad = raw.filter(function(x){ return x.u.trim() && !safeUrl(x.u); });
+        if(bad.length){ $("ntErr").textContent = "A link is not valid. Use a web address starting with http:// or https://"; return; }
+        var v = clean(raw).join(NSEP), n = vis(raw);
+        if(n > NMAX){ $("ntErr").textContent = "Too long by "+(n-NMAX)+" characters. Shorten or remove a notice."; return; }
+        if(v.length > NLMAX){ $("ntErr").textContent = "Links make the notices too long. Use shorter links or fewer notices."; return; }
         save(v);
       };
       count();
@@ -1297,7 +1333,7 @@
            ((ct.from||ct.to) ? ' &middot; '+esc(fmtDate(ct.from))+' to '+esc(fmtDate(ct.to)) : '')+'</p>';
     }
     h += '<div class="nboard"><div class="nh"><h4>&#9670; Notice board</h4></div>'+
-         (notes.length ? '<ul>'+notes.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join("")+'</ul>' : '<div class="none">No notices right now.</div>')+'</div>';
+         (notes.length ? '<ul>'+notes.map(function(n){ return '<li>'+nHtml(n)+'</li>'; }).join("")+'</ul>' : '<div class="none">No notices right now.</div>')+'</div>';
     var staff = state.amcStaff || [];
     h += '<div class="hgrid"><button type="button" class="hcard green" id="goWork"><span class="ic">'+ICON.works+'</span><b>Update works of AMC staff</b><small>Attendance, work details and status of '+staff.length+' AMC staff</small></button>'+
       (function(){ var sa = supAssignList(), so = sa.filter(function(a){ return !a.done; }).length, sl = sa.filter(asOverdue).length;
@@ -1361,18 +1397,18 @@
     var myE = emp(myEmpId());
     if(myE){
       var myTot = 0, myDone = 0; myE.works.forEach(function(w){ if(w.date === t){ myTot++; if(w.done) myDone++; } });
-      h += '<div style="margin:0 0 14px"><button class="btn" id="goMyWorks" type="button" style="width:100%">Go to daily works</button>'+
+      h += '<div style="margin:0 0 14px"><button class="btn" id="goMyWorks" type="button" style="width:100%">Go to my works</button>'+
            '<div style="margin-top:6px;font-size:.9rem;color:var(--muted)">Your works today: '+(myTot ? (myTot-myDone)+' pending of '+myTot : 'none entered')+' &middot; '+availChip(myE.id)+(xfersIn(myE.id).length ? ' &middot; <b style="color:#8a6500">'+xfersIn(myE.id).length+' transfer request'+(xfersIn(myE.id).length>1?'s':'')+' waiting</b>' : '')+'</div></div>';
     }
     if(notes.length || isMaster()){
       h += '<div class="nboard"><div class="nh"><h4>&#9670; Notice board</h4>'+
            (isMaster() ? '<button class="btn ghost small" data-go="notices" type="button">'+(notes.length?'Edit notices':'Add notice')+'</button>' : '')+'</div>'+
-           (notes.length ? '<ul>'+notes.map(function(n){ return '<li>'+esc(n)+'</li>'; }).join("")+'</ul>' : '<div class="none">No notices right now.</div>')+'</div>';
+           (notes.length ? '<ul>'+notes.map(function(n){ return '<li>'+nHtml(n)+'</li>'; }).join("")+'</ul>' : '<div class="none">No notices right now.</div>')+'</div>';
     }
     var amcAll = state.amcStaff || [], amcPend = amcAll.filter(function(x){ return !x.done; }).length;
     var cards = [
       { go:"dash",   ic:"dash",   cls:"",      t:"Dashboard",    s: tw ? td+" of "+tw+" works done today ("+pctOf(td,tw)+"%)" : "Progress, trends and office calendar" },
-      { go:"works",  ic:"works",  cls:"green", t:"Daily Works",  s: (tw-td)+" pending today across "+state.employees.length+" employees" },
+      { go:"works",  ic:"works",  cls:"green", t:"Employee Center",  s: (tw-td)+" pending today across "+state.employees.length+" employees" },
       { go:"assign", ic:"assign", cls:"amber", t:"Assignments",  s: aOpen+" open"+(aOver ? ", "+aOver+" overdue" : "") },
       { go:"follow", ic:"works",  cls:"amber", t:"Follow-up",    s: (state.fu||[]).filter(function(f){ return f.status !== "closed"; }).length+" open of "+(state.fu||[]).length },
       { go:"proc",   ic:"assign", cls:"green", t:"Procurement",  s: (state.pr||[]).filter(function(x){ return x.status !== "procured"; }).length+" pending of "+(state.pr||[]).length },
@@ -1884,28 +1920,41 @@
     };
   }
 
+  var ecQ = "";
   function renderWorks(){
-    var p = $("panel"), t = today();
-    var h = '<div class="panel-head"><h3>Daily works</h3><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="color:var(--muted)">'+esc(dayLabel(t))+'</span>'+
+    var p = $("panel"), t = today(), q = ecQ.trim().toLowerCase();
+    var rows = state.employees.map(function(e){
+      var tot = 0, done = 0, over = 0;
+      e.works.forEach(function(w){ if(w.date === t){ tot++; if(w.done) done++; } else if(!w.done && w.date < t) over++; });
+      return { e:e, tot:tot, done:done, over:over };
+    });
+    var sP = 0, sO = 0, sY = 0;
+    rows.forEach(function(r){ sP += r.tot - r.done; sO += r.over; if(availOf(r.e.id) === "yes") sY++; });
+    var h = '<div class="panel-head"><h3>Employee Center</h3><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="color:var(--muted)">'+esc(dayLabel(t))+'</span>'+
             (isMaster() ? '<button class="btn small" id="addEmpBtn" type="button">+ Add employee</button>' : '')+'</div></div>';
     if(!state.employees.length){
       h += '<div class="empty">No employees yet.'+(isMaster()?' Use “+ Add employee” above.':'')+'</div>';
     } else {
-      h += '<p style="margin:-6px 0 0;color:var(--muted);font-size:.9rem">Choose an employee to open their daily worklist.</p><div class="hgrid">'+
-        state.employees.map(function(e){
-          var tot = 0, done = 0, over = 0;
-          e.works.forEach(function(w){
-            if(w.date === t){ tot++; if(w.done) done++; }
-            else if(!w.done && w.date < t) over++;
-          });
-          return '<button type="button" class="hcard'+(over?' amber':' green')+'" data-emp="'+esc(e.id)+'"><span class="ic">'+esc((e.name||"?").trim().charAt(0).toUpperCase())+'</span>'+
-            '<b>'+esc(e.name)+'</b>'+desigHTML(e)+rolesHTML(e)+'<small>Today: '+(tot ? (tot-done)+' pending of '+tot : 'no work entered')+(over ? ' &middot; '+over+' pending from earlier dates' : '')+'<br>'+availChip(e.id)+'</small></button>';
-        }).join("")+'</div>';
+      h += '<div class="ec-sum"><div><b>'+rows.length+'</b><span>Employees</span></div><div><b>'+sY+'</b><span>Available today</span></div>'+
+           '<div class="w"><b>'+sP+'</b><span>Pending today</span></div><div class="r"><b>'+sO+'</b><span>Earlier pending</span></div></div>'+
+           '<div class="ec-q"><input type="text" id="ecQ" maxlength="60" placeholder="Search employee…" value="'+esc(ecQ)+'" aria-label="Search employee"></div>';
+      var shown = rows.filter(function(r){ return !q || (r.e.name+" "+(r.e.desig||"")+" "+((r.e.roles||[]).join(" "))).toLowerCase().indexOf(q) >= 0; });
+      h += shown.length ? '<div class="ec-list">'+shown.map(function(r){
+        var e = r.e, av = availOf(e.id), pend = r.tot - r.done, pct = r.tot ? Math.round(r.done*100/r.tot) : 0;
+        var sub = [e.desig || "", (e.roles && e.roles.length) ? e.roles.join(", ") : ""].filter(Boolean).join(" \u00b7 ");
+        return '<button type="button" class="ec-row" data-emp="'+esc(e.id)+'">'+
+          '<span class="ec-av">'+esc((e.name||"?").trim().charAt(0).toUpperCase())+'<i class="'+av+'" title="'+(av==="yes"?"Available today":av==="no"?"Not available today":"Availability not updated")+'"></i></span>'+
+          '<span class="ec-mid"><b>'+esc(e.name)+'</b>'+(sub ? '<small>'+esc(sub)+'</small>' : '')+(r.tot ? '<span class="ec-bar"><i style="width:'+pct+'%"></i></span>' : '')+'</span>'+
+          '<span class="ec-end">'+(r.tot ? (pend ? '<span class="ec-tag p">'+pend+' pending</span>' : '<span class="ec-tag d">All done</span>') : '<span class="ec-tag">No work today</span>')+
+            (r.over ? '<span class="ec-tag o">'+r.over+' earlier</span>' : '')+'</span><span class="ec-go">&rsaquo;</span></button>';
+      }).join("")+'</div>' : '<div class="empty">No employee found.</div>';
     }
     p.innerHTML = h;
     var ae = $("addEmpBtn"); if(ae) ae.onclick = addEmployeeModal;
+    var qi = $("ecQ");
+    if(qi) qi.oninput = function(){ ecQ = this.value; var pos = this.selectionStart; renderWorks(); var n = $("ecQ"); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(x){} } };
     Array.prototype.forEach.call(p.querySelectorAll("[data-emp]"),function(b){
-      b.onclick = function(){ activeTab = b.getAttribute("data-emp"); empView = "work"; viewDate = today(); filter = "all"; render(); };
+      b.onclick = function(){ activeTab = b.getAttribute("data-emp"); empView = "work"; viewDate = today(); filter = "all"; ecQ = ""; render(); };
     });
   }
 
@@ -1937,7 +1986,7 @@
       html += '<button type="button" class="tab'+(activeTab==="assign"?" active":"")+'" data-tab="assign">Assignments</button>';
     } else {
       html += '<button type="button" class="tab'+(activeTab==="dash"?" active":"")+'" data-tab="dash">Dashboard</button>'+
-              '<button type="button" class="tab'+(activeTab==="works"?" active":"")+'" data-tab="works">Daily Works'+(inN?'<span class="cnt">'+inN+'</span>':'')+'</button>'+
+              '<button type="button" class="tab'+(activeTab==="works"?" active":"")+'" data-tab="works">Employee Center'+(inN?'<span class="cnt">'+inN+'</span>':'')+'</button>'+
               '<button type="button" class="tab'+(activeTab==="assign"?" active":"")+'" data-tab="assign">Assignments</button>'+
               '<button type="button" class="tab'+(activeTab==="maint"?" active":"")+'" data-tab="maint">Maintenance Status</button>'+
               '<button type="button" class="tab'+(activeTab==="follow"?" active":"")+'" data-tab="follow">Follow-up</button>'+
@@ -5015,14 +5064,14 @@
   /* ---------- Documents (Miscellaneous) ----------
      A folder tree (sub folders allowed). Every folder / sub folder carries ONE hyperlink (for example a Google Drive link).
      Everyone logged in can open the links; ONLY Master can add, edit or delete folders. */
-  var docsData = { items: [], loaded: false }, docBusy = 0, docChain = Promise.resolve(), docOpenF = {};
+  var docsData = { items: [], loaded: false }, docBusy = 0, docChain = Promise.resolve(), docOpenF = {}, docQ = "";
   function docApply(j){ docsData.items = j.docs || []; docsData.loaded = true; }
   function docFetch(){
     if(!SYNC || isSupport()) return;
     api({ action: "docList" }).then(function(r){
       if(docBusy) return;
       docApply(r.json);
-      if(!modalOpen() && activeTab === "misc" && (miscView === "docs" || miscView === "menu")) render();
+      if(!modalOpen() && activeTab === "misc" && (miscView === "docs" || miscView === "menu") && !(document.activeElement && document.activeElement.id === "dcQ")) render();
     }).catch(onSyncError);
   }
   function docSend(body){
@@ -5068,8 +5117,7 @@
       (url ? '<a class="dcf-go" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Open &#8599;</a>' : '')+'</div>';
     if(canOpen){
       h += '<div class="dcf-b">';
-      if(url) h += '<div class="dcf-url">'+esc(url)+'</div>';
-      else if(isMaster()) h += '<div class="dcf-url">No link added to this folder.</div>';
+      if(!url && isMaster()) h += '<div class="dcf-url">No link added to this folder.</div>';
       if(isMaster()) h += '<div class="dcf-act"><button class="btn ghost small" data-dcsub="'+esc(x.id)+'" type="button">Add subfolder</button>'+
         '<button class="btn ghost small" data-dced="'+esc(x.id)+'" type="button">Edit</button>'+
         '<button class="btn ghost small" data-dcdel="'+esc(x.id)+'" type="button">Delete</button></div>';
@@ -5078,15 +5126,55 @@
     }
     return h+'</div>';
   }
+  function docPath(x){
+    var parts = [], cur = x, guard = 0;
+    while(cur && cur.parentId && guard++ < 30){ cur = docsData.items.find(function(y){ return y.id === cur.parentId; }); if(cur) parts.unshift(cur.name); }
+    return parts.join(" \u203a ");
+  }
+  function docSearch(q){
+    var words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    return docsData.items.filter(function(x){
+      var hay = (docPath(x)+" "+x.name).toLowerCase();
+      return words.every(function(w){ return hay.indexOf(w) >= 0; });
+    }).sort(function(a,b){ return String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: "base" }); });
+  }
+  function docResult(x){
+    var url = docSafeUrl(x.link), path = docPath(x), nk = docKids(x.id).length;
+    return '<div class="dcf"><div class="dcf-h"><div style="flex:1;min-width:0;padding:8px 10px">'+
+      '<div><span class="dcf-ic">&#128193;</span> <b>'+esc(x.name)+'</b>'+(nk ? ' <span class="dcf-n">'+nk+'</span>' : '')+'</div>'+
+      '<div style="color:var(--muted);font-size:.8rem;margin-top:2px">'+(path ? esc(path) : 'Top level')+'</div>'+
+      '<div style="margin-top:6px"><button class="btn ghost small" data-dcshow="'+esc(x.id)+'" type="button">Show in folders</button></div></div>'+
+      (url ? '<a class="dcf-go" href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">Open &#8599;</a>' : '')+'</div></div>';
+  }
   function renderDocs(){
-    var p = $("panel"), roots = docKids(""), total = docsData.items.length;
+    var p = $("panel"), roots = docKids(""), total = docsData.items.length, q = docQ.trim(), res = q ? docSearch(q) : null;
     var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Documents</h3>'+(isMaster() ? '<button class="btn" id="dcNew" type="button">Add folder</button>' : '')+'</div>';
     if(!docsData.loaded) h += '<div class="empty">Loading…</div>';
     else if(!total) h += '<div class="empty">No folders yet.'+(isMaster() ? ' Tap <b>Add folder</b> to create one and paste its link.' : '')+'</div>';
-    else h += '<p style="margin:0 0 8px;color:var(--muted);font-size:.85rem">'+total+' folder'+(total===1?'':'s')+'. Tap a folder to see what is inside; tap <b>Open</b> to go to its link.</p>'+roots.map(docNode).join("");
+    else{
+      h += '<div class="filters" style="display:flex;gap:8px;align-items:center"><input type="text" id="dcQ" maxlength="60" placeholder="Search folder name…" value="'+esc(docQ)+'" aria-label="Search documents" style="flex:1;min-width:0">'+
+           '<button class="btn" id="dcGo" type="button" aria-label="Search">&#128269; Search</button>'+(q ? '<button class="btn ghost" id="dcClr" type="button" aria-label="Clear search">&#10005;</button>' : '')+'</div>';
+      if(res) h += '<p style="margin:0 0 8px;color:var(--muted);font-size:.85rem">'+res.length+' result'+(res.length===1?'':'s')+' for &ldquo;'+esc(q)+'&rdquo;.</p>'+(res.length ? res.map(docResult).join("") : '<div class="empty">Nothing found. Try a shorter word.</div>');
+      else h += '<p style="margin:0 0 8px;color:var(--muted);font-size:.85rem">'+total+' folder'+(total===1?'':'s')+'. Tap a folder to see what is inside; tap <b>Open</b> to go to its link.</p>'+roots.map(docNode).join("");
+    }
     p.innerHTML = h; gpBind("menu");
     function byId(id){ return docsData.items.find(function(x){ return x.id === id; }); }
     if(isMaster() && $("dcNew")) $("dcNew").onclick = function(){ docForm(null, ""); };
+    if($("dcQ")){
+      $("dcQ").oninput = function(){ docQ = this.value; var pos = this.selectionStart; render(); var n = $("dcQ"); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(x){} } };
+      $("dcQ").onkeydown = function(e){ if(e.key === "Enter"){ e.preventDefault(); this.blur(); } };
+      $("dcGo").onclick = function(){ var n = $("dcQ"); docQ = n.value; if(docQ.trim()){ render(); } else n.focus(); };
+      if($("dcClr")) $("dcClr").onclick = function(){ docQ = ""; render(); };
+    }
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dcshow]"),function(b){
+      b.onclick = function(){
+        var x = byId(b.getAttribute("data-dcshow")); if(!x) return;
+        var cur = x; docOpenF[x.id] = true;
+        while(cur && cur.parentId){ docOpenF[cur.parentId] = true; cur = byId(cur.parentId); }
+        docQ = ""; render();
+        setTimeout(function(){ var t = document.querySelector('[data-dctog="'+x.id+'"]'); if(t && t.scrollIntoView) t.scrollIntoView({ block:"center" }); }, 50);
+      };
+    });
     Array.prototype.forEach.call(p.querySelectorAll("[data-dctog]"),function(b){ b.onclick = function(){ var k = b.getAttribute("data-dctog"); docOpenF[k] = !docOpenF[k]; render(); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-dcsub]"),function(b){ b.onclick = function(){ docForm(null, b.getAttribute("data-dcsub")); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-dced]"),function(b){ b.onclick = function(){ var x = byId(b.getAttribute("data-dced")); if(x) docForm(x, x.parentId); }; });
@@ -5737,17 +5825,36 @@
       '<div class="sg"><div>Prepared by</div><div>Verified by</div></div>'+docFoot();
     printDoc("Monthly_Highlights_"+ym, listCss(false), body);
   }
+  function mhlExportXlsx(ym, empId){
+    var list = mhlList(ym, empId);
+    if(!list.length){ alert("No monthly highlights for "+monthName(ym)+"."); return; }
+    var one = empId !== "all" ? emp(empId) : null;
+    loadXLSX(function(){
+      try{
+        var X = window.XLSX, rows = [["Sl No","Date"].concat(one ? [] : ["Employee"]).concat(["Work details","Comment"])];
+        list.forEach(function(r, i){
+          rows.push([i+1, fmtDate(wDay(r.w))].concat(one ? [] : [r.e.name]).concat([r.w.text || "", r.w.comment || ""]));
+        });
+        var ws = X.utils.aoa_to_sheet(rows);
+        ws["!cols"] = one ? [{wch:6},{wch:12},{wch:70},{wch:40}] : [{wch:6},{wch:12},{wch:22},{wch:70},{wch:40}];
+        var info = [["KOZHIKODE SS - Monthly Highlights"],["Month", monthName(ym)],["Employee", one ? one.name : "All employees"],["Highlights", list.length],["Downloaded on", fmtDate(today())]];
+        var wi = X.utils.aoa_to_sheet(info); wi["!cols"] = [{wch:16},{wch:40}];
+        var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Highlights"); X.utils.book_append_sheet(wb, wi, "Info");
+        X.writeFile(wb, "Monthly_Highlights_"+ym+(one ? "_"+String(one.name).replace(/[^A-Za-z0-9]+/g,"_") : "")+".xlsx");
+      } catch(e){ alert("Could not create the Excel file."); }
+    }, function(){ alert("Could not load the Excel library (needs internet)."); });
+  }
   function renderMhl(){
     var p = $("panel");
     if(!mhl.month) mhl.month = today().slice(0,7);
     if(mhl.empId !== "all" && !emp(mhl.empId)) mhl.empId = "all";
     p.innerHTML = '<div style="margin-bottom:10px"><button class="btn ghost small" id="mhBack" type="button">&lsaquo; Miscellaneous</button></div>'+
       '<div class="panel-head"><h3>Monthly highlights</h3></div>'+
-      '<p style="margin:0 0 12px;color:var(--muted);font-size:.9rem">Works closed with the <b>&#9733;M</b> button. Select the month and export it as a PDF.</p>'+
+      '<p style="margin:0 0 12px;color:var(--muted);font-size:.9rem">Works closed with the <b>&#9733;M</b> button. Select the month and export it as a PDF or Excel file.</p>'+
       '<div class="rgbar"><div class="field"><label for="mhMonth">Month</label><input type="month" id="mhMonth" value="'+esc(mhl.month)+'"></div>'+
       '<div class="field grow"><label for="mhEmp">Employee</label><select id="mhEmp"><option value="all">All employees</option>'+
         state.employees.map(function(x){ return '<option value="'+esc(x.id)+'"'+(x.id===mhl.empId?' selected':'')+'>'+esc(x.name)+'</option>'; }).join("")+'</select></div>'+
-      '<div class="field"><label>&nbsp;</label><button class="btn small" id="mhExport" type="button">Export PDF</button></div></div>'+
+      '<div class="field"><label>&nbsp;</label><div style="display:flex;gap:8px"><button class="btn small" id="mhExport" type="button">Export PDF</button><button class="btn small ghost" id="mhExportX" type="button">Export Excel</button></div></div></div>'+
       '<div class="stats" id="mhSum" style="margin-bottom:8px"></div><div id="mhRes"></div>';
     $("mhBack").onclick = function(){ miscView = "menu"; render(); };
     function draw(){
@@ -5769,6 +5876,7 @@
     function read(){ mhl.month = $("mhMonth").value || mhl.month; mhl.empId = $("mhEmp").value; draw(); }
     $("mhMonth").addEventListener("change", read); $("mhEmp").addEventListener("change", read);
     $("mhExport").onclick = function(){ read(); mhlExport(mhl.month, mhl.empId); };
+    $("mhExportX").onclick = function(){ read(); mhlExportXlsx(mhl.month, mhl.empId); };
     draw();
   }
 
@@ -5795,7 +5903,7 @@
       { go:"gp",     ic:"assign", cls:"",     t:"Gate Pass", s: n ? n+" gate pass"+(n>1?"es":"") : "Create and print material exit gate passes" },
       { go:"dio",    ic:"works",  cls:"",     t:"Dispatch / Inward entry", s: (nSent || nHeld) ? nSent+" sent, awaiting return · "+nHeld+" held from others" : "Track returnable assets and material received" }
     ];
-    if(!isSupport()){ var mhN = mhlList(today().slice(0,7), "all").length; cards.splice(1, 0, { go:"mhl", ic:"works", cls:"", t:"Monthly highlights", s: mhN ? mhN+" highlight"+(mhN>1?"s":"")+" this month \u00b7 export PDF" : "Works starred (M) when closed \u00b7 export month as PDF" }); }
+    if(!isSupport()){ var mhN = mhlList(today().slice(0,7), "all").length; cards.splice(1, 0, { go:"mhl", ic:"works", cls:"", t:"Monthly highlights", s: mhN ? mhN+" highlight"+(mhN>1?"s":"")+" this month \u00b7 export PDF / Excel" : "Works starred (M) when closed \u00b7 export month as PDF" }); }
     if(SYNC) cards.push({ go:"permits", ic:"assign", cls:"", t:"Permits & Orders", s: permitsData.loaded ? (permitsData.permits.filter(permitActive).length ? permitsData.permits.filter(permitActive).length+" active today · " : "")+permitsData.permits.length+" permit"+(permitsData.permits.length===1?"":"s") : "Work permits, shutdown details, share on WhatsApp" });
     if(SYNC && !isSupport()){ var dfOpen = defectsData.items.filter(function(x){ return x.status !== "Closed"; }).length;
       cards.push({ go:"defects", ic:"works", cls:"", t:"Defect register", s: defectsData.loaded ? dfOpen+" open \u00b7 "+defectsData.items.length+" defect"+(defectsData.items.length===1?"":"s") : "Log equipment defects and track them to closure" }); }
@@ -7368,7 +7476,7 @@
     var work = empView === "work";
     var canW = canEditWorks(e);       // only the employee himself and Master can add / change these works
 
-    var h = '<div style="margin-bottom:10px"><button class="btn ghost small" id="backWorks" type="button">&lsaquo; All employees</button></div>';
+    var h = '<div style="margin-bottom:10px"><button class="btn ghost small" id="backWorks" type="button">&lsaquo; Employee Center</button></div>';
     h += '<div class="panel-head"><div><h3 style="display:inline">'+esc(e.name)+'</h3>'+(e.desig?'<span class="desig" style="display:inline-block;margin-left:8px">'+esc(e.desig)+'</span>':'')+rolesHTML(e)+'</div>';
     if(work) h += '<div class="stats"><span>Total <b>'+total+'</b></span><span>Done <b>'+done+'</b></span><span>Pending <b>'+(total-done)+'</b></span></div>';
     h += '</div>';
@@ -7657,18 +7765,11 @@
       '<p style="margin-top:0">'+esc(w.text)+'</p>'+
       '<div class="field"><label for="cText">Comment (optional)</label>'+
       '<textarea id="cText" maxlength="300" placeholder="e.g. Replaced fuse, tested OK"></textarea></div>'+
-      '<div class="stpick"><span>Optional:</span>'+
-        '<span class="l">'+starBtn("c","apr",false).replace('data-star="c"','id="cApr"')+' Add to Appraisal</span>'+
-        '<span class="l">'+starBtn("c","mh",false).replace('data-star="c"','id="cMh"')+' Add to Monthly highlights</span></div>'+
       '<div class="row"><button class="btn ghost" id="mNo" type="button">Cancel</button><button class="btn" id="mOk" type="button">Mark complete</button></div>');
     $("cText").focus();
-    Array.prototype.forEach.call([$("cApr"), $("cMh")],function(b){
-      b.onclick = function(){ var on = !b.classList.contains("on"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); };
-    });
     $("mNo").onclick = closeModal;
     $("mOk").onclick = function(){
       w.done = true; w.doneAt = Date.now(); w.comment = $("cText").value.trim();
-      w.apr = $("cApr").classList.contains("on"); w.mh = $("cMh").classList.contains("on");
       closeModal(); commit([wput(e,w)]); render();
     };
   }
