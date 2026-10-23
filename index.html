@@ -461,6 +461,24 @@
   .ec-tag.p{background:var(--amber-bg);color:#8a6500} .ec-tag.o{background:#fde7e4;color:var(--red)} .ec-tag.d{background:var(--green-bg);color:var(--green)}
   .ec-go{color:#9aa6b1;font-size:1.3rem;line-height:1}
   @media(max-width:520px){.ec-row{padding:9px 10px;gap:9px}.ec-end{max-width:46%}}
+  .top-ver{font-size:.68rem;font-weight:600;letter-spacing:.3px;padding:1px 7px;margin-left:6px;border-radius:99px;background:rgba(255,255,255,.18);color:#fff;white-space:nowrap;align-self:center}
+  .oil-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+  .oil-fl{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+  .oil-fl button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:4px 11px;font-size:.8rem;cursor:pointer;color:var(--ink)}
+  .oil-fl button b{margin-left:4px} .oil-fl button.on{background:var(--steel);border-color:var(--steel);color:#fff}
+  .oil-add{display:flex;gap:8px;margin:0 0 10px} .oil-add input{flex:1;min-width:0}
+  .oil-row{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:0 0 7px}
+  .oil-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .oil-h b{font-size:1rem;color:var(--steel);flex:1 1 120px;min-width:0}
+  .oil-mini{display:flex;gap:4px;flex-wrap:wrap} .oil-mini .oilb{font-size:.72rem;padding:1px 8px}
+  .oil-act{display:flex;gap:6px;flex-wrap:wrap}
+  .oil-t{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.84rem;padding:5px 0 0;margin-top:5px;border-top:1px dashed var(--line);color:var(--muted)}
+  .oil-t span:first-child{color:var(--ink);font-weight:600}
+  #dcGo{background:linear-gradient(135deg,#1f3a52,#2d6a8a);color:#fff !important;border:1px solid #c9a227;border-radius:99px;padding:9px 20px;font-weight:600;letter-spacing:.4px;box-shadow:0 2px 6px rgba(31,58,82,.28);flex:0 0 auto;cursor:pointer;transition:filter .15s,transform .1s}
+  #dcGo:hover{filter:brightness(1.12)} #dcGo:active{transform:translateY(1px)}
+  #dcQ{border-radius:99px;padding:9px 16px}
+  #dcClr{border-radius:99px;color:#1f3a52;border-color:#1f3a52}
+  .add-bar{margin:0 0 12px}
   @keyframes nscroll{from{transform:translateX(0)}to{transform:translateX(-100%)}}
   @keyframes nflash{0%,100%{opacity:1;text-shadow:0 0 10px rgba(224,161,0,.75)}50%{opacity:.5;text-shadow:0 0 0 rgba(224,161,0,0)}}
   @media(prefers-reduced-motion:reduce){
@@ -565,7 +583,7 @@
 <section id="appView" class="hidden">
   <header class="top">
     <div class="top-in">
-      <img class="top-logo" id="topLogo" alt="POWERGRID logo"><span class="top-title">KOZHIKODE SS</span>
+      <img class="top-logo" id="topLogo" alt="POWERGRID logo"><span class="top-title">KOZHIKODE SS</span><span class="top-ver" id="topVer" title="App version"></span>
       <span class="sync" id="onlinePill" role="button" tabindex="0" style="cursor:default"></span>
       <span class="sync" id="syncPill" role="button" tabindex="0" title="Click to refresh now"></span>
       <span class="who" id="whoLabel"></span>
@@ -594,8 +612,8 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.46";   // bump this (and VERSION in the .gs) on every update; shown on the login page
-  (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; })();
+  var PAGE_VER = "v18.49";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; var tv = document.getElementById("topVer"); if(tv) tv.textContent = PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
 
@@ -2264,6 +2282,20 @@
              remarks:a.remarks||"", done:!!a.done, doneAt:a.doneAt||null, created:a.created } };
   }
 
+  /* "+ Add" button that reveals the entry form (Assignments, Follow-up, Procurement) */
+  var addOpen = { as:false, fu:false, pr:false };
+  function addBarHTML(key, label){
+    return '<div class="add-bar"><button class="btn" id="addTog_'+key+'" type="button" aria-expanded="'+(addOpen[key]?'true':'false')+'">'+(addOpen[key] ? '&#10005; Close form' : '+ '+esc(label))+'</button></div><div id="addBox_'+key+'" style="display:'+(addOpen[key]?'block':'none')+'">';
+  }
+  function bindAddBar(key, label){
+    var b = $("addTog_"+key), box = $("addBox_"+key); if(!b || !box) return;
+    b.onclick = function(){
+      addOpen[key] = !addOpen[key];
+      box.style.display = addOpen[key] ? "block" : "none";
+      b.textContent = addOpen[key] ? "\u2715 Close form" : "+ "+label; b.setAttribute("aria-expanded", addOpen[key] ? "true" : "false");
+      if(addOpen[key]){ var f = box.querySelector("input,textarea,select"); if(f && f.focus) f.focus(); }
+    };
+  }
   function renderAssignments(){
     if(isSupport()){ renderSupportAssignments(); return; }
     var p = $("panel"), all = state.assignments;
@@ -2279,7 +2311,7 @@
       p.innerHTML = h; return;
     }
 
-    h += '<div class="assign-form"><h4>Assign new work</h4><div class="agrid">'+
+    h += addBarHTML("as","Assign new work")+'<div class="assign-form"><h4>Assign new work</h4><div class="agrid">'+
       '<div class="field"><label for="aBy">Assigned by</label><select id="aBy">'+empOptions(lastBy,"Select employee")+'</select></div>'+
       '<div class="field"><label for="aTo">Work assigned to</label><select id="aTo">'+toOptions("","Select employee / AMC user")+'</select></div>'+
       '<div class="field span2"><label for="aWork">Work assigned</label><input type="text" id="aWork" maxlength="300" placeholder="Describe the work to be done"></div>'+
@@ -2287,7 +2319,7 @@
       '<div class="field"><label for="aPri">Priority</label><select id="aPri">'+priOptions("normal")+'</select></div>'+
       '<div class="field span2"><label for="aRem">Remarks (optional)</label><input type="text" id="aRem" maxlength="300"></div>'+
       '</div><p class="error" id="aErr"></p><p class="okmsg" id="aOk"></p><button class="btn" id="aAdd" type="button">Assign work</button> '+
-      '<button class="btn ghost" id="aCopy" type="button">Copy summary</button></div>';
+      '<button class="btn ghost" id="aCopy" type="button">Copy summary</button></div></div>';
 
     h += '<div class="filters">'+[["all","All"],["pending","Pending"],["overdue","Overdue"],["done","Done"]].map(function(f){
       return '<button type="button" data-af="'+f[0]+'" class="'+(assignFilter===f[0]?"active":"")+'">'+f[1]+'</button>';
@@ -2334,6 +2366,7 @@
     p.innerHTML = h;
 
     function findA(id){ return state.assignments.find(function(x){ return x.id===id; }); }
+    bindAddBar("as","Assign new work");
     $("aAdd").onclick = function(){
       var by = $("aBy").value, to = $("aTo").value, text = $("aWork").value.trim(), err = $("aErr");
       if(!by){ err.textContent = "Select who is assigning the work."; return; }
@@ -2341,7 +2374,7 @@
       if(!text){ err.textContent = "Enter the work to be assigned."; $("aWork").focus(); return; }
       var a = { id: uid(), by: by, to: to, text: text, target: $("aDate").value || "", priority: $("aPri").value,
                 remarks: $("aRem").value.trim(), done:false, doneAt:null, created: Date.now() };
-      state.assignments.push(a); lastBy = by;
+      state.assignments.push(a); lastBy = by; addOpen.as = false;
       commit([aPut(a)]); render();
     };
     $("aWork").addEventListener("keydown",function(e){ if(e.key==="Enter") $("aAdd").click(); });
@@ -3306,23 +3339,42 @@
     return true;
   }
 
+  var oilQ = "", oilF = "all";
+  var OIL_FL = [["all","All"],["od","Overdue"],["ds","Due in 30 days"],["ok","OK"],["nr","Not recorded"]];
   function renderOilList(){
     var p = $("panel"), master = isMaster(), eq = (state.oilEquip = state.oilEquip || []);
     state.oilTests = state.oilTests || [];
+    var c = oilCount(state.oilTests), q = oilQ.trim().toLowerCase();
     var h = BACKBTN+'<div class="panel-head"><h3>Oil Sampling Schedule</h3><div class="stats"><span>Equipment <b>'+eq.length+'</b></span></div></div>';
-    if(eq.length) h += '<div class="audcard">'+oilSummaryHTML(oilCount(state.oilTests))+'<div style="margin-top:8px"><button class="btn small" id="oilExpAll" type="button">Export schedule (PDF)</button></div></div>';
-    if(master) h += '<div class="assign-form"><h4>Add equipment</h4><div class="agrid"><div class="field span2"><label for="oilName">Equipment name</label>'+
-      '<input type="text" id="oilName" maxlength="100" placeholder="e.g. ICT-1"></div></div><p class="error" id="oilErr"></p><button class="btn" id="oilAdd" type="button">Add equipment</button></div>';
-    else h += '';
+    if(eq.length){
+      h += '<div class="oil-top"><input type="text" id="oilQ" maxlength="60" placeholder="Search equipment or test…" value="'+esc(oilQ)+'" aria-label="Search oil sampling" style="flex:1;min-width:150px">'+
+           '<button class="btn small ghost" id="oilExpAll" type="button">Export PDF</button></div>'+
+           '<div class="oil-fl">'+OIL_FL.map(function(f){ var n = f[0]==="all" ? c.total : c[f[0]];
+             return '<button type="button" data-oilf="'+f[0]+'" class="'+(oilF===f[0]?'on':'')+'">'+f[1]+'<b>'+n+'</b></button>'; }).join("")+'</div>';
+    }
+    if(master) h += '<div class="oil-add"><input type="text" id="oilName" maxlength="100" placeholder="New equipment name, e.g. ICT-1" aria-label="Equipment name"><button class="btn small" id="oilAdd" type="button">+ Add</button></div><p class="error" id="oilErr" style="margin:-6px 0 8px"></p>';
+    var shown = eq.slice().sort(function(a,b){ return (a.created||0)-(b.created||0); }).map(function(e){
+      var tests = oilTestsOf(e.id), nameHit = !q || e.name.toLowerCase().indexOf(q) >= 0;
+      var hits = tests.filter(function(t){ return (oilF === "all" || oilState(t).k === oilF) && (nameHit || t.test.toLowerCase().indexOf(q) >= 0); });
+      var ok = (oilF === "all" ? (nameHit || hits.length) : hits.length) && true;
+      return ok ? { e:e, tests:tests, hits:hits } : null;
+    }).filter(Boolean);
     if(!eq.length) h += '<div class="empty">No equipment added yet.</div>';
-    else eq.slice().sort(function(a,b){ return (a.created||0)-(b.created||0); }).forEach(function(e){
-      h += '<div class="audcard"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h4>'+esc(e.name)+'</h4><div>'+
-        '<button class="btn small" data-oopen="'+esc(e.id)+'" type="button">Open</button>'+
-        (master ? ' <button class="btn ghost small" data-oren="'+esc(e.id)+'" type="button">Rename</button> <button class="btn danger small" data-odel="'+esc(e.id)+'" type="button">Delete</button>' : '')+
-        '</div></div>'+oilSummaryHTML(oilCount(oilTestsOf(e.id)))+'</div>';
+    else if(!shown.length) h += '<div class="empty">Nothing matches the filter.</div>';
+    else shown.forEach(function(r){
+      var e = r.e, cc = oilCount(r.tests), filtered = oilF !== "all" || q;
+      h += '<div class="oil-row"><div class="oil-h"><b>'+esc(e.name)+'</b><span class="oil-mini">'+
+        (cc.od ? '<span class="oilb od">'+cc.od+' overdue</span>' : '')+(cc.ds ? '<span class="oilb ds">'+cc.ds+' due</span>' : '')+
+        (cc.ok ? '<span class="oilb ok">'+cc.ok+' OK</span>' : '')+(cc.nr ? '<span class="oilb nr">'+cc.nr+' not recorded</span>' : '')+(!cc.total ? '<span class="oilb nr">No tests</span>' : '')+'</span>'+
+        '<span class="oil-act"><button class="btn small" data-oopen="'+esc(e.id)+'" type="button">Open</button>'+
+        (master ? '<button class="btn ghost small" data-oren="'+esc(e.id)+'" type="button">Rename</button><button class="btn danger small" data-odel="'+esc(e.id)+'" type="button">Delete</button>' : '')+'</span></div>'+
+        (filtered ? r.hits.map(function(t){ var s = oilState(t);
+          return '<div class="oil-t"><span>'+esc(t.test)+'</span><span>'+oilBadge(t)+(s.next ? ' &middot; next '+esc(fmtDate(s.next)) : '')+'</span></div>'; }).join("") : '')+'</div>';
     });
     p.innerHTML = h; bindBack();
     if($("oilExpAll")) $("oilExpAll").onclick = function(){ oilExport(null); };
+    if($("oilQ")) $("oilQ").oninput = function(){ oilQ = this.value; var pos = this.selectionStart; renderOilList(); var n = $("oilQ"); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(x){} } };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-oilf]"),function(b){ b.onclick = function(){ oilF = b.getAttribute("data-oilf"); renderOilList(); }; });
     function findE(id){ return eq.find(function(x){ return x.id === id; }); }
     if(master) $("oilAdd").onclick = function(){
       var n = $("oilName").value.trim(); if(!n){ $("oilErr").textContent = "Enter the equipment name."; return; }
@@ -7248,10 +7300,10 @@
     var p = $("panel"), all = state.fu = state.fu || [], master = isMaster();
     var nOpen = all.filter(function(f){ return f.status !== "closed"; }).length;
     var h = '<div class="panel-head"><h3>Follow-up</h3><div class="stats"><span>Total <b>'+all.length+'</b></span><span>Open <b>'+nOpen+'</b></span><span>Closed <b>'+(all.length-nOpen)+'</b></span></div></div>'+
-      '<div class="assign-form"><h4>Add follow-up</h4><div class="agrid">'+
+      addBarHTML("fu","Add follow-up")+'<div class="assign-form"><h4>Add follow-up</h4><div class="agrid">'+
       '<div class="field span2"><label for="fuText">Details of follow-up</label><textarea id="fuText" maxlength="1000" placeholder="What needs to be followed up, with whom"></textarea></div>'+
       '<div class="field span2"><label for="fuRem">Remarks (optional)</label><textarea id="fuRem" maxlength="2000" placeholder="First remark / latest update"></textarea></div></div>'+
-      '<p class="error" id="fuErr"></p><button class="btn" id="fuAdd" type="button">Add follow-up</button></div>';
+      '<p class="error" id="fuErr"></p><button class="btn" id="fuAdd" type="button">Add follow-up</button></div></div>';
     h += '<div class="filters">'+[["all","All"],["open","Open"],["closed","Closed"]].map(function(f){
       return '<button type="button" data-fuf="'+f[0]+'" class="'+(fuFilter===f[0]?"active":"")+'">'+f[1]+'</button>'; }).join("")+'</div>';
     var list = all.filter(function(f){ return fuFilter === "all" || (fuFilter === "closed") === (f.status === "closed"); })
@@ -7269,11 +7321,12 @@
     }
     p.innerHTML = h; bindRemTog(p);
     function findF(id){ return state.fu.find(function(x){ return x.id === id; }); }
+    bindAddBar("fu","Add follow-up");
     $("fuAdd").onclick = function(){
       var t = $("fuText").value.trim(), r = $("fuRem").value.trim();
       if(!t){ $("fuErr").textContent = "Enter the details of the follow-up."; return; }
       var f = { id:uid(), details:t, status:"open", remarks: r ? fuStamp(r) : "", created:Date.now() };
-      state.fu.push(f); ampSend({ action:"fuPut", item: fuObj(f, r) }); render();
+      state.fu.push(f); addOpen.fu = false; ampSend({ action:"fuPut", item: fuObj(f, r) }); render();
     };
     Array.prototype.forEach.call(p.querySelectorAll("[data-fuf]"),function(b){ b.onclick = function(){ fuFilter = b.getAttribute("data-fuf"); renderPanel(); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-fust]"),function(s){
@@ -7317,14 +7370,14 @@
     var p = $("panel"), all = state.pr = state.pr || [];
     var cnt = { tbi:0, proposed:0, awarded:0, procured:0 }; all.forEach(function(x){ if(cnt[x.status] != null) cnt[x.status]++; });
     var h = '<div class="panel-head"><h3>Procurement</h3><div class="stats"><span>Total <b>'+all.length+'</b></span><span>To be initiated <b>'+cnt.tbi+'</b></span><span>Proposed <b>'+cnt.proposed+'</b></span><span>Awarded <b>'+cnt.awarded+'</b></span><span>Procured <b>'+cnt.procured+'</b></span></div></div>'+
-      '<div class="assign-form"><h4>Add supply / service</h4><div class="agrid">'+
+      addBarHTML("pr","Add supply / service")+'<div class="assign-form"><h4>Add supply / service</h4><div class="agrid">'+
       '<div class="field span2"><label for="prDesc">Supply or service description</label><input type="text" id="prDesc" maxlength="500" placeholder="e.g. 33 kV CT, 400/1 A"></div>'+
       '<div class="field"><label for="prQty">Quantity</label><input type="number" id="prQty" min="0" step="any" inputmode="decimal"></div>'+
       '<div class="field"><label for="prUnit">Unit</label><select id="prUnit"><option value="">Select unit</option>'+PR_UNITS.map(function(u){ return '<option>'+u+'</option>'; }).join("")+'</select></div>'+
       '<div class="field"><label for="prSt">Status</label><select id="prSt">'+stOpts(PR_ST,"tbi")+'</select></div></div>'+
       poFields("pr",{ status:"" })+
       '<div class="field"><label for="prRem">Follow-up comment (optional)</label><textarea id="prRem" maxlength="2000" placeholder="First follow-up comment"></textarea></div>'+
-      '<p class="error" id="prErr"></p><button class="btn" id="prAdd" type="button">Add</button></div>';
+      '<p class="error" id="prErr"></p><button class="btn" id="prAdd" type="button">Add</button></div></div>';
     h += '<div class="filters"><button type="button" data-prf="all" class="'+(prFilter==="all"?"active":"")+'">All</button>'+Object.keys(PR_ST).map(function(k){
       return '<button type="button" data-prf="'+k+'" class="'+(prFilter===k?"active":"")+'">'+PR_ST[k]+'</button>'; }).join("")+'</div>';
     var list = all.filter(function(x){ return prFilter === "all" || x.status === prFilter; }).sort(function(a,b){ return (a.created||0)-(b.created||0); });
@@ -7344,6 +7397,7 @@
     p.innerHTML = h; bindRemTog(p);
     function findP(id){ return state.pr.find(function(x){ return x.id === id; }); }
     $("prSt").onchange = function(){ $("prPo").style.display = this.value === "procured" ? "block" : "none"; };
+    bindAddBar("pr","Add supply / service");
     $("prAdd").onclick = function(){
       var x = { id:uid(), desc:$("prDesc").value.trim(), qty:$("prQty").value.trim(), unit:$("prUnit").value, status:$("prSt").value,
                 poNo:$("prPoNo").value.trim(), poDate:$("prPoDt").value, created:Date.now() };
@@ -7351,7 +7405,7 @@
       if(x.status !== "procured"){ x.poNo = ""; x.poDate = ""; }
       var rm = $("prRem").value.trim();
       x.remarks = rm ? fuStamp(rm) : "";
-      state.pr.push(x); prSave(x, rm); render();
+      state.pr.push(x); addOpen.pr = false; prSave(x, rm); render();
     };
     Array.prototype.forEach.call(p.querySelectorAll("[data-prrem]"),function(b){ b.onclick = function(){ var x = findP(b.getAttribute("data-prrem")); if(x) prRemarkModal(x); }; });
     Array.prototype.forEach.call(p.querySelectorAll("[data-prf]"),function(b){ b.onclick = function(){ prFilter = b.getAttribute("data-prf"); renderPanel(); }; });
@@ -7526,7 +7580,6 @@
          '<input type="date" id="dPick" value="'+viewDate+'" aria-label="Select date">'+
          '<button class="btn ghost small" id="dNext" type="button" aria-label="Next day">Next ›</button>'+
          '<button class="btn small" id="dToday" type="button"'+(viewDate===today()?' disabled':'')+'>Today</button>'+
-         '<button class="btn ghost small" id="dExport" type="button" title="Export the worklist of this date as PDF">Export PDF</button>'+
          '<span class="dlabel">'+esc(dayLabel(viewDate))+'</span></div>';
 
     if(!canW){
@@ -7598,7 +7651,6 @@
     $("dNext").onclick = function(){ goDate(addDays(viewDate,1)); };
     $("dToday").onclick = function(){ goDate(today()); };
     $("dPick").onchange = function(){ goDate(this.value); };
-    $("dExport").onclick = function(){ workExport(e, viewDate); };
     Array.prototype.forEach.call(p.querySelectorAll("[data-jump]"),function(b){
       b.onclick = function(){ goDate(b.getAttribute("data-jump")); };
     });
@@ -8016,7 +8068,19 @@
       }
     });
     if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){
-      window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
+      window.addEventListener("load", function(){
+        var hadCtl = !!navigator.serviceWorker.controller, reloaded = false;
+        /* a new version took over: reload once so the newest page shows without a manual refresh */
+        navigator.serviceWorker.addEventListener("controllerchange", function(){
+          if(!hadCtl || reloaded) return; reloaded = true;
+          if(typeof modalOpen === "function" && modalOpen()){ return; }
+          location.reload();
+        });
+        navigator.serviceWorker.register("sw.js", { updateViaCache:"none" }).then(function(reg){
+          reg.update().catch(function(){});
+          document.addEventListener("visibilitychange", function(){ if(!document.hidden) reg.update().catch(function(){}); });
+        }).catch(function(){});
+      });
     }
   })();
 
