@@ -1,6 +1,6 @@
 /* KOZHIKODE SS service worker – makes the app installable and lets the page shell open offline.
    Live data (Google Apps Script) is NEVER cached: only same-origin files of this site are. */
-var CACHE = "kss-shell-v18.46";
+var CACHE = "kss-shell-v18.49";
 var SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function(e){
@@ -15,7 +15,7 @@ self.addEventListener("fetch", function(e){
   var r = e.request, u = new URL(r.url);
   if(r.method !== "GET" || u.origin !== self.location.origin) return;     // server calls go straight to the network
   e.respondWith(
-    fetch(r).then(function(res){                                           // network first: always the newest page when online
+    fetch(new Request(r.url, { cache: "no-store", credentials: "same-origin" })).then(function(res){                                           // network first, bypassing the browser cache: always the newest page when online
       if(res && res.ok){ var copy = res.clone(); caches.open(CACHE).then(function(c){ c.put(r, copy); }); }
       return res;
     }).catch(function(){
