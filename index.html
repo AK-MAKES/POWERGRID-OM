@@ -572,6 +572,7 @@
       <p class="error" id="loginErr" role="alert"></p>
       <button class="btn wide" id="loginBtn" type="button">Sign in</button>
       <p id="verLine" style="text-align:center;font-size:.75rem;color:var(--muted);margin:10px 0 0">Page</p>
+      <button class="linkbtn hidden" id="resetAppBtn" type="button">&#8635; Reset app &amp; retry</button>
       <button class="linkbtn" id="forgotBtn" type="button">Forgot / change password?</button>
       <button class="linkbtn" data-install type="button">&#8681; Install app on this phone</button>
       <p class="mode-note" id="modeNote"></p>
@@ -765,11 +766,11 @@
   if(!SYNC) state = loadLocal();
 
   /* ---------- Sync layer ---------- */
-  function api(body){
+  function api(body, tmo){
     body.auth = auth;
     var ctl = null, tm = null;
-    if(body.action !== "ops" && body.action !== "backupAll" && typeof AbortController !== "undefined"){ ctl = new AbortController(); tm = setTimeout(function(){ ctl.abort(); }, 45000); }   // reads give up after 45 s (saves are never cut off)
-    return fetch(API_URL, { method: "POST", body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined })
+    if(body.action !== "ops" && body.action !== "backupAll" && typeof AbortController !== "undefined"){ ctl = new AbortController(); tm = setTimeout(function(){ ctl.abort(); }, tmo || 45000); }   // reads give up after 45 s (saves are never cut off)
+    return fetch(API_URL, { method: "POST", body: JSON.stringify(body), cache: "no-store", signal: ctl ? ctl.signal : undefined })
       .then(function(r){ if(tm) clearTimeout(tm); return r.text(); }, function(e){ if(tm) clearTimeout(tm); throw e; })
       .then(function(t){
         var j; try{ j = JSON.parse(t); }catch(e){ throw new Error("Bad response from server"); }
@@ -1101,9 +1102,22 @@
       $("loginErr").textContent = err.server
         ? "Wrong ID or password. Check and try again."
         : "Cannot reach the server. Check your internet connection and the Web App URL.";
+      if(!err.server){ var rb = $("resetAppBtn"); if(rb) rb.classList.remove("hidden"); }
     }).then(function(){ btn.disabled = false; btn.textContent = "Sign in"; });
   }
   $("loginBtn").onclick = doLogin;
+
+  /* ---------- Self-heal: drop a stale service worker / old cached page, then reload once.
+     The saved login lives in localStorage, so the person stays signed in. ---------- */
+  function healApp(force){
+    try{ if(!force){ if(sessionStorage.getItem("kss_healed")) return false; sessionStorage.setItem("kss_healed", "1"); } }catch(e){ if(!force) return false; }
+    var jobs = [];
+    try{ if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations) jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){ return Promise.all(rs.map(function(r){ return r.unregister(); })); })); }catch(e){}
+    try{ if(window.caches && caches.keys) jobs.push(caches.keys().then(function(ks){ return Promise.all(ks.map(function(k){ return caches.delete(k); })); })); }catch(e){}
+    Promise.all(jobs).catch(function(){}).then(function(){ location.reload(); });
+    return true;
+  }
+  $("resetAppBtn").onclick = function(){ this.disabled = true; this.textContent = "Resetting…"; healApp(true); };
   $("loginPass").addEventListener("keydown",function(e){ if(e.key==="Enter") doLogin(); });
   $("loginId").addEventListener("keydown",function(e){ if(e.key==="Enter") $("loginPass").focus(); });
 
@@ -1193,13 +1207,16 @@
         var restoreTry = 0;
         (function restore(){
           auth = { role: saved.role, id: saved.id, pass: saved.pass };
-          api({ action: "login" }).then(function(r){
+          api({ action: "login" }, 20000).then(function(r){
+            try{ sessionStorage.removeItem("kss_healed"); }catch(e){}
             applyData(r.json.data); lastText = r.text; lastTok = r.json.tok || ""; lastFullAt = Date.now(); enterApp(r.json.role || auth.role, auth.id, r.json.user);
           }).catch(function(err){
             auth = null;
             if(err && err.server){ authStoreClear(); endRestore(); $("loginErr").textContent = "Your login is no longer valid. Please sign in again."; return; }   // wrong/changed password
             if(++restoreTry < 4){ setTimeout(restore, 3000); return; }                                                                                // network hiccup: keep the saved login and retry
-            endRestore(); $("loginErr").textContent = "Cannot reach the server. Refresh the page to continue your session.";
+            if(navigator.onLine !== false && healApp(false)) return;      // stale cached page / service worker: clear it and reload once (login is kept)
+            endRestore(); $("loginErr").textContent = "Cannot reach the server. Check your internet, then tap Reset app & retry.";
+            var rb2 = $("resetAppBtn"); if(rb2) rb2.classList.remove("hidden");
           });
         })();
       }
