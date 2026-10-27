@@ -442,6 +442,9 @@
   .notice a{color:#ffe9a8}.notice a:hover,.nboard a:hover{text-decoration-thickness:2px}
   .nboard a{color:#0b5cad}
 
+  .bkbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:12px 16px;border-radius:10px;background:linear-gradient(90deg,#fff7de,#fff);border:1px solid #e8cf86;border-left:5px solid var(--amber)}
+  .bkbar b{display:block;color:#6b4800}
+  .bkbar span{font-size:.88rem;color:var(--muted)}
   /* ---------- Dashboard (professional layout) ---------- */
   .db-hero{position:relative;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 0 16px;padding:18px 20px 20px;border-radius:12px;color:#fff;overflow:hidden;
     background:radial-gradient(120% 140% at 100% 0%,#2d5373 0%,#1f3a52 45%,#0f2234 100%);box-shadow:0 6px 20px rgba(15,34,52,.25)}
@@ -755,7 +758,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.55";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.57";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; var tv = document.getElementById("topVer"); if(tv) tv.textContent = PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -1063,7 +1066,7 @@
     if(!SYNC || !auth || ampBusy || isSupport()) return;
     api({ action: "ampList" }).then(function(r){
       if(ampBusy || r.text === ampText) return;
-      ampText = r.text; state.amp = r.json.amp || []; state.sched = r.json.sched || state.sched || []; state.fu = r.json.fu || state.fu || []; state.pr = r.json.pr || state.pr || []; state.audits = r.json.audits || state.audits || []; state.audPts = r.json.audPts || state.audPts || []; state.oilEquip = r.json.oilEquip || state.oilEquip || []; state.oilTests = r.json.oilTests || state.oilTests || []; state.calib = r.json.calib || state.calib || []; state.fext = r.json.fext || state.fext || []; state.rlyBays = r.json.relayBays || state.rlyBays || []; state.rly = r.json.relays || state.rly || []; state.maintPerm = r.json.maintPerm || state.maintPerm || null; state.gatePasses = r.json.gatePasses || state.gatePasses || []; state.gateItems = r.json.gateItems || state.gateItems || []; state.inwards = r.json.inwards || state.inwards || []; state.inwardItems = r.json.inwardItems || state.inwardItems || [];
+      ampText = r.text; state.amp = r.json.amp || []; state.sched = r.json.sched || state.sched || []; state.fu = r.json.fu || state.fu || []; state.pr = r.json.pr || state.pr || []; state.audits = r.json.audits || state.audits || []; state.audPts = r.json.audPts || state.audPts || []; state.oilEquip = r.json.oilEquip || state.oilEquip || []; state.oilTests = r.json.oilTests || state.oilTests || []; state.calib = r.json.calib || state.calib || []; state.fext = r.json.fext || state.fext || []; state.rlyBays = r.json.relayBays || state.rlyBays || []; state.rly = r.json.relays || state.rly || []; state.maintPerm = r.json.maintPerm || state.maintPerm || null; if(r.json.lastBackup !== undefined){ state.lastBackup = Number(r.json.lastBackup) || 0; state.lbLoaded = true; } state.gatePasses = r.json.gatePasses || state.gatePasses || []; state.gateItems = r.json.gateItems || state.gateItems || []; state.inwards = r.json.inwards || state.inwards || []; state.inwardItems = r.json.inwardItems || state.inwardItems || [];
       if(modalOpen()) return;
       if(activeTab === "maint" || activeTab === "follow" || activeTab === "proc" || activeTab === "home" || activeTab === "misc") softRender(); else renderTabs();
     }).catch(function(err){ if(err && err.server && err.message === "auth") onSyncError(err); });
@@ -1074,7 +1077,7 @@
     ampBusy++; setStatus("saving");
     var failed = false;
     ampChain = ampChain.then(function(){ return api(body); }).then(function(r){
-      if(ampBusy === 1){ state.amp = r.json.amp || state.amp; if(r.json.sched) state.sched = r.json.sched; if(r.json.fu) state.fu = r.json.fu; if(r.json.pr) state.pr = r.json.pr; if(r.json.audits) state.audits = r.json.audits; if(r.json.audPts) state.audPts = r.json.audPts; if(r.json.oilEquip) state.oilEquip = r.json.oilEquip; if(r.json.oilTests) state.oilTests = r.json.oilTests; if(r.json.calib) state.calib = r.json.calib; if(r.json.fext) state.fext = r.json.fext; if(r.json.relayBays) state.rlyBays = r.json.relayBays; if(r.json.relays) state.rly = r.json.relays; if(r.json.maintPerm) state.maintPerm = r.json.maintPerm; if(r.json.gatePasses) state.gatePasses = r.json.gatePasses; if(r.json.gateItems) state.gateItems = r.json.gateItems; if(r.json.inwards) state.inwards = r.json.inwards; if(r.json.inwardItems) state.inwardItems = r.json.inwardItems; ampText = r.text; }
+      if(ampBusy === 1){ state.amp = r.json.amp || state.amp; if(r.json.sched) state.sched = r.json.sched; if(r.json.fu) state.fu = r.json.fu; if(r.json.pr) state.pr = r.json.pr; if(r.json.audits) state.audits = r.json.audits; if(r.json.audPts) state.audPts = r.json.audPts; if(r.json.oilEquip) state.oilEquip = r.json.oilEquip; if(r.json.oilTests) state.oilTests = r.json.oilTests; if(r.json.calib) state.calib = r.json.calib; if(r.json.fext) state.fext = r.json.fext; if(r.json.relayBays) state.rlyBays = r.json.relayBays; if(r.json.relays) state.rly = r.json.relays; if(r.json.maintPerm) state.maintPerm = r.json.maintPerm; if(r.json.lastBackup !== undefined){ state.lastBackup = Number(r.json.lastBackup) || 0; state.lbLoaded = true; } if(r.json.gatePasses) state.gatePasses = r.json.gatePasses; if(r.json.gateItems) state.gateItems = r.json.gateItems; if(r.json.inwards) state.inwards = r.json.inwards; if(r.json.inwardItems) state.inwardItems = r.json.inwardItems; ampText = r.text; }
       setStatus("ok");
     }).catch(function(err){
       failed = true; ampText = "";
@@ -1607,7 +1610,9 @@
     h += '<div class="hgrid">'+cards.map(function(c){
       return '<button type="button" class="hcard '+c.cls+'" data-go="'+c.go+'"><span class="ic">'+ICON[c.ic]+'</span><b>'+c.t+'</b><small>'+esc(c.s)+'</small></button>';
     }).join("")+'</div>';
+    if(bkDue()) h = bkBannerHTML() + h;
     p.innerHTML = h;
+    var bkn = $("bkNow"); if(bkn) bkn.onclick = bkGoBackup;
     var gmw = $("goMyWorks");
     if(gmw) gmw.onclick = function(){ activeTab = myEmpId(); empView = "work"; viewDate = today(); filter = "all"; render(); };
 
@@ -3328,6 +3333,7 @@
     var cnt = { od:0, ds:0, ok:0, nr:0 }; l.forEach(function(c){ cnt[calibState(c).k]++; });
     var h = BACKBTN+'<div class="panel-head"><h3>Testing Instrument Calibration</h3></div>';
     if(l.length) h += '<div class="audcard"><div class="stats"><span>Instruments <b>'+l.length+'</b></span><span>Overdue <b style="color:#b3261e">'+cnt.od+'</b></span><span>Due in 30 days <b style="color:#8a5a00">'+cnt.ds+'</b></span><span>OK <b style="color:#1a7f37">'+cnt.ok+'</b></span><span>Not recorded <b>'+cnt.nr+'</b></span></div></div>';
+    if(master) h += xlCardHTML("calib");
     if(master) h += '<div class="assign-form"><h4>Add instrument</h4><div class="agrid">'+calibFields()+'</div><p class="error" id="ciErr"></p><button class="btn" id="ciAdd" type="button">Add instrument</button></div>';
     else h += '';
     if(!l.length) h += '<div class="empty">No instruments added yet.'+(master ? ' Add the first one above.' : '')+'</div>';
@@ -3345,7 +3351,7 @@
       });
       h += '</tbody></table></div>';
     }
-    p.innerHTML = h; bindBack();
+    p.innerHTML = h; bindBack(); if(master) xlBind("calib");
     function find(id){ return (state.calib || []).find(function(x){ return x.id === id; }); }
     if(master) $("ciAdd").onclick = function(){
       var v = calibRead("ciErr"); if(!v) return;
@@ -3417,6 +3423,7 @@
     var c = { od:0, ds:0, ok:0, nr:0 }; l.forEach(function(x){ [fxDue(x.lastRefill, x.refillFreq), fxDue(x.lastTest, x.testFreq)].forEach(function(s){ c[s.k]++; }); });
     var h = BACKBTN+'<div class="panel-head"><h3>Fire Extinguishers</h3></div>';
     if(l.length) h += '<div class="audcard"><div class="stats"><span>Extinguishers <b>'+l.length+'</b></span><span>Overdue <b style="color:#b3261e">'+c.od+'</b></span><span>Due in 30 days <b style="color:#8a5a00">'+c.ds+'</b></span><span>OK <b style="color:#1a7f37">'+c.ok+'</b></span><span>Not recorded <b>'+c.nr+'</b></span></div><small style="color:var(--muted)">Counts include both refill and pressure test dates.</small></div>';
+    if(master) h += xlCardHTML("fext");
     if(master) h += '<div class="assign-form"><h4>Add fire extinguisher</h4><div class="agrid">'+fxFields()+'</div><p class="error" id="fxErr"></p><button class="btn" id="fxAdd" type="button">Add fire extinguisher</button></div>';
     else h += '';
     if(!l.length) h += '<div class="empty">No fire extinguishers added yet.'+(master ? ' Add the first one above.' : '')+'</div>';
@@ -3434,7 +3441,7 @@
       });
       h += '</tbody></table></div>';
     }
-    p.innerHTML = h; bindBack();
+    p.innerHTML = h; bindBack(); if(master) xlBind("fext");
     function find(id){ return (state.fext || []).find(function(x){ return x.id === id; }); }
     if(master) $("fxAdd").onclick = function(){
       var v = fxRead("fxErr"); if(!v) return;
@@ -3497,6 +3504,7 @@
     state.rly = state.rly || [];
     var h = BACKBTN+'<div class="panel-head"><h3>Relay Test Due</h3><div class="stats"><span>Bays <b>'+bays.length+'</b></span></div></div>';
     if(bays.length) h += '<div class="audcard">'+rlyStatsHTML(rlyCount(state.rly))+'</div>';
+    if(master) h += xlCardHTML("rly");
     if(master) h += '<div class="assign-form"><h4>Add bay / equipment / line</h4><div class="agrid"><div class="field span2"><label for="rbName">Name</label><input type="text" id="rbName" maxlength="100" placeholder="e.g. 400 kV KOZHIKODE-ARECODE LINE 1"></div></div><p class="error" id="rbErr"></p><button class="btn" id="rbAdd" type="button">Add bay</button></div>';
     else h += '';
     if(!bays.length) h += '<div class="empty">No bays added yet.</div>';
@@ -3504,7 +3512,7 @@
       h += '<div class="audcard"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h4>'+esc(b.name)+'</h4><div><button class="btn small" data-rbopen="'+esc(b.id)+'" type="button">Open</button>'+
         (master ? ' <button class="btn ghost small" data-rbren="'+esc(b.id)+'" type="button">Rename</button> <button class="btn danger small" data-rbdel="'+esc(b.id)+'" type="button">Delete</button>' : '')+'</div></div>'+rlyStatsHTML(rlyCount(rlyOf(b.id)))+'</div>';
     });
-    p.innerHTML = h; bindBack();
+    p.innerHTML = h; bindBack(); if(master) xlBind("rly");
     function findB(id){ return (state.rlyBays || []).find(function(x){ return x.id === id; }); }
     if(master) $("rbAdd").onclick = function(){
       var n = $("rbName").value.replace(/\s+/g," ").trim(); if(!n){ $("rbErr").textContent = "Enter the name."; return; }
@@ -3904,6 +3912,7 @@
     var all = audCount(state.audPts);
     var h = BACKBTN+'<div class="panel-head"><h3>Audit Compliance</h3><div class="stats"><span>Audits <b>'+audits.length+'</b></span></div></div>';
     if(audits.length) h += '<div class="audcard">'+audProgressHTML(all, "Overall compliance")+'<div style="margin-top:8px"><button class="btn small" id="audExpAll" type="button">Export report (PDF)</button></div></div>';
+    if(master) h += xlCardHTML("aud");
     if(master) h += '<div class="assign-form"><h4>Add audit</h4><div class="agrid"><div class="field span2"><label for="audName">Audit name</label>'+
       '<input type="text" id="audName" maxlength="200" placeholder="e.g. Internal Safety Audit 2026"></div></div>'+
       '<p class="error" id="audErr"></p><button class="btn" id="audAdd" type="button">Add audit</button></div>';
@@ -3918,7 +3927,7 @@
         (master ? ' <button class="btn ghost small" data-aren="'+esc(a.id)+'" type="button">Rename</button> <button class="btn danger small" data-adel="'+esc(a.id)+'" type="button">Delete</button>' : '')+
         '</div></div>'+audProgressHTML(audCount(audPts(a.id)))+'</div>';
     });
-    p.innerHTML = h; bindBack(); audListBind();
+    p.innerHTML = h; bindBack(); audListBind(); if(master) xlBind("aud");
     if($("audExpAll")) $("audExpAll").onclick = function(){ auditExport(null); };
     function findA(id){ return audits.find(function(x){ return x.id === id; }); }
     if(master) $("audAdd").onclick = function(){
@@ -4872,6 +4881,232 @@
     };
   }
 
+  /* ---------- Master: bulk upload from Excel (audit points, testing instruments, fire extinguishers, relays) ---------- */
+  function xlKey(s){ return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, ""); }
+  function xlTxt(v){ return String(v == null ? "" : v).replace(/\s+/g, " ").trim(); }
+  function xlIso(v){                       // "" = blank, "yyyy-mm-dd" = date, null = not understood
+    if(v === "" || v === null || v === undefined || String(v).trim() === "") return "";
+    var yy, mm, dd, mt, t;
+    if(typeof v === "number"){
+      if(v < 20000 || v > 80000) return null;
+      var u = new Date(Math.round((v - 25569) * 86400000)); yy = u.getUTCFullYear(); mm = u.getUTCMonth() + 1; dd = u.getUTCDate();
+    } else {
+      t = String(v).trim();
+      if((mt = t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/))){ dd = +mt[1]; mm = +mt[2]; yy = +mt[3]; }
+      else if((mt = t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/))){ yy = +mt[1]; mm = +mt[2]; dd = +mt[3]; }
+      else return null;
+    }
+    if(mm < 1 || mm > 12 || dd < 1 || dd > new Date(yy, mm, 0).getDate() || yy < 1990 || yy > 2100) return null;
+    return yy+"-"+pad2(mm)+"-"+pad2(dd);
+  }
+  var XL_KINDS = {
+    calib: { title:"testing instruments", sheet:"Instruments", file:"Testing_Instruments", arr:"calib", action:"calibBulk",
+      help:"One row per instrument. Instrument name and Frequency are required; Last calibration date and Remarks are optional.",
+      cols:[ { k:"name", h:"Instrument name", alt:["instrument","name"], req:1 }, { k:"last", h:"Last calibration date", alt:["lastdone","lastcalibrated","lastcalibration"] },
+             { k:"freq", h:"Frequency (months)", alt:["frequency","frequencymonths","freqmonths"], req:1 }, { k:"remarks", h:"Remarks", alt:["remark"] } ],
+      example:[ ["Example: Insulation resistance tester","15-03-2026",12,"Make / serial no."], ["Example: Digital multimeter","",6,""] ],
+      notes:["Dates: dd-mm-yyyy (a normal Excel date also works). Leave blank if not yet calibrated.","Frequency: whole number of months, 1 to 120 (12 = yearly).","Instruments with the same name that already exist are skipped."] },
+    fext: { title:"fire extinguishers", sheet:"Fire extinguishers", file:"Fire_Extinguishers", arr:"fext", action:"fextBulk",
+      help:"One row per extinguisher. Description, Type, Weight and both frequencies are required; the two dates are optional.",
+      cols:[ { k:"desc", h:"Description", alt:["description","location","details"], req:1 }, { k:"type", h:"Type", alt:["typeofextinguisher"], req:1 }, { k:"weight", h:"Weight (kg)", alt:["weight","weightkg","capacity"], req:1 },
+             { k:"lastRefill", h:"Last refill date", alt:["lastrefill"] }, { k:"refillFreq", h:"Refill frequency (months)", alt:["refillfrequency","refillfreq"], req:1 },
+             { k:"lastTest", h:"Last pressure test date", alt:["lastpressuretest","lasttest","lasttestdate"] }, { k:"testFreq", h:"Pressure test frequency (months)", alt:["pressuretestfrequency","testfrequency","testfreq"], req:1 } ],
+      example:[ ["Example: Control room, near door","CO2",4.5,"10-01-2026",12,"10-01-2024",60], ["Example: Transformer yard bay 3","DCP",9,"",12,"",60] ],
+      notes:["Type must be one of: "+FX_TYPES.join(", ")+".","Weight in kg. Frequencies are whole months, 1 to 240.","Dates: dd-mm-yyyy (blank if not done yet). An extinguisher with the same description, type and weight that already exists is skipped."] },
+    rly: { title:"bays and relays", sheet:"Relays", file:"Relay_Test_Due", arr:"rly", action:"rlyBulk",
+      help:"One row per relay. The bay / equipment / line is created automatically if it does not exist yet.",
+      cols:[ { k:"bay", h:"Bay / equipment / line", alt:["bay","bayname","equipment","line","bayequipmentline"], req:1 }, { k:"type", h:"Type of relay", alt:["relaytype","relay","type"], req:1 },
+             { k:"last", h:"Last test date", alt:["lasttest","lasttested"] }, { k:"freq", h:"Frequency (months)", alt:["frequency","frequencymonths","freqmonths"], req:1 } ],
+      example:[ ["Example: 400 kV KOZHIKODE-ARECODE LINE 1","DISTANCE PROTECTION RELAY","20-02-2025",48], ["Example: 400 kV KOZHIKODE-ARECODE LINE 1","BUS BAR PROTECTION","",48] ],
+      notes:["Bay names and relay types are saved in capital letters.","Frequency: whole months, 1 to 240. Date: dd-mm-yyyy (blank if not tested yet).","A relay with the same bay, type, date and frequency that already exists is skipped."] },
+    aud: { title:"audit points", sheet:"Audit points", file:"Audit_Points", arr:"audPts", action:"audBulk",
+      help:"One row per audit point. The audit is created automatically if no audit has that name yet.",
+      cols:[ { k:"audit", h:"Audit name", alt:["audit","auditname"], req:1 }, { k:"desc", h:"Audit point", alt:["auditpoint","description","point","observation"], req:1 }, { k:"dept", h:"Department", alt:["dept","responsibledepartment"], req:1 },
+             { k:"status", h:"Status", alt:[] }, { k:"link", h:"Document link", alt:["link","documentlink","url"] } ],
+      example:[ ["Example: Internal Safety Audit 2026","Fire extinguishers to be refilled before due date","SAFETY","open",""], ["Example: Internal Safety Audit 2026","Update stores ledger","STORE","progress","https://example.sharepoint.com/doc"] ],
+      notes:["Department must be one of: "+AUD_DEPTS.join(", ")+".","Status: OPEN, UNDER PROGRESS or CLOSED (blank = OPEN).","Document link (optional) must start with https://. An audit point with the same text in the same audit that already exists is skipped."] }
+  };
+  function xlCardHTML(kind){
+    var c = XL_KINDS[kind];
+    return '<div class="assign-form"><h4>Upload '+c.title+' from Excel</h4><p style="margin:0 0 10px;color:var(--muted);font-size:.85rem">'+c.help+' Download the sample sheet, fill it in, then upload it.</p>'+
+      '<div class="row"><button class="btn ghost" data-xlsample="'+kind+'" type="button">Download sample Excel</button> <button class="btn" data-xlup="'+kind+'" type="button">Upload Excel</button></div>'+
+      '<input type="file" id="xlFile_'+kind+'" accept=".xlsx,.xls" class="hidden"><p class="error" id="xlErr_'+kind+'"></p></div>';
+  }
+  function xlSample(kind){
+    var c = XL_KINDS[kind], X = window.XLSX, wb = X.utils.book_new();
+    var ws = X.utils.aoa_to_sheet([c.cols.map(function(x){ return x.h; })].concat(c.example));
+    ws["!cols"] = c.cols.map(function(x){ return { wch: Math.max(16, x.h.length + 4) }; });
+    X.utils.book_append_sheet(wb, ws, c.sheet);
+    var req = c.cols.filter(function(x){ return x.req; }).map(function(x){ return x.h; }).join(", ");
+    var wi = X.utils.aoa_to_sheet([["How to fill this sheet"], [], ["Keep the first row (headings) of the '"+c.sheet+"' sheet as it is."], ["Replace the example rows with your own data. Rows starting with 'Example' are ignored."], ["Required columns: "+req+"."]].concat(c.notes.map(function(n){ return [n]; })));
+    wi["!cols"] = [{ wch: 110 }]; X.utils.book_append_sheet(wb, wi, "Instructions");
+    X.writeFile(wb, c.file+"_sample.xlsx");
+  }
+  function xlRead(kind, buf){        // -> { rows:[{n, v:{k:cell}}], skippedExamples }
+    var c = XL_KINDS[kind], X = window.XLSX, wb = X.read(buf, { type:"array" }), found = null;
+    wb.SheetNames.forEach(function(nm){
+      if(found) return;
+      var rows = X.utils.sheet_to_json(wb.Sheets[nm], { header:1, raw:true, defval:"" });
+      for(var i = 0; i < Math.min(rows.length, 15); i++){
+        var map = {}, ok = true;
+        c.cols.forEach(function(col){
+          var keys = [xlKey(col.h)].concat(col.alt || []), ix = -1;
+          rows[i].forEach(function(cell, ci){ if(ix < 0 && keys.indexOf(xlKey(cell)) >= 0) ix = ci; });
+          if(ix >= 0) map[col.k] = ix; else if(col.req) ok = false;
+        });
+        if(ok){ found = { rows: rows, head: i, map: map }; return; }
+      }
+    });
+    if(!found) throw new Error("Heading row not found. Please use the sample sheet and keep its first row (headings) unchanged.");
+    var out = { rows:[], skippedExamples:0 }, first = c.cols[0].k;
+    for(var r = found.head + 1; r < found.rows.length; r++){
+      var row = found.rows[r];
+      if(row.every(function(x){ return String(x).trim() === ""; })) continue;
+      var v = {}; Object.keys(found.map).forEach(function(k){ v[k] = row[found.map[k]]; });
+      if(/^example/i.test(xlTxt(v[first]))){ out.skippedExamples++; continue; }
+      out.rows.push({ n: r + 1, v: v });
+    }
+    if(!out.rows.length) throw new Error(out.skippedExamples ? "Only the example rows were found. Replace them with your own data." : "No data rows found in the sheet.");
+    if(out.rows.length > 1500) throw new Error("Too many rows ("+out.rows.length+"). Upload at most 1500 rows at a time.");
+    return out;
+  }
+  function xlBuild(kind, rd){
+    var now = Date.now(), t = today(), res = { items:[], parents:[], errors:[], dup:0, lines:[], parentWord:"" }, seen = {}, i = 0;
+    function err(n, m){ res.errors.push("Row "+n+": "+m); }
+    function date(n, v, label){ var d = xlIso(v); if(d === null){ err(n, label+" “"+v+"” is not a valid date (use dd-mm-yyyy)."); return null; } if(d > t){ err(n, label+" cannot be in the future."); return null; } return d; }
+    function freq(n, v, label, max){ var f = Math.floor(Number(v)); if(!isFinite(f) || f < 1 || f > max){ err(n, label+" must be a whole number of months from 1 to "+max+"."); return 0; } return f; }
+    var byName = {};
+    rd.rows.forEach(function(row){
+      var n = row.n, v = row.v, id = uid()+(i++);
+      if(kind === "calib"){
+        var nm = xlTxt(v.name).slice(0,150); if(!nm){ err(n, "instrument name is empty."); return; }
+        var fq = freq(n, v.freq, "Frequency", 120); if(!fq) return;
+        var ld = date(n, v.last, "Last calibration date"); if(ld === null) return;
+        var key = nm.toLowerCase();
+        if(seen[key] || state.calib.some(function(x){ return String(x.name).toLowerCase() === key; })){ res.dup++; return; }
+        seen[key] = 1; res.items.push({ id:id, name:nm, lastDone:ld, freq:fq, remarks:xlTxt(v.remarks).slice(0,300), created:now+i });
+        res.lines.push(nm+" · "+(ld ? fmtDate(ld) : "not calibrated")+" · every "+fq+" mo");
+      } else if(kind === "fext"){
+        var ds = xlTxt(v.desc).slice(0,200); if(!ds){ err(n, "description is empty."); return; }
+        var ty = xlTxt(v.type).toUpperCase(); if(FX_TYPES.indexOf(ty) < 0){ err(n, "type “"+xlTxt(v.type)+"” must be one of "+FX_TYPES.join(", ")+"."); return; }
+        var wt = Number(String(v.weight).replace(/[^0-9.]/g,"")); if(!isFinite(wt) || wt <= 0 || wt > 999){ err(n, "weight must be a number of kg."); return; }
+        wt = Math.round(wt*100)/100;
+        var rf = freq(n, v.refillFreq, "Refill frequency", 240); if(!rf) return;
+        var tf = freq(n, v.testFreq, "Pressure test frequency", 240); if(!tf) return;
+        var lr = date(n, v.lastRefill, "Last refill date"); if(lr === null) return;
+        var lt = date(n, v.lastTest, "Last pressure test date"); if(lt === null) return;
+        var k2 = (ds+"|"+ty+"|"+wt).toLowerCase();
+        if(seen[k2] || state.fext.some(function(x){ return (String(x.description)+"|"+x.type+"|"+Number(x.weight)).toLowerCase() === k2; })){ res.dup++; return; }
+        seen[k2] = 1; res.items.push({ id:id, description:ds, type:ty, weight:String(wt), lastRefill:lr, refillFreq:rf, lastTest:lt, testFreq:tf, created:now+i });
+        res.lines.push(ds+" · "+ty+" · "+wt+" kg");
+      } else if(kind === "rly"){
+        var bn = xlTxt(v.bay).toUpperCase().slice(0,100); if(!bn){ err(n, "bay / equipment / line is empty."); return; }
+        var rt = xlTxt(v.type).toUpperCase().slice(0,100); if(!rt){ err(n, "type of relay is empty."); return; }
+        var rq = freq(n, v.freq, "Frequency", 240); if(!rq) return;
+        var rl = date(n, v.last, "Last test date"); if(rl === null) return;
+        var bay = byName[bn] || (state.rlyBays || []).find(function(b){ return String(b.name).toUpperCase() === bn; });
+        var isNew = false;
+        if(!bay){ bay = { id:uid()+"b"+i, name:bn, created:now+i }; res.parents.push(bay); isNew = true; }
+        byName[bn] = bay;
+        if(!isNew && (state.rly || []).some(function(x){ return x.bayId === bay.id && String(x.type).toUpperCase() === rt && (x.lastTest||"") === rl && Number(x.freq) === rq; })){ res.dup++; return; }
+        res.items.push({ id:id, bayId:bay.id, type:rt, lastTest:rl, freq:rq, created:now+i });
+        res.lines.push(bn+" › "+rt+" · every "+rq+" mo");
+      } else {
+        var an = xlTxt(v.audit).slice(0,200); if(!an){ err(n, "audit name is empty."); return; }
+        var pd = xlTxt(v.desc).slice(0,1000); if(!pd){ err(n, "audit point is empty."); return; }
+        var dp = xlTxt(v.dept).toUpperCase(); if(AUD_DEPTS.indexOf(dp) < 0){ err(n, "department “"+xlTxt(v.dept)+"” is not valid."); return; }
+        var sv = xlKey(v.status), st = !sv ? "open" : (sv === "open" ? "open" : (sv === "underprogress" || sv === "progress" || sv === "inprogress" ? "progress" : (sv === "closed" || sv === "close" ? "closed" : "")));
+        if(!st){ err(n, "status must be OPEN, UNDER PROGRESS or CLOSED."); return; }
+        var lk = xlTxt(v.link); if(lk && (lk.length > 1000 || !/^https?:\/\/[^\s]+$/i.test(lk))){ err(n, "document link must start with https://"); return; }
+        var au = byName[an.toLowerCase()] || (state.audits || []).find(function(a){ return String(a.name).toLowerCase() === an.toLowerCase(); }), isNewA = false;
+        if(!au){ au = { id:uid()+"a"+i, name:an, created:now+i }; res.parents.push(au); isNewA = true; }
+        byName[an.toLowerCase()] = au;
+        var k3 = au.id+"|"+pd.toLowerCase();
+        if(seen[k3] || (!isNewA && (state.audPts || []).some(function(x){ return x.auditId === au.id && String(x.desc).toLowerCase() === pd.toLowerCase(); }))){ res.dup++; return; }
+        seen[k3] = 1; res.items.push({ id:id, auditId:au.id, desc:pd, dept:dp, status:st, link:lk, created:now+i });
+        res.lines.push(an+" › "+clipTxt(pd, 60));
+      }
+    });
+    res.parentWord = kind === "rly" ? "bay" : (kind === "aud" ? "audit" : "");
+    return res;
+  }
+  function clipTxt(s, n){ s = String(s||""); return s.length > n ? s.slice(0, n-1)+"…" : s; }
+  function xlPreview(kind, res, skippedEx){
+    var c = XL_KINDS[kind], errs = res.errors.slice(0, 8).map(function(e){ return '<li>'+esc(e)+'</li>'; }).join("");
+    var sample = res.lines.slice(0, 5).map(function(l){ return '<li>'+esc(l)+'</li>'; }).join("");
+    openModal('<h3>Preview: '+esc(c.title)+'</h3>'+
+      '<p style="margin-top:0"><b>'+res.items.length+'</b> row'+(res.items.length === 1 ? '' : 's')+' will be added'+(res.parents.length ? ', with <b>'+res.parents.length+'</b> new '+res.parentWord+(res.parents.length === 1 ? '' : 's') : '')+(res.dup ? '. '+res.dup+' already exist and will be skipped' : '')+'.</p>'+
+      (sample ? '<ul style="margin:0 0 8px 18px;font-size:.85rem">'+sample+(res.items.length > 5 ? '<li>…and '+(res.items.length - 5)+' more</li>' : '')+'</ul>' : '')+
+      (skippedEx ? '<p style="color:var(--muted);font-size:.85rem">'+skippedEx+' example row(s) ignored.</p>' : '')+
+      (errs ? '<p class="error" style="margin-bottom:2px">Rows skipped ('+res.errors.length+'):</p><ul style="margin:0 0 8px 18px;font-size:.85rem">'+errs+(res.errors.length > 8 ? '<li>…and '+(res.errors.length-8)+' more</li>' : '')+'</ul>' : '')+
+      '<div class="row"><button class="btn ghost" id="xlNo" type="button">Cancel</button> '+(res.items.length ? '<button class="btn" id="xlYes" type="button">Add '+res.items.length+'</button>' : '')+'</div>');
+    $("xlNo").onclick = closeModal;
+    if($("xlYes")) $("xlYes").onclick = function(){ xlApply(kind, res); };
+  }
+  function xlApply(kind, res){
+    var c = XL_KINDS[kind], P = kind === "rly" ? "bays" : "audits", obj = { calib:calibObj, fext:fxObj, rly:rlyObj, aud:apObj }[kind];
+    if(kind === "rly") (state.rlyBays = state.rlyBays || []).push.apply(state.rlyBays, res.parents);
+    if(kind === "aud") (state.audits = state.audits || []).push.apply(state.audits, res.parents);
+    var arr = state[c.arr] = state[c.arr] || [];
+    res.items.forEach(function(it){ arr.push(it); });
+    for(var i = 0; i < res.items.length; i += 300){
+      var body = { action:c.action, items: res.items.slice(i, i + 300).map(obj) };
+      if(i === 0 && res.parents.length) body[P] = res.parents.map(function(p){ return { id:p.id, name:p.name, created:p.created }; });
+      ampSend(body);
+    }
+    closeModal(); render(); toast(res.items.length+" added.");
+  }
+  function xlBind(kind){
+    var up = document.querySelector('[data-xlup="'+kind+'"]'); if(!up) return;
+    var file = $("xlFile_"+kind), er = $("xlErr_"+kind);
+    function say(t){ if(er) er.textContent = t || ""; }
+    document.querySelector('[data-xlsample="'+kind+'"]').onclick = function(){
+      say("Preparing sample…");
+      loadXLSX(function(){ say(""); xlSample(kind); }, function(){ say("Could not load the Excel library. Check your internet connection and try again."); });
+    };
+    up.onclick = function(){ say(""); file.value = ""; file.click(); };
+    file.onchange = function(){
+      var f = file.files[0]; if(!f) return; say("Reading file…");
+      loadXLSX(function(){
+        var rd = new FileReader();
+        rd.onload = function(){
+          try{ var data = xlRead(kind, rd.result), res = xlBuild(kind, data); say(""); xlPreview(kind, res, data.skippedExamples); }
+          catch(e){ say(e && e.message ? e.message : "Could not read that file."); }
+        };
+        rd.onerror = function(){ say("Could not read that file."); };
+        rd.readAsArrayBuffer(f);
+      }, function(){ say("Could not load the Excel library. Check your internet connection and try again."); });
+    };
+  }
+
+  /* ---------- Weekly backup reminder (Master) ---------- */
+  var BK_WEEK = 7*86400000, bkAsked = false;
+  function bkDue(){ return !!(isMaster() && SYNC && state.lbLoaded && (!state.lastBackup || Date.now() - state.lastBackup >= BK_WEEK)); }
+  function bkDays(){ return state.lastBackup ? Math.floor((Date.now() - state.lastBackup)/86400000) : -1; }
+  function bkAgeText(){
+    if(!state.lastBackup) return "No backup has been downloaded yet";
+    var d = bkDays(); return "Last backup downloaded "+(d <= 0 ? "today" : d === 1 ? "yesterday" : d+" days ago")+" ("+fmtStamp(state.lastBackup)+")";
+  }
+  function bkBannerHTML(){
+    return '<div class="bkbar"><div><b>&#128190; Weekly backup due</b><span>'+esc(bkAgeText())+'. Please export a backup now.</span></div><button class="btn small" id="bkNow" type="button">Back up now</button></div>';
+  }
+  function bkGoBackup(){ closeModal(); activeTab = "misc"; miscView = "backup"; render(); }
+  function bkMark(){
+    state.lastBackup = Date.now(); state.lbLoaded = true;
+    api({ action: "backupMark" }).then(function(r){ if(r.json && r.json.lastBackup) state.lastBackup = Number(r.json.lastBackup) || state.lastBackup; }).catch(function(){});
+  }
+  function bkSnoozed(){ try{ return localStorage.getItem("om_bk_snooze") === today(); }catch(e){ return false; } }
+  function bkTick(){
+    if(bkAsked || !bkDue() || modalOpen() || bkSnoozed()) return;
+    bkAsked = true;
+    openModal('<h3>&#128190; Weekly backup reminder</h3><p style="margin-top:0">'+esc(bkAgeText())+'.</p>'+
+      '<p style="color:var(--muted);font-size:.92rem">Export a backup (Excel and JSON) of all data and keep the files somewhere safe, such as Google Drive or your computer.</p>'+
+      '<div class="row"><button class="btn ghost" id="bkLater" type="button">Remind me tomorrow</button><button class="btn" id="bkGo2" type="button">Back up now</button></div>');
+    $("bkLater").onclick = function(){ try{ localStorage.setItem("om_bk_snooze", today()); }catch(e){} closeModal(); };
+    $("bkGo2").onclick = bkGoBackup;
+  }
+  setInterval(bkTick, 5000);
+
   /* ---------- Backup (Master): export everything ---------- */
   var bk = { busy:false, data:null, err:"", pass:false };
   function bkStamp(){ var d = new Date(), p = function(n){ return (n < 10 ? "0" : "") + n; }; return today()+"_"+p(d.getHours())+p(d.getMinutes()); }
@@ -4888,6 +5123,7 @@
   }
   function bkJson(){
     var d = bk.data; if(!d) return;
+    bkMark();
     downloadText("KSS_Backup_"+bkStamp()+".json", JSON.stringify({ app: "KOZHIKODE SS", version: d.ver, created: new Date(d.created).toISOString(), timezone: d.tz, passwordsIncluded: !!d.withPass, tables: d.tables }), "application/json");
   }
   function bkExcel(){
@@ -4908,7 +5144,7 @@
       var wi = X.utils.aoa_to_sheet(info); wi["!cols"] = [{ wch: 28 }, { wch: 40 }];
       X.utils.book_append_sheet(wb, wi, "Backup info");
       sheets.forEach(function(x){ X.utils.book_append_sheet(wb, x.ws, x.n); });
-      X.writeFile(wb, "KSS_Backup_"+bkStamp()+".xlsx");
+      X.writeFile(wb, "KSS_Backup_"+bkStamp()+".xlsx"); bkMark();
     }, function(){ toast("Could not load the Excel library. Check your internet connection and try again."); });
   }
   function bkCreate(){
@@ -4929,6 +5165,7 @@
   function renderBackup(){
     var p = $("panel"), d = bk.data;
     var h = gpBackBtn("menu","Miscellaneous")+'<div class="panel-head"><h3>Backup</h3></div>'+
+      '<div class="clm-rem" style="margin:-6px 0 10px">'+esc(bkAgeText())+' &middot; you will be reminded every week.</div>'+
       '<div class="cld"><div class="clm-d">Creates a copy of <b>all data</b> in the system &ndash; every employee&rsquo;s works, assignments, AMC and contract records, gate passes, claims, vendors, permits, settings and more &ndash; as an <b>Excel file</b> (one sheet per table) and a <b>JSON file</b> (complete copy, best for restoring).</div>'+
       '<label style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 4px;font-size:.92rem"><input type="checkbox" id="bkPass"'+(bk.pass ? " checked" : "")+' style="margin-top:3px"> <span>Include login passwords</span></label>'+
       '<div class="clm-rem" style="'+(bk.pass ? "color:#a33" : "")+'">'+(bk.pass ? "The file will contain every user&rsquo;s password in plain text. Keep it private and delete it when no longer needed." : "Off by default: passwords are left out of the backup, everything else is included.")+'</div>'+
