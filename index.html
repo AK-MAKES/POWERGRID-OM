@@ -381,6 +381,7 @@
   .exbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:-6px 0 14px}
   .exbar label{margin:0;font-weight:600;font-size:.9rem}
   .exbar select{width:auto;min-width:220px;max-width:100%}
+  .exbar input[type=date]{width:auto;min-width:140px}
   .agrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:6px}
   .agrid .field{margin:0}
   .agrid .span2{grid-column:1/-1}
@@ -440,12 +441,100 @@
   .notice a,.nboard a{color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;cursor:pointer}
   .notice a{color:#ffe9a8}.notice a:hover,.nboard a:hover{text-decoration-thickness:2px}
   .nboard a{color:#0b5cad}
-  /* events happening today: highlighted in red */
-  .ntoday{display:inline-block;background:#d32f2f;color:#fff;font-style:normal;font-weight:700;padding:1px 12px;border-radius:14px;
-    box-shadow:0 0 0 1px #ff8a80,0 0 10px rgba(255,82,82,.55)}
-  .notice .ntoday a,.notice a.ntoday{color:#fff}
-  .nboard li .ntoday{background:#fdecea;color:#b71c1c;box-shadow:inset 0 0 0 1px #ef9a9a;padding:1px 10px}
-  .nboard li .ntoday a{color:#b71c1c}
+
+  /* ---------- Dashboard (professional layout) ---------- */
+  .db-hero{position:relative;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 0 16px;padding:18px 20px 20px;border-radius:12px;color:#fff;overflow:hidden;
+    background:radial-gradient(120% 140% at 100% 0%,#2d5373 0%,#1f3a52 45%,#0f2234 100%);box-shadow:0 6px 20px rgba(15,34,52,.25)}
+  .db-hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,transparent,#e8c765 20%,#c9a227 50%,#e8c765 80%,transparent)}
+  .db-hero h3{margin:2px 0 4px;font-family:Georgia,"Times New Roman",serif;font-size:1.55rem;font-weight:600;letter-spacing:.4px}
+  .db-eye{font-size:.72rem;letter-spacing:3px;text-transform:uppercase;color:#e8c765;font-weight:600}
+  .db-sub{font-size:.85rem;color:#c9d6e2}
+  .db-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+  .db-tile{position:relative;text-align:left;border:1px solid var(--line);border-top:3px solid var(--steel);border-radius:10px;padding:12px 14px 12px;background:#fff;box-shadow:0 1px 3px rgba(22,33,43,.06);transition:transform .15s,box-shadow .15s;font:inherit;color:var(--ink)}
+  .db-tile:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(22,33,43,.12)}
+  .db-tile small{display:block;font-size:.7rem;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);font-weight:600;padding-right:26px}
+  .db-tile b{display:block;font-family:Georgia,"Times New Roman",serif;font-size:2rem;line-height:1.15;margin:3px 0 1px;color:var(--steel)}
+  .db-tile b u{text-decoration:none;font-size:1rem;color:var(--muted);font-weight:400}
+  .db-tile em{font-style:normal;font-size:.8rem;color:var(--muted)}
+  .db-tile .ic{position:absolute;right:10px;top:10px;width:22px;height:22px;opacity:.28;color:var(--steel)}
+  .db-tile .ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .db-tile.green{border-top-color:var(--green)} .db-tile.green b{color:var(--green)}
+  .db-tile.amber{border-top-color:var(--amber)} .db-tile.amber b{color:#a87900}
+  .db-tile.red{border-top-color:var(--red)} .db-tile.red b,.db-tile.red em{color:var(--red)}
+  .db-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px;align-items:start}
+  .db-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px 16px;box-shadow:0 1px 4px rgba(22,33,43,.06);min-width:0}
+  .db-card.wide{grid-column:1/-1}
+  .db-card header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;padding-bottom:9px;border-bottom:1px solid #e6ebf0;position:relative}
+  .db-card header::after{content:"";position:absolute;left:0;bottom:-1px;width:46px;height:2px;background:#c9a227}
+  .db-card h4{margin:0;font-size:.78rem;letter-spacing:1.6px;text-transform:uppercase;color:var(--steel);font-weight:700}
+  .db-link{border:0;background:none;color:#0b5cad;font-size:.8rem;padding:2px 0;font-weight:600}
+  .db-link:hover{text-decoration:underline}
+  .db-filters{margin-bottom:10px}
+  .db-split{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+  .db-ringw{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.78rem;color:var(--muted);text-align:center;min-width:96px}
+  .db-ringw small{display:block;font-size:.72rem}
+  .db-ring{width:92px;height:92px}
+  .db-ring circle{fill:none;stroke-width:3.4}
+  .db-ring .bg{stroke:#e6ebf0}
+  .db-ring .fg{stroke:var(--steel);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dasharray .6s}
+  .db-ring.g .fg{stroke:var(--green)} .db-ring.a .fg{stroke:var(--amber)} .db-ring.r .fg{stroke:var(--red)} .db-ring.b .fg{stroke:#2d5373}
+  .db-ring text{font-size:8.4px;font-weight:700;fill:var(--steel);text-anchor:middle;font-family:Georgia,"Times New Roman",serif}
+  .db-rings{display:flex;gap:18px;justify-content:space-around;flex-wrap:wrap;margin-bottom:8px}
+  .db-nums{display:grid;grid-template-columns:repeat(4,minmax(54px,1fr));gap:8px;flex:1;min-width:210px}
+  .db-nums.three{grid-template-columns:repeat(3,1fr);margin-bottom:6px}
+  .db-nums div{text-align:center;background:#f6f8fa;border-radius:8px;padding:8px 4px}
+  .db-nums b{display:block;font-family:Georgia,"Times New Roman",serif;font-size:1.35rem;color:var(--steel);line-height:1.2}
+  .db-nums span{font-size:.7rem;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+  .db-nums .gc{color:var(--green)} .db-nums .ac{color:#a87900} .db-nums .rc,.rc{color:var(--red)}
+  .db-sub2{margin:12px 0 6px;font-size:.72rem;letter-spacing:1.3px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .db-chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+  .db-chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.74rem;font-weight:600;background:#eef1f4;color:#44525f;white-space:nowrap}
+  .db-chip.g{background:#dff3e6;color:#17693b} .db-chip.a{background:#fff1cc;color:#8a6500} .db-chip.r{background:#fbe3e0;color:#a52a1d} .db-chip.b{background:#e1ecf7;color:#1f4a75} .db-chip.n{background:#eceff2;color:#5d6b78}
+  .db-row{display:grid;grid-template-columns:minmax(80px,32%) 1fr auto;gap:10px;align-items:center;padding:4px 0;font-size:.86rem}
+  .db-row .nm{font-weight:600;color:var(--steel);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .db-row .v{font-size:.78rem;color:var(--muted);white-space:nowrap}
+  .db-bar{height:8px;border-radius:99px;background:#e6ebf0;overflow:hidden}
+  .db-bar i{display:block;height:100%;border-radius:99px;background:var(--steel);transition:width .5s}
+  .db-bar i.g{background:linear-gradient(90deg,#2aa05d,#1f8a4c)} .db-bar i.a{background:linear-gradient(90deg,#f0b92b,#e0a100)} .db-bar i.r{background:linear-gradient(90deg,#d9534f,#c0392b)}
+  .db-scroll{max-height:230px;overflow:auto;padding-right:4px}
+  .db-stack{display:flex;height:16px;border-radius:99px;overflow:hidden;background:#e6ebf0;margin:2px 0 10px}
+  .db-stack i{display:block;height:100%} .db-stack i+i{border-left:2px solid #fff}
+  .db-stack .g{background:#1f8a4c} .db-stack .a{background:#e0a100} .db-stack .r{background:#c0392b} .db-stack .b{background:#6c8ead} .db-stack .n{background:#b8c2cc}
+  .db-names{display:flex;flex-wrap:wrap;gap:6px}
+  .db-names span{background:#fbe3e0;color:#8f2a20;border-radius:6px;padding:2px 9px;font-size:.8rem}
+  .db-list{list-style:none;margin:0;padding:0}
+  .db-list li{display:grid;grid-template-columns:minmax(64px,auto) 1fr auto auto;gap:4px 10px;align-items:center;padding:8px 0;border-top:1px solid #edf0f3;font-size:.86rem}
+  .db-list li:first-child{border-top:0}
+  .db-list li b{color:var(--steel);white-space:nowrap}
+  .db-list li span{color:var(--ink);min-width:0}
+  .db-list li em{font-style:normal;color:var(--muted);font-size:.78rem;white-space:nowrap}
+  .db-empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+  .db-more{margin-top:6px;font-size:.8rem;color:var(--muted)}
+  .db-alert{margin:0 0 8px;padding:7px 10px;border-radius:8px;background:#fff4d1;border-left:4px solid var(--amber);color:#6b4800;font-size:.84rem;font-weight:600}
+  .db-note{margin:-4px 0 10px;color:var(--muted);font-size:.88rem}
+  @media (max-width:520px){
+    .db-hero h3{font-size:1.3rem}
+    .db-list li{grid-template-columns:1fr auto}
+    .db-list li b{grid-column:1/-1}
+    .db-row{grid-template-columns:1fr auto}
+    .db-row .db-bar{grid-column:1/-1;order:3}
+  }
+  /* events happening today: royal purple with a gold edge, sparkle and a moving shine */
+  .ntoday{position:relative;display:inline-block;overflow:hidden;vertical-align:middle;font-style:normal;font-weight:700;letter-spacing:.3px;
+    padding:2px 16px 2px 30px;border-radius:999px;color:#fff8e1;text-shadow:0 1px 2px rgba(0,0,0,.45);
+    background:linear-gradient(120deg,#4c1d95 0%,#7c3aed 50%,#4c1d95 100%);border:1px solid #f5d27a;
+    box-shadow:0 0 0 2px rgba(245,210,122,.22),0 0 14px rgba(167,139,250,.65);animation:ntglow 2.4s ease-in-out infinite}
+  .ntoday::before{content:"\2726";position:absolute;left:11px;top:50%;margin-top:-.62em;line-height:1.25;color:#ffd666;font-size:.95em;text-shadow:0 0 8px #ffd666;animation:ntspark 1.6s ease-in-out infinite}
+  .ntoday::after{content:"";position:absolute;top:0;bottom:0;left:0;width:45%;pointer-events:none;
+    background:linear-gradient(100deg,transparent 0%,rgba(255,255,255,.6) 50%,transparent 100%);transform:translateX(-130%) skewX(-18deg);animation:ntsheen 2.8s ease-in-out infinite}
+  .notice .ntoday a,.notice a.ntoday,.nboard li .ntoday a{color:inherit}
+  .nboard li .ntoday{color:#3b1675;text-shadow:none;background:linear-gradient(120deg,#f1e8ff 0%,#fff6d9 100%);border:1px solid #d9b45a;
+    box-shadow:0 0 0 2px rgba(217,180,90,.18),0 2px 10px rgba(124,58,237,.22)}
+  .nboard li .ntoday::before{color:#b8860b;text-shadow:none}
+  @keyframes ntsheen{0%{transform:translateX(-130%) skewX(-18deg)}55%,100%{transform:translateX(330%) skewX(-18deg)}}
+  @keyframes ntspark{0%,100%{transform:scale(1) rotate(0);opacity:1}50%{transform:scale(1.35) rotate(25deg);opacity:.7}}
+  @keyframes ntglow{0%,100%{box-shadow:0 0 0 2px rgba(245,210,122,.22),0 0 10px rgba(167,139,250,.45)}50%{box-shadow:0 0 0 2px rgba(245,210,122,.45),0 0 20px rgba(167,139,250,.9)}}
+  @media (prefers-reduced-motion:reduce){.ntoday,.ntoday::before,.ntoday::after{animation:none}}
   /* ---- Employee Center ---- */
   .ec-sum{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px}
   .ec-sum div{flex:1 1 110px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;gap:1px}
@@ -547,6 +636,52 @@
     .role-switch button{padding:12px 8px;font-size:.9rem}
     .role-switch button:last-child{width:68%}
   }
+
+  /* ---------- Follow-up & Procurement: card layout on phones ---------- */
+  .stats.pills{gap:8px}
+  .stats.pills span{background:#fff;border:1px solid var(--line);border-radius:99px;padding:2px 12px;font-size:.85rem}
+  @media(max-width:700px){
+    .filters.fscroll{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-left:-4px;margin-right:-4px;padding:2px 4px 6px}
+    .filters.fscroll::-webkit-scrollbar{display:none}
+    .filters.fscroll button{flex:0 0 auto;padding:8px 16px;white-space:nowrap}
+    .add-bar .btn{width:100%;padding:12px 14px}
+    .assign-form input,.assign-form select,.assign-form textarea{font-size:16px}
+    .assign-form .btn{width:100%;padding:12px 14px}
+    .atable.mcard{border-collapse:separate;border-spacing:0;width:100%}
+    .atable.mcard tbody{display:block}
+    .atable.mcard tr{display:grid;grid-template-columns:auto auto 1fr;grid-template-areas:"sl sl st" "main main main" "qty unit ." "po po po" "rem rem rem" "act act act";
+      align-items:center;background:#fff;border:1px solid var(--line);border-left:5px solid var(--amber);border-radius:10px;margin-bottom:12px;padding:10px 12px 12px;box-shadow:0 1px 3px rgba(22,33,43,.07)}
+    .atable.mcard tr.done{background:#f6fbf8}
+    .atable.mcard tr.s-closed,.atable.mcard tr.s-procured{border-left-color:var(--green)}
+    .atable.mcard tr.s-open,.atable.mcard tr.s-proposed{border-left-color:var(--amber)}
+    .atable.mcard tr.s-tbi{border-left-color:#8896a3}
+    .atable.mcard tr.s-awarded{border-left-color:var(--steel-2)}
+    .atable.mcard td{display:block;border:0;padding:0;text-align:left;font-size:.95rem;min-width:0}
+    .atable.mcard td::before{content:none}
+    .atable.mcard .c-sl{grid-area:sl;font-size:.72rem;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700}
+    .atable.mcard .c-sl::before{content:"No. ";display:inline}
+    .atable.mcard .c-st{grid-area:st;justify-self:end}
+    .atable.mcard .c-st select{width:auto;min-height:38px;padding:6px 10px;font-size:.88rem;font-weight:600;max-width:100%}
+    .atable.mcard .c-main{grid-area:main;margin:8px 0 6px;font-size:1.02rem;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+    .atable.mcard .c-qty,.atable.mcard .c-unit{margin:0 14px 6px 0;padding:3px 10px;background:#eef1f4;border-radius:99px;font-size:.84rem;font-weight:600;color:#33414d}
+    .atable.mcard .c-qty{grid-area:qty}
+    .atable.mcard .c-unit{grid-area:unit;justify-self:start}
+    .atable.mcard .c-qty::before{content:"Qty ";display:inline;font-weight:400;color:var(--muted)}
+    .atable.mcard .c-po{grid-area:po;margin:2px 0 8px;padding:6px 10px;background:#fff4d1;border-radius:8px;font-size:.88rem;color:#6b4800}
+    .atable.mcard .c-po::before{content:"PO ";display:inline;font-weight:700}
+    .atable.mcard .c-po .moved{display:inline;margin-left:8px}
+    .atable.mcard .c-po.nopo{display:none}
+    .atable.mcard .c-rem{grid-area:rem;margin-top:4px;padding-top:8px;border-top:1px dashed #dfe5ea}
+    .atable.mcard .c-rem .remtog{max-width:none;min-height:38px}
+    .atable.mcard .c-rem .btn{width:100%;min-height:40px;margin-top:2px}
+    .atable.mcard td.act{grid-area:act;display:flex;gap:8px;margin-top:10px}
+    .atable.mcard td.act .btn{flex:1;min-height:42px;margin:0;text-align:center}
+    .overlay{padding:10px;align-items:end}
+    .modal{max-height:92vh;max-height:92dvh;padding:16px;border-radius:14px 14px 8px 8px}
+    .modal input,.modal select,.modal textarea{font-size:16px}
+    .modal .row{flex-wrap:wrap}
+    .modal .row>.btn{min-height:44px;flex:1 1 120px}
+  }
   @media(prefers-reduced-motion:reduce){*{transition:none !important}}
 </style>
 </head>
@@ -597,6 +732,7 @@
       <span class="sess" id="sessLabel" title="Date and time of your previous login on this device. You stay signed in for 7 days."></span>
       <button class="btn small hidden" id="noticeBtn" type="button">Set notice</button>
       <button class="btn small hidden" id="manageUsersBtn" type="button">Manage logins</button>
+      <button class="btn small hidden" id="rotBtn" type="button" title="Screen rotation of the app"></button>
       <button class="btn small" id="logoutBtn" type="button">Log out</button>
     </div>
   </header>
@@ -619,7 +755,7 @@
      Master and user passwords are checked on the Google server (Code.gs),
      so no password is stored in this file.
      ===================================================================== */
-  var PAGE_VER = "v18.49";   // bump this (and VERSION in the .gs) on every update; shown on the login page
+  var PAGE_VER = "v18.55";   // bump this (and VERSION in the .gs) on every update; shown on the login page
   (function(){ var el = document.getElementById("verLine"); if(el) el.textContent = "Page " + PAGE_VER; var tv = document.getElementById("topVer"); if(tv) tv.textContent = PAGE_VER; })();
   var API_URL = "https://script.google.com/macros/s/AKfycbyV3-iaQXXsFh70EicRzuSPKsYT572gYXZsngRyUaB01W24Q8j2LpijWHu19YXwl6JvAw/exec";
   var POLL_MS = 8000;                                   // live refresh interval
@@ -1554,12 +1690,56 @@
       });
       h += '</tbody></table></div><p style="color:var(--muted);font-size:.85rem;margin-top:8px">“Working under” can be changed only by the AMC login (transfer).</p>';
     }
+    h += amcReportsHTML();
     h += '<h3 class="sec">Daily work updates</h3>'+amcDailyHTML(false)+amcTempHTML(false);
     h += amcHistoryHTML();
-    p.innerHTML = h; bindAsub(p); bindDaily(p, false);
+    p.innerHTML = h; bindAsub(p); bindDaily(p, false); bindAmcReports();
     var ad = $("amcAdd"); if(ad) ad.onclick = function(){ amcFormModal({}); };
     var af = $("amcFilter"); if(af) af.onchange = function(){ amcFilter = af.value; renderPanel(); };
     bindAmcRows(p);
+  }
+  /* ---------- AMC reports for Master / users: muster roll + daily work list for a date range ---------- */
+  var amcRpFr = "", amcRpTo = "", amcRpC = "", amcRpEmp = "all";
+  function amcRpCid(){ return amcRpC || amcFilter || "all"; }
+  function amcReportsHTML(){
+    var t = today(), cons = state.contracts || [], cid = amcRpCid();
+    if(!amcRpFr) amcRpFr = t.slice(0,8)+"01"; if(!amcRpTo) amcRpTo = t;
+    var staff = (state.amcStaff||[]).filter(function(x){ return cid === "all" || x.contractId === cid; });
+    if(!staff.some(function(x){ return x.id === amcRpEmp; })) amcRpEmp = "all";
+    return '<div class="assign-form"><h4>Export AMC reports (date range)</h4><div class="agrid">'+
+      (cons.length > 1 ? '<div class="field span2"><label for="rpC">Contract</label><select id="rpC"><option value="all"'+(cid==="all"?' selected':'')+'>All contracts</option>'+
+        cons.map(function(c){ return '<option value="'+esc(c.id)+'"'+(cid===c.id?' selected':'')+'>'+esc(c.name)+'</option>'; }).join("")+'</select></div>' : '')+
+      '<div class="field"><label for="rpFr">From date</label><input type="date" id="rpFr" value="'+esc(amcRpFr)+'" max="'+t+'"></div>'+
+      '<div class="field"><label for="rpTo">To date</label><input type="date" id="rpTo" value="'+esc(amcRpTo)+'" max="'+t+'"></div>'+
+      '<div class="field span2"><label for="rpEmp">Employee (for the work list)</label><select id="rpEmp"><option value="all"'+(amcRpEmp==="all"?' selected':'')+'>All contract employees ('+staff.length+')</option>'+
+        staff.map(function(x){ return '<option value="'+esc(x.id)+'"'+(amcRpEmp===x.id?' selected':'')+'>'+esc(x.name)+'</option>'; }).join("")+'</select></div></div>'+
+      '<p style="margin:0 0 10px;color:var(--muted);font-size:.82rem">Muster roll: up to 31 days. Work list: up to 62 days. A print window opens: choose &ldquo;Save as PDF&rdquo; as the printer.</p>'+
+      '<p class="error" id="rpErr"></p><div class="row"><button class="btn" id="rpMuster" type="button">Export muster roll</button><button class="btn ghost" id="rpWork" type="button">Export work list</button></div></div>';
+  }
+  function bindAmcReports(){
+    var fr = $("rpFr"); if(!fr) return;
+    var to = $("rpTo"), emp = $("rpEmp"), cs = $("rpC"), er = $("rpErr");
+    fr.onchange = function(){ amcRpFr = fr.value; if(fr.value && to.value && to.value < fr.value){ to.value = fr.value; amcRpTo = fr.value; } };
+    to.onchange = function(){ amcRpTo = to.value; };
+    emp.onchange = function(){ amcRpEmp = emp.value; };
+    if(cs) cs.onchange = function(){ amcRpC = cs.value; amcRpEmp = "all"; renderPanel(); };
+    function get(){
+      var f = fr.value, t2 = to.value; amcRpFr = f; amcRpTo = t2; amcRpEmp = emp.value;
+      if(!f || !t2){ er.textContent = "Select both dates."; return null; }
+      if(f > t2){ er.textContent = "\u201cFrom date\u201d must not be after \u201cTo date\u201d."; return null; }
+      if(!(state.amcStaff||[]).length){ er.textContent = "No AMC staff to export."; return null; }
+      er.textContent = ""; return { f:f, t:t2 };
+    }
+    $("rpMuster").onclick = function(){
+      var d = get(); if(!d) return;
+      if(daysBetween(d.f, d.t) > 30){ er.textContent = "Select a period of 31 days or less for the muster roll."; return; }
+      musterExport(d.f, d.t, amcRpCid());
+    };
+    $("rpWork").onclick = function(){
+      var d = get(); if(!d) return;
+      var old = amcFilter; amcFilter = amcRpCid();
+      try{ amcRangeExport(d.f, d.t, emp.value); } finally { amcFilter = old; }
+    };
   }
   /* ---------- MIN WAGE RATES (only Master edits; everyone can view) ---------- */
   var amcSub = "staff";
@@ -2197,59 +2377,172 @@
   function pctOf(a,b){ return b ? Math.round(a/b*100) : 0; }
 
   function renderDashboard(){
-    var p = $("panel"), t = today(), r = rangeFor(dashPeriod);
+    var p = $("panel"), t = today(), r = rangeFor(dashPeriod), mk = t.slice(0,7);
+    var now = new Date(), hhmm = pad2(now.getHours())+":"+pad2(now.getMinutes());
+    function short(d){ var x = parseISO(d); return WDAYS[x.getDay()]+" "+x.getDate()+" "+MONTHS[x.getMonth()].slice(0,3); }
+    function clip(s, n){ s = String(s||"").replace(/\s+/g," ").trim(); return s.length > n ? s.slice(0, n-1)+"…" : s; }
+    function ring(pct, cls, cap){
+      return '<div class="db-ringw"><svg class="db-ring '+cls+'" viewBox="0 0 36 36" aria-hidden="true"><circle class="bg" cx="18" cy="18" r="15.9155"/><circle class="fg" cx="18" cy="18" r="15.9155" stroke-dasharray="'+pct+' 100"/><text x="18" y="20.6">'+pct+'%</text></svg><span>'+cap+'</span></div>';
+    }
+    function card(id, title, go, body, wide){
+      return '<section class="db-card'+(wide?' wide':'')+'" id="'+id+'"><header><h4>'+title+'</h4>'+(go ? '<button type="button" class="db-link" data-dbgo="'+go+'">View all &rsaquo;</button>' : '')+'</header>'+body+'</section>';
+    }
+    function bar(pct, cls){ return '<div class="db-bar"><i class="'+(cls||'')+'" style="width:'+pct+'%"></i></div>'; }
+    function chip(txt, cls){ return '<span class="db-chip '+(cls||'')+'">'+txt+'</span>'; }
+
+    /* ----- works ----- */
     var rows = state.employees.map(function(e){
       var inR = e.works.filter(function(w){ return w.date>=r[0] && w.date<=r[1]; });
       var done = inR.filter(function(w){ return w.done; }).length;
-      return { e:e, total:inR.length, done:done, pending:inR.length-done,
-               overdue:e.works.filter(function(w){ return !w.done && w.date<t; }).length };
+      return { total:inR.length, done:done, overdue:e.works.filter(function(w){ return !w.done && w.date<t; }).length };
     });
     var T = { total:0, done:0, pending:0, overdue:0 };
-    rows.forEach(function(x){ T.total+=x.total; T.done+=x.done; T.pending+=x.pending; T.overdue+=x.overdue; });
-    var pct = pctOf(T.done,T.total);
-    var aPend = state.assignments.filter(function(a){ return !a.done; }).length;
-    var aOver = state.assignments.filter(asOverdue).length;
+    rows.forEach(function(x){ T.total+=x.total; T.done+=x.done; T.overdue+=x.overdue; }); T.pending = T.total - T.done;
+    var pct = pctOf(T.done,T.total), twT = 0, twD = 0;
+    state.employees.forEach(function(e){ e.works.forEach(function(w){ if(w.date === t){ twT++; if(w.done) twD++; } }); });
 
-    var h = '<div class="panel-head"><h3>Work progress</h3><span style="color:var(--muted)">'+esc(dayLabel(t))+'</span></div>';
-    h += '<div class="filters">'+Object.keys(PERIODS).map(function(k){
-      return '<button type="button" data-period="'+k+'" class="'+(dashPeriod===k?"active":"")+'">'+PERIODS[k]+'</button>';
-    }).join("")+'</div>';
+    /* ----- assignments ----- */
+    var asAll = state.assignments || [], aOpenL = asAll.filter(function(a){ return !a.done; }), aOver = asAll.filter(asOverdue).length;
 
-    h += '<div class="cards">'+
-      '<div class="card"><b>'+T.total+'</b><span>Total works</span></div>'+
-      '<div class="card g"><b>'+T.done+'</b><span>Completed</span></div>'+
-      '<div class="card a"><b>'+T.pending+'</b><span>Pending</span></div>'+
-      '<div class="card'+(T.overdue?' r':'')+'"><b>'+T.overdue+'</b><span>Overdue (earlier dates, all time)</span></div>'+
-      '<div class="card'+(aOver?' r':' a')+'"><b>'+aPend+'</b><span>Open assignments'+(aOver?' ('+aOver+' overdue)':'')+'</span></div></div>';
-    h += '<div style="display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:4px"><span>Overall completion</span><b>'+pct+'%</b></div>';
-    h += '<div class="progress" aria-hidden="true"><i style="width:'+pct+'%"></i></div>';
+    /* ----- AMC staff availability today ----- */
+    var staff = state.amcStaff || [], recs = {}, tmpT = (state.amcTemp||[]).filter(function(x){ return x.date === t; });
+    (state.amcDaily||[]).forEach(function(x){ if(x.date === t) recs[x.staffId] = x; });
+    var av = { P:0, H:0, A:0, NH:0, NU:0 }, absent = [];
+    staff.forEach(function(s){ var x = recs[s.id], a = x ? x.attendance : "";
+      if(a === "P") av.P++; else if(a === "FHL" || a === "SHL") av.H++; else if(a === "A"){ av.A++; absent.push(s.name); } else if(a === "NH") av.NH++; else av.NU++; });
+    var tmpP = tmpT.filter(function(x){ return x.attendance === "P" || x.attendance === "FHL" || x.attendance === "SHL"; }).length;
+    var amcTot = staff.length, amcIn = av.P + av.H;
 
-    /* last 7 days trend */
+    /* ----- gate passes ----- */
+    var gps = state.gatePasses || [], gpToday = gps.filter(function(g){ return g.date === t; }).length, gpMonth = gps.filter(function(g){ return (g.date||"").slice(0,7) === mk; }).length;
+    var gpOut = 0; try{ gpOut = dispRows().filter(function(x){ return x.it.rcv !== "Y"; }).length; }catch(e1){}
+    var gpLast = gps.slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||"") || (b.created||0)-(a.created||0); }).slice(0,4);
+
+    /* ----- permits ----- */
+    var pmLoaded = permitsData.loaded, pmAct = pmLoaded ? permitsData.permits.filter(permitActive).sort(function(a,b){ return a.from.localeCompare(b.from); }) : [];
+
+    /* ----- maintenance ----- */
+    ampMigrate();
+    var cur = new Date(), fy0 = cur.getMonth() >= 3 ? cur.getFullYear() : cur.getFullYear()-1, fyA = fy0+"-04-01", fyB = (fy0+1)+"-03-31";
+    var monL = state.amp.filter(function(x){ return (x.due||"").slice(0,7) === mk; });
+    var yearL = state.amp.filter(function(x){ return x.due >= fyA && x.due <= fyB; });
+    var sM = ampStat(monL), sY = ampStat(yearL), cnt = { pending:0, planned:0, completed:0, odr_clsd:0 };
+    monL.forEach(function(x){ if(cnt[x.status] != null) cnt[x.status]++; });
+    var plans = {}; yearL.forEach(function(x){ (plans[x.plan] = plans[x.plan] || []).push(x); });
+    var planKeys = Object.keys(plans).sort(function(a,b){ return String(a).localeCompare(String(b), undefined, { numeric:true }); });
+    var grp = {}, upc = [], dueN = 0;
+    try{ dueN = maintDue().length; }catch(e2){}
+    (state.sched||[]).forEach(function(s){
+      var st = schedState(s), g = s.kind === "other" ? "Other activities" : freqLabel(s.freq);
+      var o = grp[g] = grp[g] || { name:g, total:0, ok:0, rank: s.kind === "other" ? 9999 : freqRank(+s.freq||0) };
+      o.total++; if(!st.due) o.ok++;
+      if(st.next && st.bal !== null && st.bal >= 0 && st.bal <= 14) upc.push({ d:st.next, tag: s.kind === "other" ? "Activity" : "Scheduled", txt:s.desc, bal:st.bal });
+    });
+    state.amp.forEach(function(a){ if((a.status === "pending" || a.status === "planned") && a.due && a.due >= t && a.due <= addDays(t,14)) upc.push({ d:a.due, tag:"AMP", txt:"Plan "+a.plan+(a.desc ? " – "+a.desc : ""), bal:daysBetween(t, a.due) }); });
+    upc.sort(function(a,b){ return a.d.localeCompare(b.d); });
+    var grpL = Object.keys(grp).map(function(k){ return grp[k]; }).sort(function(a,b){ return a.rank - b.rank; });
+
+    /* ===== layout ===== */
+    var h = '<div class="db-hero"><div><span class="db-eye">Kozhikode SS</span><h3>Station Dashboard</h3><span class="db-sub">'+esc(dayLabel(t))+' &middot; updated '+hhmm+'</span></div>'+
+      '<div class="db-gold" aria-hidden="true"></div></div>';
+
+    function tile(go, ic, label, big, sub, cls){
+      return '<button type="button" class="db-tile '+(cls||'')+'" data-dbgo="'+go+'"><span class="ic">'+ICON[ic]+'</span><small>'+label+'</small><b>'+big+'</b><em>'+sub+'</em></button>';
+    }
+    h += '<div class="db-kpis">'+
+      tile("works","works","Works today", twT ? twD+'<u>/'+twT+'</u>' : '–', twT ? pctOf(twD,twT)+'% completed' : 'none entered', 'navy')+
+      tile("assign","assign","Assignments", aOpenL.length, aOver ? aOver+' overdue' : 'none overdue', aOver ? 'red' : 'navy')+
+      tile("maint","amp","Maintenance due", dueN, 'AMP '+(monL.length ? sM.pct+'% this month' : 'none this month'), dueN ? 'amber' : 'green')+
+      tile("amc","users","AMC present", amcTot ? amcIn+'<u>/'+amcTot+'</u>' : '–', amcTot ? (av.A ? av.A+' absent' : (av.NU ? av.NU+' not updated' : 'all in')) : 'no AMC staff', av.A ? 'amber' : 'green')+
+      tile("gp","assign","Gate passes today", gpToday, gpMonth+' this month', 'navy')+
+      tile("permits","works","Current permits", pmLoaded ? pmAct.length : '…', pmLoaded ? 'active today' : 'loading', 'navy')+
+    '</div>';
+
+    h += '<div class="db-grid">';
+
+    /* work progress */
+    var wb = '<div class="filters db-filters">'+Object.keys(PERIODS).map(function(k){ return '<button type="button" data-period="'+k+'" class="'+(dashPeriod===k?"active":"")+'">'+PERIODS[k]+'</button>'; }).join("")+'</div>'+
+      '<div class="db-split">'+ring(pct, pct >= 75 ? 'g' : (pct >= 40 ? 'a' : 'r'), 'Completion')+
+      '<div class="db-nums"><div><b>'+T.total+'</b><span>Total</span></div><div><b class="gc">'+T.done+'</b><span>Done</span></div><div><b class="ac">'+T.pending+'</b><span>Pending</span></div><div><b class="'+(T.overdue?'rc':'')+'">'+T.overdue+'</b><span>Overdue</span></div></div></div>';
     var days = [], i, all = [];
     state.employees.forEach(function(e){ all = all.concat(e.works); });
     for(i=6;i>=0;i--) days.push(addDays(t,-i));
-    var stats = days.map(function(d){
-      var day = all.filter(function(w){ return w.date===d; });
-      return { d:d, total:day.length, done:day.filter(function(w){ return w.done; }).length };
-    });
+    var stats = days.map(function(d){ var day = all.filter(function(w){ return w.date===d; }); return { d:d, total:day.length, done:day.filter(function(w){ return w.done; }).length }; });
     var max = Math.max.apply(null, stats.map(function(s){ return s.total; }).concat([1]));
-    h += '<h3 class="sec">Last 7 days</h3><div class="trend">'+stats.map(function(s){
+    wb += '<div class="db-sub2">Last 7 days</div><div class="trend">'+stats.map(function(s){
       var hh = Math.round(s.total/max*100);
-      return '<div class="tcol"><div class="tbw"><div class="tbar" style="height:'+hh+'%"><div class="tdone" style="height:'+pctOf(s.done,s.total)+'%"></div></div></div>'+
-        '<span class="tl">'+WDAYS[parseISO(s.d).getDay()]+' '+parseISO(s.d).getDate()+'</span><span class="tn">'+(s.total?s.done+'/'+s.total:'–')+'</span></div>';
+      return '<div class="tcol"><div class="tbw"><div class="tbar" style="height:'+hh+'%"><div class="tdone" style="height:'+pctOf(s.done,s.total)+'%"></div></div></div><span class="tl">'+WDAYS[parseISO(s.d).getDay()]+' '+parseISO(s.d).getDate()+'</span><span class="tn">'+(s.total?s.done+'/'+s.total:'–')+'</span></div>';
     }).join("")+'</div><div class="legend"><span><i class="lg-done"></i>Completed</span><span><i class="lg-all"></i>Total works</span></div>';
+    h += card("dbWorks","Work progress","works", wb);
+
+    /* maintenance progress */
+    var mb = '<div class="db-rings">'+ring(sM.pct,'g','AMP '+MONTHS[cur.getMonth()]+' <small>'+sM.done+' of '+sM.total+'</small>')+ring(sY.pct,'b','AMP FY '+fy0+'-'+String(fy0+1).slice(2)+' <small>'+sY.done+' of '+sY.total+'</small>')+'</div>'+
+      '<div class="db-chips">'+chip('Pending '+cnt.pending,'r')+chip('Planned '+cnt.planned,'a')+chip('Completed '+cnt.completed,'b')+chip('ODR_CLSD '+cnt.odr_clsd,'g')+'</div>';
+    if(planKeys.length){
+      mb += '<div class="db-sub2">AMP plan-wise (financial year)</div><div class="db-scroll">'+planKeys.map(function(k){ var st = ampStat(plans[k]);
+        return '<div class="db-row"><span class="nm">Plan '+esc(k)+'</span>'+bar(st.pct, st.pct>=75?'g':(st.pct>=40?'a':'r'))+'<span class="v">'+st.done+'/'+st.total+' &middot; '+st.pct+'%</span></div>'; }).join("")+'</div>';
+    }
+    if(grpL.length){
+      mb += '<div class="db-sub2">Scheduled maintenance &amp; activities (up to date)</div><div class="db-scroll">'+grpL.map(function(g){ var pp = pctOf(g.ok, g.total);
+        return '<div class="db-row"><span class="nm">'+esc(g.name)+'</span>'+bar(pp, pp>=75?'g':(pp>=40?'a':'r'))+'<span class="v">'+g.ok+'/'+g.total+(g.total-g.ok ? ' &middot; <b class="rc">'+(g.total-g.ok)+' due</b>' : '')+'</span></div>'; }).join("")+'</div>';
+    }
+    if(!planKeys.length && !grpL.length) mb += '<div class="db-empty">No maintenance plans yet.</div>';
+    h += card("dbMaint","Maintenance status","maint", mb);
+
+    /* AMC availability */
+    var seg = function(n, cls, lbl){ return n ? '<i class="'+cls+'" style="flex:'+n+'" title="'+lbl+': '+n+'"></i>' : ''; };
+    var ab = amcTot ? '<div class="db-stack">'+seg(av.P,'g','Present')+seg(av.H,'a','Half-day leave')+seg(av.A,'r','Absent')+seg(av.NH,'b','National holiday')+seg(av.NU,'n','Not updated')+'</div>'+
+      '<div class="db-chips">'+chip('Present '+av.P,'g')+(av.H ? chip('Half-day '+av.H,'a') : '')+chip('Absent '+av.A,'r')+(av.NH ? chip('Holiday '+av.NH,'b') : '')+(av.NU ? chip('Not updated '+av.NU,'n') : '')+(tmpT.length ? chip('Temp labour '+tmpP+'/'+tmpT.length,'b') : '')+'</div>'+
+      (absent.length ? '<div class="db-sub2">Absent today</div><div class="db-names">'+absent.slice(0,8).map(function(n){ return '<span>'+esc(n)+'</span>'; }).join("")+(absent.length>8 ? '<span>+'+(absent.length-8)+' more</span>' : '')+'</div>' : '')
+      : '<div class="db-empty">No AMC staff added yet.</div>';
+    h += card("dbAmc","AMC staff availability &ndash; today","amc", ab);
+
+    /* gate pass */
+    var gb = '<div class="db-nums three"><div><b>'+gpToday+'</b><span>Today</span></div><div><b>'+gpMonth+'</b><span>This month</span></div><div><b class="'+(gpOut?'ac':'')+'">'+gpOut+'</b><span>Awaiting return</span></div></div>'+
+      (gpLast.length ? '<div class="db-sub2">Latest gate passes</div><ul class="db-list">'+gpLast.map(function(g){
+        return '<li><b>'+esc(g.number||"–")+'</b><span>'+esc(clip((g.toStn||"")+(g.reason ? " · "+g.reason : ""), 48))+'</span><em>'+esc(short(g.date))+'</em></li>'; }).join("")+'</ul>' : '<div class="db-empty">No gate passes yet.</div>');
+    h += card("dbGp","Gate pass","gp", gb);
+
+    /* permits */
+    var pb;
+    if(!pmLoaded) pb = '<div class="db-empty">'+(SYNC ? 'Loading permits…' : 'Permits are available when online.')+'</div>';
+    else if(!pmAct.length) pb = '<div class="db-empty">No permit is active today.</div>';
+    else pb = '<ul class="db-list">'+pmAct.slice(0,5).map(function(x){
+      return '<li><b>'+esc(x.no)+'</b><span>'+esc(clip(x.work, 60))+'</span>'+chip(esc(x.status), x.status === "ISSUED" ? 'g' : (x.status === "RETURNED" ? 'b' : 'a'))+'<em>'+esc(short(x.from))+(x.to !== x.from ? ' – '+esc(short(x.to)) : '')+'</em></li>'; }).join("")+'</ul>'+
+      (pmAct.length > 5 ? '<div class="db-more">+'+(pmAct.length-5)+' more active permits</div>' : '');
+    h += card("dbPm","Current permits","permits", pb);
+
+    /* upcoming maintenance */
+    var ub = upc.length ? '<ul class="db-list">'+upc.slice(0,8).map(function(u){
+      return '<li><b>'+esc(short(u.d))+'</b><span>'+esc(clip(u.txt, 56))+'</span>'+chip(u.tag, u.tag === "AMP" ? 'b' : 'n')+'<em>'+(u.bal === 0 ? 'Today' : (u.bal === 1 ? 'Tomorrow' : 'in '+u.bal+' days'))+'</em></li>'; }).join("")+'</ul>'+(upc.length > 8 ? '<div class="db-more">+'+(upc.length-8)+' more in the next 14 days</div>' : '')
+      : '<div class="db-empty">Nothing scheduled in the next 14 days.</div>';
+    h += card("dbUp","Upcoming maintenance &ndash; next 14 days","maint", (dueN ? '<div class="db-alert">'+dueN+' item'+(dueN===1?'':'s')+' due or overdue till today</div>' : '')+ub);
+
+    /* assignments */
+    var aSort = aOpenL.slice().sort(function(a,b){ return (asOverdue(b)?1:0)-(asOverdue(a)?1:0) || (a.target||"9999").localeCompare(b.target||"9999"); });
+    var asb = '<div class="db-nums three"><div><b>'+aOpenL.length+'</b><span>Open</span></div><div><b class="'+(aOver?'rc':'')+'">'+aOver+'</b><span>Overdue</span></div><div><b class="gc">'+(asAll.length-aOpenL.length)+'</b><span>Done</span></div></div>'+
+      (aSort.length ? '<div class="db-sub2">Needs attention</div><ul class="db-list">'+aSort.slice(0,5).map(function(a){
+        var late = asOverdue(a); return '<li><b>'+esc(clip(empName(a.to, a.toName), 18))+'</b><span>'+esc(clip(a.text, 54))+'</span>'+(a.priority && a.priority !== "normal" ? chip(esc(PRI[a.priority]||a.priority), a.priority === "urgent" ? 'r' : 'a') : '')+'<em class="'+(late?'rc':'')+'">'+(a.target ? (late ? 'Overdue · ' : '')+esc(short(a.target)) : 'No target date')+'</em></li>'; }).join("")+'</ul>'+(aSort.length > 5 ? '<div class="db-more">+'+(aSort.length-5)+' more open assignments</div>' : '')
+        : '<div class="db-empty">No open assignments.</div>');
+    h += card("dbAs","Assignments","assign", asb);
 
     /* office calendar */
-    h += '<h3 class="sec" id="officeCal">Office calendar</h3>'+
-         '<p style="margin:-4px 0 12px;color:var(--muted);font-size:.9rem">'+
-         (isMaster() ? 'Click a date to add or change office events.' : 'Click a date to see details.')+'</p>';
-    h += calHTML("office");
+    h += card("officeCal","Office calendar", "", '<p class="db-note">'+(isMaster() ? 'Click a date to add or change office events.' : 'Click a date to see details.')+'</p>'+calHTML("office"), true);
+    h += '</div>';
     p.innerHTML = h;
 
-    Array.prototype.forEach.call(p.querySelectorAll("[data-period]"),function(b){
-      b.onclick = function(){ dashPeriod = b.getAttribute("data-period"); renderPanel(); };
+    Array.prototype.forEach.call(p.querySelectorAll("[data-period]"),function(b){ b.onclick = function(){ dashPeriod = b.getAttribute("data-period"); renderPanel(); }; });
+    Array.prototype.forEach.call(p.querySelectorAll("[data-dbgo]"),function(b){
+      b.onclick = function(){
+        var go = b.getAttribute("data-dbgo");
+        if(go === "gp" || go === "permits"){ activeTab = "misc"; miscView = go; if(go === "gp") gpRet = "gp"; render(); if(go === "gp") ampFetch(); else permitFetch(); return; }
+        if(go === "assign"){ assignTo = ""; assignFilter = "all"; }
+        activeTab = go; if(go === "maint") maintView = "menu";
+        render();
+      };
     });
     bindCal("office", p);
+    if(SYNC && !permitsData.loaded && !permitsData.asked){ permitsData.asked = true; permitFetch(); }
   }
 
   /* ---------- Work assignments ---------- */
@@ -3927,7 +4220,7 @@
   }
 
   /* ---------- PDF exports of daily work lists (print window -> Save as PDF) ---------- */
-  var amcExSel = "all";
+  var amcExSel = "all", amcExFr = "", amcExTo = "";   // daily work list export: employee and date range
   function printDoc(title, css, body){
     var doc = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'+css+'</style></head><body>'+body+
       '<script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script></body></html>';
@@ -4723,8 +5016,9 @@
     if(!SYNC) return;
     api({ action: "permitList" }).then(function(r){
       if(permitBusy) return;
+      var firstLoad = !permitsData.loaded;
       permitsData.permits = r.json.permits || []; permitsData.loaded = true;
-      if(!modalOpen() && activeTab === "misc" && (miscView === "permits" || miscView === "menu")) render();
+      if(!modalOpen() && ((activeTab === "misc" && (miscView === "permits" || miscView === "menu")) || (activeTab === "dash" && firstLoad))) render();
     }).catch(onSyncError);
   }
   function permitSend(body){
@@ -6016,6 +6310,16 @@
   function gpPhone(p){ var d = String(p||"").replace(/\D/g,""); return d.length === 10 ? "+91-"+d : String(p||""); }
   function time12(t){ var p = String(t||"").split(":"); if(p.length < 2) return ""; var hh = +p[0], ap = hh >= 12 ? "pm" : "am"; hh = hh % 12 || 12; return hh+":"+p[1]+" "+ap; }
   function gpStamp(g){ return fmtDate(g.date)+(g.time ? " "+time12(g.time) : ""); }
+  /* Gate pass number: GP-<random>-MM/FY, e.g. GP-56-10/2026-27 (MM = month of the gate pass date) */
+  function gpSuffix(date){ return "-"+String(date||today()).slice(5,7)+"/"+gpFyOf(date||today()); }
+  function gpMakeNo(date, rnd){ return "GP-"+rnd+gpSuffix(date); }
+  function gpPickRnd(date){
+    var sfx = gpSuffix(date), used = {};
+    (state.gatePasses || []).forEach(function(g){ if(g.number) used[g.number] = 1; });
+    for(var i = 0; i < 300; i++){ var r = 10 + Math.floor(Math.random()*90); if(!used["GP-"+r+sfx]) return r; }
+    for(var j = 0; j < 300; j++){ var r2 = 100 + Math.floor(Math.random()*900); if(!used["GP-"+r2+sfx]) return r2; }
+    return 1000 + Math.floor(Math.random()*9000);
+  }
   function gpFyOf(date){ var y = +date.slice(0,4), m = +date.slice(5,7), s = m >= 4 ? y : y-1; return s+"-"+String((s+1)%100).padStart(2,"0"); }
   function gpApprovers(){
     return (state.employees || []).filter(function(e){ return GP_APPROVER_DESIG.indexOf(e.desig) >= 0; }).sort(function(a,b){ return a.name.localeCompare(b.name); });
@@ -6084,7 +6388,7 @@
 
   function gpNewDraft(){
     return { date:today(), time:nowHM(), asset:"", type:"", fromStn:"KOZHIKODE SUBSTATION", toStn:"", reason:"", reasonOther:"", mode:"", vehicle:"", transporter:"",
-             approverId:"", receiverName:"", receiverPhone:"", remarks:"", inEntry:"", inPick:{} };
+             approverId:"", receiverName:"", receiverPhone:"", remarks:"", inEntry:"", inPick:{}, gpRnd: gpPickRnd(today()) };
   }
   function renderGateForm(){
     var p = $("panel"), edit = gpEditId ? (state.gatePasses || []).find(function(x){ return x.id === gpEditId; }) : null;
@@ -6097,7 +6401,7 @@
     var needVeh = d.mode === "Company vehicle" || d.mode === "Truck";
     var h = gpBackBtn("", edit ? "Gate pass" : "Gate Pass")+'<div class="panel-head"><h3>'+(edit ? 'Edit gate pass '+esc(edit.number) : 'New gate pass')+'</h3></div>'+
       gpInBlock(d, edit)+'<div class="assign-form"><div class="agrid">'+
-      '<div class="field"><label>Gate pass no.</label><input type="text" value="'+(edit ? esc(edit.number) : 'Auto-generated on save (serial/financial year)')+'" disabled></div>'+
+      '<div class="field"><label>Gate pass no.</label><input type="text" id="gpNoShow" value="'+esc(edit ? edit.number : gpMakeNo(d.date, d.gpRnd))+'" disabled></div>'+
       '<div class="field"><label for="gpDate">Date</label><input type="date" id="gpDate" value="'+esc(d.date)+'"></div>'+
       sel("gpAsset","Is it an asset of Kozhikode SS? (not printed)",[["YES","Yes"],["NO","No"]],d.asset,"Select")+
       sel("gpType","Type of diversion",[["RETURNABLE","Returnable"],["NON RETURNABLE","Non returnable"]],d.type,"Select")+
@@ -6119,6 +6423,7 @@
       function v(id){ var n = $(id); return n ? n.value : ""; }
       d.date = v("gpDate"); d.asset = v("gpAsset"); d.type = v("gpType"); d.fromStn = v("gpFrom"); d.toStn = v("gpTo"); d.reason = v("gpReason"); d.reasonOther = v("gpOther");
       d.mode = v("gpMode"); d.vehicle = v("gpVeh"); d.transporter = v("gpTrans"); d.approverId = v("gpAppr"); d.receiverName = v("gpRecv"); d.receiverPhone = v("gpPhone"); d.remarks = v("gpRem");
+      if(!edit && d.date){ var ns = $("gpNoShow"); if(ns) ns.value = gpMakeNo(d.date, d.gpRnd); }   // month / financial year follow the chosen date
     }
     ["gpDate","gpAsset","gpType","gpFrom","gpTo","gpOther","gpVeh","gpTrans","gpAppr","gpRecv","gpPhone","gpRem"].forEach(function(id){ var n = $(id); if(n){ n.addEventListener("input", grab); n.addEventListener("change", grab); } });
     $("gpAsset").addEventListener("change", function(){ grab(); if(d.asset === "YES" || d.asset === "NO"){ d.type = d.asset === "YES" ? "RETURNABLE" : "NON RETURNABLE"; renderGateForm(); } });   // asset of Kozhikode SS: Yes = Returnable, No = Non returnable (set automatically)
@@ -6156,8 +6461,8 @@
         var fyChanged = gpFyOf(rec.date) !== edit.fy; Object.assign(edit, rec); if(fyChanged){ edit.number = ""; }
       } else {
         rec.createdBy = session ? session.id : ""; rec.createdByName = session ? (session.displayName || session.id) : ""; rec.createdEmpNo = "";
-        rec.fy = gpFyOf(rec.date); rec.created = Date.now(); rec.updated = rec.created; rec.number = "";
-        if(!SYNC){ var mx = 0; state.gatePasses.forEach(function(g){ if(g.fy === rec.fy && g.serial > mx) mx = g.serial; }); rec.serial = mx+1; rec.number = (rec.serial < 10 ? "0"+rec.serial : String(rec.serial))+"/"+rec.fy; }
+        rec.fy = gpFyOf(rec.date); rec.created = Date.now(); rec.updated = rec.created;
+        rec.serial = c.gpRnd; rec.number = gpMakeNo(rec.date, c.gpRnd);   // shown on the form; the server re-checks it is unique
         state.gatePasses.push(rec);
       }
       ampSend({ action:"gpPut", item: rec });
@@ -6957,6 +7262,62 @@
     printDoc("Daily_Work_List_AMC_"+(one ? staff[0].name.replace(/[^A-Za-z0-9]+/g,"_")+"_" : "All_")+fmtDate(d), listCss(true), body);
   }
 
+  /* Daily work list for a date range (From - To). One date = the usual single-day list. */
+  function amcRangeExport(fr, to, sid){
+    if(fr > to){ var sw = fr; fr = to; to = sw; }
+    if(fr === to){ amcDailyExport(fr, sid); return; }
+    var span = Math.round((parseISO(to) - parseISO(fr))/86400000) + 1;
+    if(span > 62){ alert("Please choose a range of up to 62 days."); return; }
+    var one = !!(sid && sid !== "all");
+    var staff = (state.amcStaff||[]).filter(function(s){ return one ? s.id === sid : (amcFilter === "all" || s.contractId === amcFilter); });
+    if(!staff.length){ alert("No AMC staff to export."); return; }
+    var recs = {}, tmps = {};
+    (state.amcDaily||[]).forEach(function(x){ if(x.date >= fr && x.date <= to){ (recs[x.date] = recs[x.date] || {})[x.staffId] = x; } });
+    if(!one) (state.amcTemp||[]).forEach(function(x){ if(x.date >= fr && x.date <= to && (amcFilter === "all" || x.contractId === amcFilter)) (tmps[x.date] = tmps[x.date] || []).push(x); });
+    var dates = [], d = fr; while(d <= to){ dates.push(d); d = addDays(d, 1); }
+    var ids = {}; staff.forEach(function(s){ ids[s.id] = 1; });
+    var hasData = dates.some(function(x){ var r = recs[x] || {}; return Object.keys(r).some(function(k){ return ids[k]; }) || (tmps[x] || []).length; });
+    if(!hasData){ alert("No daily work has been updated between "+fmtDate(fr)+" and "+fmtDate(to)+" (only the last 90 days are available)."); return; }
+    var cids = {}; staff.forEach(function(s){ cids[s.contractId] = 1; });
+    var multi = !one && Object.keys(cids).length > 1, cid0 = Object.keys(cids)[0];
+    var ct = (!one && multi) ? null : (state.contracts||[]).find(function(c){ return c.id === cid0; });
+    var cnt = { P:0, A:0, H:0, NH:0, NU:0 };
+    function tally(att, has){ if(att === "P") cnt.P++; else if(att === "A") cnt.A++; else if(att === "FHL" || att === "SHL") cnt.H++; else if(att === "NH") cnt.NH++; else if(!has) cnt.NU++; }
+    function statTxt(x, w){ return w ? esc(x.status||"OPEN")+(x.statusRemark ? '<br><small>Remarks: '+esc(x.statusRemark)+'</small>' : '') : '–'; }
+    var body = '', tbl;
+    if(one){
+      var s0 = staff[0], rows = dates.map(function(dt,i){
+        var x = (recs[dt] || {})[s0.id], att = x ? x.attendance : ""; tally(att, !!x);
+        return '<tr><td>'+(i+1)+'</td><td class="l">'+esc(dayLabel(dt))+'</td><td class="'+(att==="A"?'ab':(x?'':'nu'))+'">'+(x ? esc(ATT[att]||att) : 'Not updated')+'</td>'+
+          '<td class="l">'+(x && x.work ? esc(x.work) : '–')+'</td><td>'+(x ? statTxt(x, attWork(att)) : '–')+'</td><td class="l">'+esc((x && x.workingUnderName) || s0.workingUnderName || "")+'</td></tr>';
+      }).join("");
+      tbl = '<table><thead><tr><th style="width:4%">#</th><th>Date</th><th>Attendance</th><th style="width:28%">Work details</th><th>Status of work</th><th>Working under</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    } else {
+      tbl = ''; var first = true;
+      dates.forEach(function(dt){
+        var r = recs[dt] || {}, tl = tmps[dt] || [];
+        if(!staff.some(function(s){ return r[s.id]; }) && !tl.length) return;      // nothing saved for that day
+        var n = 0, rows = staff.map(function(s){
+          var x = r[s.id], att = x ? x.attendance : ""; tally(att, !!x); n++;
+          return '<tr><td>'+n+'</td><td class="l"><b>'+esc(s.name)+'</b></td><td class="l">'+esc(s.skill)+'</td>'+(multi ? '<td class="l">'+esc(contractName(s.contractId))+'</td>' : '')+
+            '<td class="'+(att==="A"?'ab':(x?'':'nu'))+'">'+(x ? esc(ATT[att]||att) : 'Not updated')+'</td><td class="l">'+(x && x.work ? esc(x.work) : '–')+'</td>'+
+            '<td>'+(x ? statTxt(x, attWork(att)) : '–')+'</td><td class="l">'+esc((x && x.workingUnderName) || s.workingUnderName || "")+'</td></tr>';
+        }).join("");
+        tl.forEach(function(x){ n++; tally(x.attendance, true);
+          rows += '<tr><td>'+n+'</td><td class="l"><b>'+esc(x.name)+'</b> <small>(Temp)</small></td><td class="l">'+esc(x.skill)+'</td>'+(multi ? '<td class="l">'+esc(contractName(x.contractId))+'</td>' : '')+
+            '<td class="'+(x.attendance==="A"?'ab':'')+'">'+esc(ATT[x.attendance]||x.attendance)+'</td><td class="l">'+(x.work ? esc(x.work) : '–')+'</td><td>'+statTxt(x, attWork(x.attendance))+'</td><td class="l">'+esc(x.workingUnderName||"")+'</td></tr>'; });
+        tbl += '<h4 style="margin:'+(first ? '8px' : '16px')+' 0 4px;break-after:avoid;page-break-after:avoid">'+esc(dayLabel(dt))+'</h4>'+
+          '<table><thead><tr><th style="width:4%">#</th><th>Name</th><th>Skill</th>'+(multi ? '<th>Contract</th>' : '')+'<th>Attendance</th><th style="width:26%">Work details</th><th>Status of work</th><th>Working under</th></tr></thead><tbody>'+rows+'</tbody></table>';
+        first = false;
+      });
+    }
+    var sub = 'Period: '+esc(fmtDate(fr))+' to '+esc(fmtDate(to))+(ct ? ' &nbsp;|&nbsp; Contract: '+esc(ct.name)+(ct.agency ? ' ('+esc(ct.agency)+')' : '')+(ct.number ? ' &nbsp;|&nbsp; No. '+esc(ct.number) : '') : '');
+    var html = docHead('KOZHIKODE SS &ndash; Daily Work List of '+(one ? 'AMC Staff: '+esc(staff[0].name) : 'Contract Employees'), sub)+
+      '<p class="sm">'+(one ? 'Days: <b>'+dates.length+'</b> &nbsp;|&nbsp; ' : '')+'Present: <b>'+cnt.P+'</b> &nbsp;|&nbsp; Absent: <b>'+cnt.A+'</b> &nbsp;|&nbsp; Half-day leave: <b>'+cnt.H+'</b> &nbsp;|&nbsp; National holiday: <b>'+cnt.NH+'</b> &nbsp;|&nbsp; Not updated: <b>'+cnt.NU+'</b></p>'+
+      tbl+'<div class="sg"><div>Prepared by (AMC)</div><div>Verified by (POWERGRID)</div></div>'+docFoot();
+    printDoc("Daily_Work_List_AMC_"+(one ? staff[0].name.replace(/[^A-Za-z0-9]+/g,"_") : "All")+"_"+fmtDate(fr)+"_to_"+fmtDate(to), listCss(true), html);
+  }
+
   /* ---------- Assignments for Support Staff (only work given to AMC users) ---------- */
   function supAssignList(){ return (state.assignments||[]).filter(function(a){ return isAmcId(a.to); }); }
   function supAssignSave(a, done, remarks){
@@ -7030,19 +7391,20 @@
   }
 
   /* ---------- Muster roll PDF (AMC login) ---------- */
-  function musterExport(from, to){
-    var myC = myContractId();
-    var staff = (state.amcStaff || []).filter(function(s){ return s.contractId === myC; }), daily = state.amcDaily || [];
+  function musterExport(from, to, cid){
+    var myC = cid === undefined ? myContractId() : cid, allC = myC === "all";      // cid: chosen contract (Master / users); "all" = every contract
+    var manyC = allC && (state.contracts||[]).length > 1;
+    var staff = (state.amcStaff || []).filter(function(s){ return allC || s.contractId === myC; }).map(function(s){ return manyC ? Object.assign({}, s, { name: s.name+" ("+contractName(s.contractId)+")" }) : s; }), daily = state.amcDaily || [];
     var days = [], d = from; while(d <= to){ days.push(d); d = addDays(d,1); }
     var map = {}; daily.forEach(function(x){ map[x.staffId+"|"+x.date] = x.attendance; });
     var tseen = {};   // temporary labour: one row per name + skill, filled only for the days they were entered
     (state.amcTemp || []).forEach(function(t){
-      if(t.date < from || t.date > to || t.contractId !== myC) return;
+      if(t.date < from || t.date > to || (!allC && t.contractId !== myC)) return;
       var key = "T:"+String(t.name).toLowerCase().replace(/\s+/g," ").trim()+"|"+t.skill;
       if(!tseen[key]){ tseen[key] = 1; staff.push({ id:key, name:t.name+" (Temp)", skill:t.skill }); }
       map[key+"|"+t.date] = t.attendance;
     });
-    var ct = (state.contracts||[])[0] || {};
+    var ct = allC ? {} : ((state.contracts||[]).find(function(c){ return c.id === myC; }) || (state.contracts||[])[0] || {});
     var logo = (document.querySelector(".login-logo") || {}).src || "";
     var wd = ["S","M","T","W","T","F","S"];
     var th = days.map(function(x){ var p = parseISO(x); return '<th class="dc'+(p.getDay()===0?' sun':'')+'">'+p.getDate()+'<br><small>'+wd[p.getDay()]+'</small></th>'; }).join("");
@@ -7141,8 +7503,10 @@
     h += '<div class="exbar"><label for="adExSel">Export daily work list (PDF)</label><select id="adExSel" aria-label="Select contract employee">'+
       '<option value="all"'+(amcExSel==="all"?' selected':'')+'>All contract employees ('+staff.length+')</option>'+
       staff.map(function(s){ return '<option value="'+esc(s.id)+'"'+(amcExSel===s.id?' selected':'')+'>'+esc(s.name)+'</option>'; }).join("")+'</select>'+
+      '<label for="adExFr">From</label><input type="date" id="adExFr" value="'+esc(amcExFr||amcDate)+'" max="'+amcMaxDate()+'" aria-label="Export from date">'+
+      '<label for="adExTo">To</label><input type="date" id="adExTo" value="'+esc(amcExTo||amcDate)+'" max="'+amcMaxDate()+'" aria-label="Export to date">'+
       '<button class="btn small" id="adExport" type="button">Export PDF</button>'+
-      '<small style="flex-basis:100%;color:var(--muted)">Exports the saved update of '+esc(fmtDate(amcDate))+(edit?' (press Save updates first for any new entries)':'')+'.</small></div>';
+      '<small style="flex-basis:100%;color:var(--muted)">Exports the saved updates between the chosen dates (up to 62 days; the last 90 days are available)'+(edit?'. Press Save updates first for any new entries':'')+'.</small></div>';
     h += '<div style="overflow-x:auto"><table class="atable"><thead><tr><th>#</th><th>Name</th><th>Attendance</th><th>Work details</th><th>Status of work</th><th>Working under</th></tr></thead><tbody>';
     staff.forEach(function(s,i){
       var v = dVal(s), w = attWork(v.att);
@@ -7167,7 +7531,14 @@
     if(dt) dt.onchange = function(){ if(!this.value) return; amcDate = this.value > amcMaxDate() ? amcMaxDate() : this.value; renderPanel(); };
     var exSel = $("adExSel"), exBtn = $("adExport");
     if(exSel) exSel.onchange = function(){ amcExSel = exSel.value; };
-    if(exBtn) exBtn.onclick = function(){ amcExSel = exSel.value; amcDailyExport(amcDate, amcExSel); };
+    var exFr = $("adExFr"), exTo = $("adExTo");
+    if(exFr) exFr.onchange = function(){ amcExFr = this.value; if(this.value && exTo && exTo.value && exTo.value < this.value){ exTo.value = this.value; amcExTo = this.value; } };
+    if(exTo) exTo.onchange = function(){ amcExTo = this.value; };
+    if(exBtn) exBtn.onclick = function(){
+      amcExSel = exSel.value;
+      var f = (exFr && exFr.value) || amcDate, t = (exTo && exTo.value) || f; amcExFr = f; amcExTo = t;
+      amcRangeExport(f, t, amcExSel);
+    };
     if(!edit) return;
     Array.prototype.forEach.call(p.querySelectorAll("[data-srow]"),function(tr){
       var sid = tr.getAttribute("data-srow");
@@ -7328,22 +7699,22 @@
   function renderFollow(){
     var p = $("panel"), all = state.fu = state.fu || [], master = isMaster();
     var nOpen = all.filter(function(f){ return f.status !== "closed"; }).length;
-    var h = '<div class="panel-head"><h3>Follow-up</h3><div class="stats"><span>Total <b>'+all.length+'</b></span><span>Open <b>'+nOpen+'</b></span><span>Closed <b>'+(all.length-nOpen)+'</b></span></div></div>'+
+    var h = '<div class="panel-head"><h3>Follow-up</h3><div class="stats pills"><span>Total <b>'+all.length+'</b></span><span>Open <b>'+nOpen+'</b></span><span>Closed <b>'+(all.length-nOpen)+'</b></span></div></div>'+
       addBarHTML("fu","Add follow-up")+'<div class="assign-form"><h4>Add follow-up</h4><div class="agrid">'+
       '<div class="field span2"><label for="fuText">Details of follow-up</label><textarea id="fuText" maxlength="1000" placeholder="What needs to be followed up, with whom"></textarea></div>'+
       '<div class="field span2"><label for="fuRem">Remarks (optional)</label><textarea id="fuRem" maxlength="2000" placeholder="First remark / latest update"></textarea></div></div>'+
       '<p class="error" id="fuErr"></p><button class="btn" id="fuAdd" type="button">Add follow-up</button></div></div>';
-    h += '<div class="filters">'+[["all","All"],["open","Open"],["closed","Closed"]].map(function(f){
+    h += '<div class="filters fscroll">'+[["all","All"],["open","Open"],["closed","Closed"]].map(function(f){
       return '<button type="button" data-fuf="'+f[0]+'" class="'+(fuFilter===f[0]?"active":"")+'">'+f[1]+'</button>'; }).join("")+'</div>';
     var list = all.filter(function(f){ return fuFilter === "all" || (fuFilter === "closed") === (f.status === "closed"); })
       .sort(function(a,b){ return (a.status==="closed") - (b.status==="closed") || (a.created||0)-(b.created||0); });
     if(!list.length) h += '<div class="empty">'+(all.length ? "No follow-ups match this filter." : "No follow-ups yet. Add one above.")+'</div>';
     else {
-      h += '<table class="atable"><thead><tr><th>Sl. no.</th><th>Details of follow-up</th><th>Status</th><th>Remarks</th><th></th></tr></thead><tbody>';
+      h += '<table class="atable mcard"><thead><tr><th>Sl. no.</th><th>Details of follow-up</th><th>Status</th><th>Remarks</th><th></th></tr></thead><tbody>';
       list.forEach(function(f,i){
-        h += '<tr class="'+(f.status==="closed"?"done":"")+'"><td data-label="Sl. no.">'+(i+1)+'</td><td data-label="Details"><span class="wt" style="white-space:pre-wrap">'+esc(f.details)+'</span></td>'+
-          '<td data-label="Status"><select class="stsel" data-fust="'+esc(f.id)+'" aria-label="Status">'+stOpts(FU_ST, f.status)+'</select></td>'+
-          '<td data-label="Remarks">'+fuEntriesHTML(f)+'<button class="btn ghost small" data-furem="'+esc(f.id)+'" type="button">+ Add remark</button></td>'+
+        h += '<tr class="'+(f.status==="closed"?"done ":"")+'s-'+esc(f.status)+'"><td class="c-sl" data-label="Sl. no.">'+(i+1)+'</td><td class="c-main" data-label="Details"><span class="wt" style="white-space:pre-wrap">'+esc(f.details)+'</span></td>'+
+          '<td class="c-st" data-label="Status"><select class="stsel" data-fust="'+esc(f.id)+'" aria-label="Status">'+stOpts(FU_ST, f.status)+'</select></td>'+
+          '<td class="c-rem" data-label="Remarks">'+fuEntriesHTML(f)+'<button class="btn ghost small" data-furem="'+esc(f.id)+'" type="button">+ Add remark</button></td>'+
           '<td class="act"><button class="btn ghost small" data-fued="'+esc(f.id)+'" type="button">Edit</button>'+(master?' <button class="btn danger small" data-fudel="'+esc(f.id)+'" type="button">Delete</button>':'')+'</td></tr>';
       });
       h += '</tbody></table>';
@@ -7398,7 +7769,7 @@
   function renderProc(){
     var p = $("panel"), all = state.pr = state.pr || [];
     var cnt = { tbi:0, proposed:0, awarded:0, procured:0 }; all.forEach(function(x){ if(cnt[x.status] != null) cnt[x.status]++; });
-    var h = '<div class="panel-head"><h3>Procurement</h3><div class="stats"><span>Total <b>'+all.length+'</b></span><span>To be initiated <b>'+cnt.tbi+'</b></span><span>Proposed <b>'+cnt.proposed+'</b></span><span>Awarded <b>'+cnt.awarded+'</b></span><span>Procured <b>'+cnt.procured+'</b></span></div></div>'+
+    var h = '<div class="panel-head"><h3>Procurement</h3><div class="stats pills"><span>Total <b>'+all.length+'</b></span><span>To be initiated <b>'+cnt.tbi+'</b></span><span>Proposed <b>'+cnt.proposed+'</b></span><span>Awarded <b>'+cnt.awarded+'</b></span><span>Procured <b>'+cnt.procured+'</b></span></div></div>'+
       addBarHTML("pr","Add supply / service")+'<div class="assign-form"><h4>Add supply / service</h4><div class="agrid">'+
       '<div class="field span2"><label for="prDesc">Supply or service description</label><input type="text" id="prDesc" maxlength="500" placeholder="e.g. 33 kV CT, 400/1 A"></div>'+
       '<div class="field"><label for="prQty">Quantity</label><input type="number" id="prQty" min="0" step="any" inputmode="decimal"></div>'+
@@ -7407,18 +7778,18 @@
       poFields("pr",{ status:"" })+
       '<div class="field"><label for="prRem">Follow-up comment (optional)</label><textarea id="prRem" maxlength="2000" placeholder="First follow-up comment"></textarea></div>'+
       '<p class="error" id="prErr"></p><button class="btn" id="prAdd" type="button">Add</button></div></div>';
-    h += '<div class="filters"><button type="button" data-prf="all" class="'+(prFilter==="all"?"active":"")+'">All</button>'+Object.keys(PR_ST).map(function(k){
+    h += '<div class="filters fscroll"><button type="button" data-prf="all" class="'+(prFilter==="all"?"active":"")+'">All</button>'+Object.keys(PR_ST).map(function(k){
       return '<button type="button" data-prf="'+k+'" class="'+(prFilter===k?"active":"")+'">'+PR_ST[k]+'</button>'; }).join("")+'</div>';
     var list = all.filter(function(x){ return prFilter === "all" || x.status === prFilter; }).sort(function(a,b){ return (a.created||0)-(b.created||0); });
     if(!list.length) h += '<div class="empty">'+(all.length ? "No entries match this filter." : "No procurement entries yet. Add one above.")+'</div>';
     else {
-      h += '<table class="atable"><thead><tr><th>Sl. no.</th><th>Supply / service description</th><th>Quantity</th><th>Unit</th><th>Status</th><th>PO no. / date</th><th>Follow-up comments</th><th></th></tr></thead><tbody>';
+      h += '<table class="atable mcard"><thead><tr><th>Sl. no.</th><th>Supply / service description</th><th>Quantity</th><th>Unit</th><th>Status</th><th>PO no. / date</th><th>Follow-up comments</th><th></th></tr></thead><tbody>';
       list.forEach(function(x,i){
-        h += '<tr class="'+(x.status==="procured"?"done":"")+'"><td data-label="Sl. no.">'+(i+1)+'</td><td data-label="Description"><span class="wt">'+esc(x.desc)+'</span></td>'+
-          '<td data-label="Quantity">'+esc(x.qty)+'</td><td data-label="Unit">'+esc(x.unit)+'</td>'+
-          '<td data-label="Status"><select class="stsel" data-prst="'+esc(x.id)+'" aria-label="Status">'+stOpts(PR_ST,x.status)+'</select></td>'+
-          '<td data-label="PO no. / date">'+(x.status==="procured" ? esc(x.poNo)+'<span class="moved">'+fmtDate(x.poDate)+'</span>' : '–')+'</td>'+
-          '<td data-label="Follow-up comments">'+fuEntriesHTML(x)+'<button class="btn ghost small" data-prrem="'+esc(x.id)+'" type="button">+ Add comment</button></td>'+
+        h += '<tr class="'+(x.status==="procured"?"done ":"")+'s-'+esc(x.status)+'"><td class="c-sl" data-label="Sl. no.">'+(i+1)+'</td><td class="c-main" data-label="Description"><span class="wt">'+esc(x.desc)+'</span></td>'+
+          '<td class="c-qty" data-label="Quantity">'+esc(x.qty)+'</td><td class="c-unit" data-label="Unit">'+esc(x.unit)+'</td>'+
+          '<td class="c-st" data-label="Status"><select class="stsel" data-prst="'+esc(x.id)+'" aria-label="Status">'+stOpts(PR_ST,x.status)+'</select></td>'+
+          '<td class="c-po'+(x.status==="procured"?'':' nopo')+'" data-label="PO no. / date">'+(x.status==="procured" ? esc(x.poNo)+'<span class="moved">'+fmtDate(x.poDate)+'</span>' : '–')+'</td>'+
+          '<td class="c-rem" data-label="Follow-up comments">'+fuEntriesHTML(x)+'<button class="btn ghost small" data-prrem="'+esc(x.id)+'" type="button">+ Add comment</button></td>'+
           '<td class="act"><button class="btn ghost small" data-pred="'+esc(x.id)+'" type="button">Edit</button>'+(isMaster()?' <button class="btn danger small" data-prdel="'+esc(x.id)+'" type="button">Delete</button>':'')+'</td></tr>';
       });
       h += '</tbody></table>';
@@ -7613,10 +7984,7 @@
 
     if(!canW){
       if(overdue.length) h += '<div class="carry"><div class="carry-txt" style="color:var(--muted)">'+overdue.length+' pending from earlier dates</div></div>';
-    } else if(!overdue.length){
-      h += '<div class="carry"><div class="carry-txt" style="color:var(--muted)">No pending works from earlier dates.</div>'+
-           '<button class="btn small" type="button" disabled>Bring all to '+fmtDate(viewDate)+'</button></div>';
-    } else {
+    } else if(overdue.length){      // "Bring all" is shown only when earlier works are really pending
       h += '<div class="carry"><div class="carry-txt"><b>'+overdue.length+' pending</b> from earlier dates: '+
         oDates.slice(0,8).map(function(d){
           return '<button type="button" class="chip" data-jump="'+d+'">'+fmtDate(d)+' ('+byDate[d]+')</button>';
@@ -8070,6 +8438,28 @@
     loadPw(function(m){ body(m); });
   }
   $("manageUsersBtn").onclick = usersModal;
+
+  /* ---------- Screen rotation: the app stays in portrait unless "Rotate" is switched on (works in the installed app) ---------- */
+  (function(){
+    var KEY = "om_rot", btn = $("rotBtn"), so = window.screen && screen.orientation;
+    function allowed(){ try{ return localStorage.getItem(KEY) === "1"; }catch(e){ return false; } }
+    function apply(){
+      if(!so || !so.lock) return;
+      try{
+        if(allowed()){ so.unlock(); }
+        else { var pr = so.lock("portrait"); if(pr && pr.catch) pr.catch(function(){}); }
+      }catch(e){}
+    }
+    function label(){ if(btn) btn.innerHTML = allowed() ? "&#128260; Rotate: on" : "&#128274; Portrait"; }
+    var standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+    if(btn && so && so.lock && standalone && (navigator.maxTouchPoints || 0) > 0){
+      btn.classList.remove("hidden"); label();
+      btn.onclick = function(){ try{ localStorage.setItem(KEY, allowed() ? "0" : "1"); }catch(e){} label(); apply(); };
+    }
+    apply();
+    document.addEventListener("visibilitychange", function(){ if(!document.hidden) apply(); });
+    window.addEventListener("pageshow", apply);
+  })();
 
   /* ---------- Install as an app (Android / iPhone / desktop Chrome) ---------- */
   (function(){
